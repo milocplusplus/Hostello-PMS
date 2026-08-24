@@ -49,6 +49,15 @@ Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 Phase 2 + 3 shipped as `dpl_7JfmujCpqA8LueTG5gujr3VhiucB` (READY, production) on
 `hostello-pms.vercel.app`.
 
+**Env vars:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are now
+set on the Vercel project as **Config** (not Secret) across all environments. They
+were missing when Git deploys started — the earlier uploads had the values baked
+in, so the first Git build shipped without them and every route 500'd with
+`MIDDLEWARE_INVOCATION_FAILED` ("Your project's URL and Key are required to create
+a Supabase client"). Two things to remember: `NEXT_PUBLIC_*` is inlined at **build**
+time, so changing a value needs a rebuild, not a restart; and Vercel's "Secret"
+type does not work for these — `NEXT_PUBLIC_*` must be Config to reach the browser.
+
 Connecting Git does **not** itself trigger a build; it took a push. There is no
 Vercel CLI auth and no `.vercel/` link on this machine, so `git push` is the
 deploy mechanism. Do not use the Vercel MCP `deploy_to_vercel` file-tree upload —
