@@ -1,0 +1,267 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { deleteClientRecord, deletePropertyRecord, createLoginForClient } from "../actions";
+import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { secondaryButton, errorBanner, fieldLabel, fieldInput, primaryButton, primaryButtonStyle } from "@/lib/form-styles";
+import { PROPERTY_TYPES } from "@/lib/property-types";
+import { DEAL_MODELS } from "@/lib/payout";
+
+const STATUS_COLOR: Record<string, string> = {
+  active: "bg-status-available",
+  inactive: "bg-status-blocked",
+};
+
+function typeLabel(value: string) {
+  return PROPERTY_TYPES.find((t) => t.value === value)?.label ?? value;
+}
+
+function dealModelLabel(value: string) {
+  return DEAL_MODELS.find((m) => m.value === value)?.label ?? value;
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+}
+
+export default async function ClientDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { id } = await params;
+  const { error } = await searchParams;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: clientRecord } = await supabase
+    .from("clients")
+    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent")
+    .eq("id", id)
+    .single();
+
+  if (!clientRecord) notFound();
+
+  const { data: loginEmail } = await supabase.rpc("get_client_login_email", {
+    p_client_id: id,
+  });
+
+  const { data: properties } = await supabase
+    .from("properties")
+    .select("id, name, location, city, province, type, status")
+    .eq("client_id", id)
+    .order("name");
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link href="/admin/clients" className="text-ink-muted text-xs hover:text-ink-secondary">
+          ← Clients
+        </Link>
+      </div>
+
+      {error && <p className={errorBanner}>{error}</p>}
+
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium text-ink-primary shrink-0"
+            style={{ backgroundColor: "var(--color-hostello-purple-mid)" }}
+          >
+            {initials(clientRecord.name) || "?"}
+          </div>
+          <div>
+            <h1 className="text-xl font-semibold">{clientRecord.name}</h1>
+            <div className="flex items-center gap-3 text-ink-secondary text-sm mt-1">
+              {clientRecord.contact_email && (
+                <span className="flex items-center gap-1.5">
+                  <Mail size={13} /> {clientRecord.contact_email}
+                </span>
+              )}
+              {clientRecord.contact_phone && (
+                <span className="flex items-center gap-1.5">
+                  <Phone size={13} /> {clientRecord.contact_phone}
+                </span>
+              )}
+              {!clientRecord.contact_email && !clientRecord.contact_phone && (
+                <span>No contact info</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/admin/clients/${id}/bookings/new`}
+            className="rounded-md py-1.5 px-3 text-xs font-medium text-surface-0 flex items-center gap-1"
+            style={{ backgroundColor: "var(--color-hostello-gold)" }}
+          >
+            <ReceiptText size={13} strokeWidth={2.5} />
+            Add booking
+          </Link>
+          <Link href={`/admin/clients/${id}/edit`} className={secondaryButton}>
+            Edit client
+          </Link>
+          <form action={deleteClientRecord}>
+            <input type="hidden" name="id" value={id} />
+            <ConfirmDeleteButton
+              confirmText={`Delete ${clientRecord.name}? This will also delete all of their properties. This cannot be undone.`}
+              className="text-xs text-status-booked border border-status-booked/30 rounded-md px-3 py-1.5 hover:bg-status-booked/10 transition-colors"
+            />
+          </form>
+        </div>
+      </header>
+
+      <div className="card p-4 flex items-center gap-4 md:gap-6 text-xs flex-wrap">
+        <span className="text-ink-secondary">
+          Deal: <span className="text-ink-primary">{dealModelLabel(clientRecord.deal_model)}</span>
+        </span>
+        {(clientRecord.deal_model === "percent" || clientRecord.deal_model === "fixed_percent") && (
+          <span className="text-ink-secondary">
+            Share: <span className="text-ink-primary">{clientRecord.share_percent}%</span>
+          </span>
+        )}
+        {(clientRecord.deal_model === "fixed" ||
+          clientRecord.deal_model === "fixed_stack" ||
+          clientRecord.deal_model === "fixed_percent") && (
+          <span className="text-ink-secondary">
+            Retainer:{" "}
+            <span className="text-ink-primary">
+              Rs {Number(clientRecord.monthly_fee).toLocaleString("en-PK")}/mo
+            </span>
+          </span>
+        )}
+        {Number(clientRecord.deduct_percent) > 0 && (
+          <span className="text-ink-secondary">
+            Deduction: <span className="text-ink-primary">{clientRecord.deduct_percent}%</span>
+          </span>
+        )}
+      </div>
+
+      <div className="card p-4">
+        <div className="flex items-center gap-2 text-xs text-ink-secondary mb-1">
+          <KeyRound size={13} />
+          Portal login
+        </div>
+        {loginEmail ? (
+          <p className="text-sm text-ink-primary">{loginEmail}</p>
+        ) : (
+          <form action={createLoginForClient} className="flex items-end gap-2 flex-wrap mt-2">
+            <input type="hidden" name="client_id" value={id} />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="login_email" className={fieldLabel}>
+                Email
+              </label>
+              <input
+                id="login_email"
+                name="login_email"
+                type="email"
+                required
+                placeholder="owner@example.com"
+                className={`${fieldInput} w-56`}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="login_password" className={fieldLabel}>
+                Password
+              </label>
+              <input
+                id="login_password"
+                name="login_password"
+                type="text"
+                required
+                placeholder="At least 8 characters"
+                className={`${fieldInput} w-48`}
+              />
+            </div>
+            <button type="submit" className={`${primaryButton} text-xs py-2`} style={primaryButtonStyle}>
+              Create login
+            </button>
+          </form>
+        )}
+      </div>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium text-ink-secondary">Properties</h2>
+          <Link
+            href={`/admin/clients/${id}/properties/new`}
+            className="rounded-md py-1.5 px-3 text-xs font-medium text-surface-0 flex items-center gap-1"
+            style={{ backgroundColor: "var(--color-hostello-gold)" }}
+          >
+            <Plus size={13} strokeWidth={2.5} />
+            Add property
+          </Link>
+        </div>
+
+        {(!properties || properties.length === 0) && (
+          <div className="card p-8 text-center text-sm text-ink-secondary">
+            No properties yet for this client.
+          </div>
+        )}
+
+        {properties && properties.length > 0 && (
+          <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
+            {properties.map((p) => (
+              <div key={p.id} className="flex items-center gap-4 px-5 py-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink-primary truncate">{p.name}</p>
+                  <p className="text-xs text-ink-secondary truncate mt-0.5">
+                    {p.location}
+                    {p.city ? `, ${p.city}` : ""}
+                    {p.province ? `, ${p.province}` : ""}
+                  </p>
+                </div>
+                <span className="text-xs text-ink-secondary shrink-0 hidden sm:inline">{typeLabel(p.type)}</span>
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-ink-secondary capitalize shrink-0">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${STATUS_COLOR[p.status] ?? "bg-status-blocked"}`}
+                  />
+                  {p.status}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Link
+                    href={`/admin/calendar?property=${p.id}`}
+                    className="p-1.5 rounded-md text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
+                    aria-label="View calendar"
+                  >
+                    <CalendarDays size={14} />
+                  </Link>
+                  <Link
+                    href={`/admin/clients/${id}/properties/${p.id}/edit`}
+                    className="p-1.5 rounded-md text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
+                    aria-label="Edit property"
+                  >
+                    <Pencil size={14} />
+                  </Link>
+                  <form action={deletePropertyRecord}>
+                    <input type="hidden" name="id" value={p.id} />
+                    <input type="hidden" name="client_id" value={id} />
+                    <ConfirmDeleteButton
+                      confirmText={`Delete ${p.name}? This cannot be undone.`}
+                      label="Delete property"
+                      className="p-1.5 rounded-md text-ink-muted hover:text-status-booked hover:bg-status-booked/10 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </ConfirmDeleteButton>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

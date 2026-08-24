@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+:root {
+  /* Brand */
+  --color-hostello-purple: #2e1a4d;
+  --color-hostello-purple-deep: #1c0f30;
+  --color-hostello-purple-mid: #6c4ab6;
+  --color-hostello-purple-light: #afa0d8;
+  --color-hostello-purple-glow: #8b5cf6;
+
+  --color-hostello-gold: #c9a44c;
+  --color-hostello-gold-hover: #d9b96a;
+  --color-hostello-gold-muted: #8a7238;
+  --color-hostello-gold-bright: #f0c869;
+
+  /* Surfaces (dark-first UI) */
+  --color-surface-0: #0a0910; /* app background */
+  --color-surface-1: #16131e; /* cards, sidebars */
+  --color-surface-2: #1e1a29; /* raised panels, modals */
+  --color-surface-3: #282332; /* popovers, hover states */
+
+  /* Text */
+  --color-ink-primary: #f5f3ef;
+  --color-ink-secondary: #b7b2c2;
+  --color-ink-muted: #7c7789;
+
+  /* Status (booking / availability states) */
+  --color-status-available: #3b6d11;
+  --color-status-booked: #993c1d;
+  --color-status-blocked: #5f5e5a;
+  --color-status-pending: #854f0b;
+
+  /* Channel colors */
+  --color-channel-airbnb: #ff5a8a;
+  --color-channel-booking: #3b82f6;
+  --color-channel-hostello: #8b5cf6;
+  --color-channel-maintenance: #d99a2b;
+
+  /* Semantic */
+  --color-positive: #34d399;
+  --color-negative: #f87171;
+
+  /* Borders */
+  --color-border-hairline: rgba(245, 243, 239, 0.08);
+  --color-border-strong: rgba(245, 243, 239, 0.16);
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --shadow-glow-purple: 0 0 0 1px rgba(139, 92, 246, 0.15), 0 8px 32px -8px rgba(139, 92, 246, 0.25);
+  --shadow-glow-gold: 0 0 0 1px rgba(240, 200, 105, 0.15), 0 8px 32px -8px rgba(240, 200, 105, 0.2);
+
+  --background: var(--color-surface-0);
+  --foreground: var(--color-ink-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-hostello-purple: var(--color-hostello-purple);
+  --color-hostello-purple-deep: var(--color-hostello-purple-deep);
+  --color-hostello-purple-mid: var(--color-hostello-purple-mid);
+  --color-hostello-purple-light: var(--color-hostello-purple-light);
+  --color-hostello-purple-glow: var(--color-hostello-purple-glow);
+
+  --color-hostello-gold: var(--color-hostello-gold);
+  --color-hostello-gold-hover: var(--color-hostello-gold-hover);
+  --color-hostello-gold-muted: var(--color-hostello-gold-muted);
+  --color-hostello-gold-bright: var(--color-hostello-gold-bright);
+
+  --color-surface-0: var(--color-surface-0);
+  --color-surface-1: var(--color-surface-1);
+  --color-surface-2: var(--color-surface-2);
+  --color-surface-3: var(--color-surface-3);
+
+  --color-ink-primary: var(--color-ink-primary);
+  --color-ink-secondary: var(--color-ink-secondary);
+  --color-ink-muted: var(--color-ink-muted);
+
+  --color-status-available: var(--color-status-available);
+  --color-status-booked: var(--color-status-booked);
+  --color-status-blocked: var(--color-status-blocked);
+  --color-status-pending: var(--color-status-pending);
+
+  --color-channel-airbnb: var(--color-channel-airbnb);
+  --color-channel-booking: var(--color-channel-booking);
+  --color-channel-hostello: var(--color-channel-hostello);
+  --color-channel-maintenance: var(--color-channel-maintenance);
+
+  --color-positive: var(--color-positive);
+  --color-negative: var(--color-negative);
+
+  --color-border-hairline: var(--color-border-hairline);
+  --color-border-strong: var(--color-border-strong);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Hostello is dark-first by design direction; no light-mode override for now */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Financial figures (payouts, revenue) get gold, sparingly and deliberately */
+.text-financial {
+  color: var(--color-hostello-gold);
+  font-weight: 500;
+}
+
+.text-positive {
+  color: var(--color-positive);
+}
+
+.text-negative {
+  color: var(--color-negative);
+}
+
+.card {
+  background-color: var(--color-surface-1);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-hover {
+  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.card-hover:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-1px);
+}
+
+/* Gradient surfaces — used sparingly, on primary CTAs and hero accents only */
+.gradient-brand {
+  background: linear-gradient(135deg, var(--color-hostello-purple-glow) 0%, var(--color-hostello-purple-mid) 55%, var(--color-hostello-gold) 130%);
+}
+
+.gradient-brand-subtle {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(201, 164, 76, 0.08) 100%);
+}
+
+.glow-purple {
+  box-shadow: var(--shadow-glow-purple);
+}
+
+.glow-gold {
+  box-shadow: var(--shadow-glow-gold);
+}
+
+/* Sparkline / trend line strokes render via inline SVG; this just gives a
+   consistent fade-in so the dashboard doesn't feel static */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fade-in-up 240ms ease-out both;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
