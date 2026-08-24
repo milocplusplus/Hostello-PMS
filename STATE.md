@@ -10,9 +10,9 @@
   `src/components/admin/{BookingActivity,Sparkline,RevenueChart,AddBookingMenu}.tsx`
   and `src/components/shared/{Avatar,StatusChip}.tsx`. Occupancy = occupied ÷ total
   property-nights this month; sparklines/revenue chart are real cumulative series,
-  empty states when flat. Local only — never deployed.
-- **Phase 3 (Calendar)** — built, `npm run build` and `npm run lint` clean
-  (2 pre-existing unused-import warnings in untouched files). Local only.
+  empty states when flat. Deployed 2026-08-25.
+- **Phase 3 (Calendar)** — built and deployed 2026-08-25. `npm run build` and
+  `npm run lint` clean (2 pre-existing unused-import warnings in untouched files).
   - `src/app/admin/calendar/page.tsx` rewritten as a CSS-grid timeline. Bars span
     their date range via `grid-column: start / span n`; day cells sit under them at
     `grid-row: 1 / -1`. Overlapping bars get their own lane (greedy assignment), so
@@ -42,27 +42,23 @@
     enum migration), property thumbnails and "4BR · Max 10 guests" (no columns),
     Timeline view (deferred).
 
-## Blocked — deployment
-Phase 2 + 3 are **not deployed**. The Vercel project `hostello-pms`
-(`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team `team_mSNnhApqjbhfTQv1bDziZKMp`) has **no
-Git integration**, and there is no `.vercel/` link or Vercel CLI auth on this
-machine, so the only route available was uploading the whole file tree through the
-Vercel MCP `deploy_to_vercel` tool. The tree (~290 KB) does not fit in one tool
-call — deployment `dpl_3yoDuQWkADtrPfj6AnYdrAQ1e8xG` went out with roughly two
-thirds of the files and will fail to build on missing modules. A failed production
-build does not reassign the production alias, so `hostello-pms.vercel.app` stays on
-the Phase 1 deploy.
+## Deployment
+Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
+`team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
+`milocplusplus/Hostello-PMS`, production branch `main`** — pushing to main deploys.
+Phase 2 + 3 shipped as `dpl_7JfmujCpqA8LueTG5gujr3VhiucB` (READY, production) on
+`hostello-pms.vercel.app`.
 
-Do **not** retry `deploy_to_vercel` for this repo — it cannot carry the tree.
-Fix it once, at the source:
-1. Vercel → project `hostello-pms` → Settings → Git → connect
-   `milocplusplus/Hostello-PMS`, production branch `main`. Then `git push` deploys.
-2. Or locally: `npx vercel login` then `npx vercel --prod` (this also writes
-   `.vercel/project.json`, after which the CLI works unattended).
+Connecting Git does **not** itself trigger a build; it took a push. There is no
+Vercel CLI auth and no `.vercel/` link on this machine, so `git push` is the
+deploy mechanism. Do not use the Vercel MCP `deploy_to_vercel` file-tree upload —
+the tree is ~290 KB and does not fit in one tool call; an attempt on 2026-08-25
+went out two-thirds complete and failed to build
+(`dpl_3yoDuQWkADtrPfj6AnYdrAQ1e8xG`, ERROR). A failed production build does not
+reassign the alias, so nothing broke.
 
 ## Next
-1. Get Phase 2 + 3 deployed via one of the two routes above, then verify
-   `/admin`, `/admin/calendar`, and a booking detail page against real data.
+1. Verify the deployed calendar and dashboard against real data once signed in.
 2. Client portal (`src/app/client/page.tsx`, `src/app/client/calendar/page.tsx`)
    has had neither the Phase 2 nor the Phase 3 treatment. The client calendar is
    still the old `w-6 h-6` cell grid with its own local `SOURCE_COLOR` map — decide
@@ -82,8 +78,6 @@ Fix it once, at the source:
   Supabase keys before `npm run dev`. (`node_modules` is installed.)
 - Admin-facing notifications need a role-aware query; `notifications` RLS is scoped
   to `owner_user_id` (clients only).
-- The deploy that went out omitted `src/app/favicon.ico` (binary, doesn't survive
-  the MCP text upload). Irrelevant once deploys come from Git.
 
 ## Notes for next session
 - Data is thin because the app is pre-launch, not because something is broken.
