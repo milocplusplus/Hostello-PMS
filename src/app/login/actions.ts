@@ -16,7 +16,14 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent("Incorrect email or password.")}`);
+    // Only a genuine credential mismatch gets the friendly message. Anything else
+    // (bad API key, unconfirmed email, rate limit) is a real fault worth naming —
+    // flattening them all into "wrong password" sends you hunting the wrong bug.
+    const message =
+      error.code === "invalid_credentials"
+        ? "Incorrect email or password."
+        : `Sign-in failed: ${error.message}`;
+    redirect(`/login?error=${encodeURIComponent(message)}`);
   }
 
   const {
