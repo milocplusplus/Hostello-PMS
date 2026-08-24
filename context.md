@@ -1,0 +1,125 @@
+# Project Context
+
+## What this is
+Hostello PMS — a property management system for a short-term-rental management
+company. Two audiences: **admins** (Hostello staff — manage clients, properties,
+bookings, calendar blocks, payouts) and **clients** (property owners — view their
+own calendar, bookings, blocks, notifications). Brand colors: purple, gold, black,
+white; dark-only theme. Pre-launch: real data has not been entered yet.
+
+## Stack
+- Next.js 16.3.2 (App Router), React 19.2.8, TypeScript
+- Tailwind v4 via `@tailwindcss/postcss`; tokens live in `src/app/globals.css`
+  (`surface-0..3`, `hostello-purple`, `hostello-gold`,
+  `status-available/booked/blocked/pending`)
+- `lucide-react` for icons
+- Supabase: `@supabase/supabase-js` + `@supabase/ssr`, project `vucfpfqcankyztzvmyht`
+- Auth: Supabase email/password. `profiles` extends `auth.users` with role enum
+  (`admin` | `client`). `src/middleware.ts` gates `/admin` and `/client`.
+- **No REST/GraphQL layer and no route handlers.** Server Components read,
+  Server Actions (`actions.ts`, `"use server"`) write. The only client-side
+  Supabase use is auth (`src/lib/supabase/client.ts`).
+- npm. Run: `npm run dev` · Build: `npm run build` · Lint: `npm run lint`
+  (`eslint`). **No test suite** — `npm run build` is the closest check.
+- Deploy: Vercel, team `hostello`, project `hostello-pms`, prod
+  `hostello-pms.vercel.app`. GitHub: `milocplusplus/Hostello-PMS` (branch `main`).
+
+## Layout
+- `src/app/admin/page.tsx` — admin dashboard: greeting, 4 KPIs (properties / bookings /
+  occupancy / revenue with period-over-period), booking-activity tabs, occupancy donut,
+  Today panel, quick actions, recently-added table. Occupancy math lives here.
+- `src/app/admin/calendar/page.tsx` — portfolio calendar grid; groups properties by
+  client; contains the per-cell `statusFor()` logic. `calendar/block/page.tsx` +
+  `calendar/actions.ts` handle blocking.
+- `src/app/admin/clients/**` — client CRUD, and nested property CRUD under
+  `clients/[id]/properties/**`
+- `src/app/admin/bookings/**` — booking list + create + `actions.ts`
+- `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
+- `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
+  `notifications/`
+- `src/components/admin/AdminShell.tsx`, `src/components/client/ClientShell.tsx` — nav shells
+- `src/components/admin/BookingForm.tsx` — **shared by admin AND client**
+  (`client/bookings/new/page.tsx` imports it from `@/components/admin/`), live payout preview
+- `src/components/admin/{ClientForm,PropertyForm,ConfirmDeleteButton}.tsx`
+- `src/components/admin/BookingActivity.tsx` — dashboard Upcoming/Check-ins/Check-outs
+  pill tabs (server passes all three lists in); also exports `ChannelBadge`
+- `src/components/admin/{Sparkline,RevenueChart,AddBookingMenu}.tsx` — KPI trend line
+  (renders nothing when the series is flat), cumulative revenue area chart with hover
+  tooltip, and the split "Add booking ▾" CTA that holds the quick actions
+- `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (no photo columns
+  exist) and the confirmed/tentative/cancelled chip
+- `src/components/shared/GlobalSearch.tsx` — top-bar search input
+- `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `DEAL_MODELS`, `formatPKR`.
+  **The only correct revenue math.** Currency is PKR.
+- `src/lib/calendar.ts` — `getMonthGrid`, `formatMonthLabel`, `parseMonthParam`,
+  `formatMonthParam`, `addMonths`, `todayISO`, `addDaysISO`, `formatDayMonth`
+- `src/lib/notify.ts` — `notifyBookingCreated/Cancelled/DatesBlocked/PayoutSettled`
+- `src/lib/{block-sources,property-types,pakistan-locations,form-styles}.ts` — enum
+  label maps + shared input class tokens. Use these instead of hardcoding options.
+- `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
+- `supabase/migrations/0001_init_core_schema.sql` — **only** profiles / clients /
+  properties / payout_rules. `bookings`, `booking_properties`, `calendar_blocks`,
+  `notifications` and the later `properties` columns (`province`, `stack_rate`) exist
+  in the live DB but have no migration file. Read the live schema, not this file.
+- `AGENTS.md` — Next.js-generated agent rules, auto-re-added by `next dev`.
+  `CLAUDE.md` imports it with `@AGENTS.md`; don't delete either.
+
+## Data model (`supabase/migrations/0001_init_core_schema.sql`)
+- `clients` — name, contact_email, contact_phone, owner_user_id → profiles,
+  deal_model enum(`percent|fixed|ads|fixed_stack|fixed_percent`), monthly_fee,
+  share_percent, deduct_percent
+- `properties` — client_id, name, location, city, province,
+  type enum(`studio|1bhk|2bhk|3bhk|2_plus_kids|farmhouse|penthouse|villa|cottage`),
+  status enum(`active|inactive`), stack_rate.
+  **No image_url, no bedrooms, no max_guests columns.**
+- `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
+  source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),
+  status enum(`confirmed|tentative|cancelled`), sale_price, advance_received,
+  deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot,
+  stack_rate_snapshot, net_sale, hostello_share, client_payout, settled,
+  settled_date, notes, entered_by, timestamps
+- `booking_properties` — booking_id, property_id (many-to-many; multi-unit bookings)
+- `calendar_blocks` — start_date/end_date (**inclusive**), block_type enum(`blocked|booked`);
+  `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design
+- `notifications` — client_id, kind enum(`booking_created|booking_cancelled|
+  dates_blocked|dates_unblocked|payout_settled`), title, body, booking_id,
+  property_id, read_at. **Client-facing only** (RLS scoped to owner_user_id).
+
+## Key flows
+1. **Booking create** — `components/admin/BookingForm.tsx` → `app/{admin,client}/bookings/actions.ts`
+   → `calculatePayout()` snapshots deal terms onto the row → insert `bookings` +
+   `booking_properties` → `notify.ts` writes a `notifications` row.
+2. **Availability** — a date's status per property comes from *two* independent tables:
+   `bookings` via `booking_properties` (half-open: `check_in ≤ date < check_out`) and
+   `calendar_blocks` (inclusive `start_date`..`end_date`). See `statusFor()` in
+   `app/admin/calendar/page.tsx`.
+3. **Revenue** — no ledger table. Computed live from
+   `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
+   off gross first; `hostello_share` depends on deal_model (0 for fixed/self-sourced/tentative).
+4. **Auth/role routing** — Supabase Auth (`app/login/actions.ts`) → `profiles.role` →
+   `src/middleware.ts` gates `/admin` vs `/client`.
+
+## Conventions
+- Server Components read, Server Actions write. Never add API route handlers.
+- Dark-only theme via CSS custom properties in `globals.css` — use tokens, not raw hex.
+- Enum labels come from `block-sources.ts` / `property-types.ts` / `pakistan-locations.ts`.
+  Channel color + initial also live in `block-sources.ts` (`sourceColor`, `sourceInitial`).
+- Form inputs use the class tokens in `form-styles.ts`.
+- Extend `notify.ts` with new kinds rather than replacing it.
+- Reuse `BookingForm.tsx` for any "add booking" entry point — do not duplicate it.
+- Never introduce a second revenue system. `payout.ts` is authoritative.
+- Never ship dead nav links or broken routes.
+
+## Gotchas
+- **Live data is nearly empty** (1 cancelled booking, 1 calendar block, no revenue
+  history) — pre-launch, not broken. Trend/sparkline/"% vs last month" UI must render
+  honest empty states, never fabricated history.
+- `calendar_blocks.end_date` is **inclusive**; booking `check_out` is **exclusive**.
+  Easiest off-by-one bug in this codebase.
+- No "maintenance" block type (`blocked|booked` only) — adding one needs a migration.
+- Channels / Pricing / Expenses / Payouts / Reports have **zero backing tables** —
+  out of scope, no nav for them.
+- Vercel project has **no git integration attached** — pushing to GitHub does NOT
+  deploy. Deploys go through Vercel directly until it's connected in Settings → Git.
+- `AGENTS.md` is regenerated by `next dev`; edits there get overwritten.
+- Env: copy `.env.local.example` → `.env.local` before `npm run dev`.

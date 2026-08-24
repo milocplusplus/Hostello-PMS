@@ -151,6 +151,7 @@ export async function createBooking(formData: FormData) {
   });
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/admin/calendar");
   revalidatePath(`/admin/clients/${client_id}`);
   redirect(`/admin/clients/${client_id}`);
@@ -192,6 +193,7 @@ export async function markBookingSettled(formData: FormData) {
   }
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/client/bookings");
 }
 
@@ -224,6 +226,7 @@ export async function cancelBooking(formData: FormData) {
   }
 
   revalidatePath("/admin/bookings");
+  revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/admin/calendar");
   revalidatePath("/client/bookings");
   revalidatePath("/client/calendar");

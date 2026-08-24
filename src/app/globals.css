@@ -139,6 +139,10 @@ body {
   background: linear-gradient(135deg, var(--color-hostello-purple-glow) 0%, var(--color-hostello-purple-mid) 55%, var(--color-hostello-gold) 130%);
 }
 
+.gradient-gold {
+  background: linear-gradient(135deg, var(--color-hostello-gold-bright) 0%, var(--color-hostello-gold) 100%);
+}
+
 .gradient-brand-subtle {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(201, 164, 76, 0.08) 100%);
 }

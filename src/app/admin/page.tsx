@@ -1,15 +1,196 @@
 import Link from "next/link";
-import { Plus, CalendarDays, Lock, Wallet, Users, ArrowRight, Clock, CheckCircle2 } from "lucide-react";
+import { redirect } from "next/navigation";
+import {
+  Home,
+  CalendarDays,
+  BarChart3,
+  CircleDollarSign,
+  ArrowUpRight,
+  ArrowDownRight,
+  LogIn,
+  LogOut,
+  FilePlus2,
+  Clock,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
-import { getMonthGrid, parseMonthParam, todayISO, addDaysISO } from "@/lib/calendar";
+import { sourceLabel } from "@/lib/block-sources";
+import {
+  getMonthGrid,
+  formatMonthLabel,
+  parseMonthParam,
+  addMonths,
+  todayISO,
+  addDaysISO,
+  formatDayMonth,
+} from "@/lib/calendar";
+import {
+  BookingActivity,
+  ChannelBadge,
+  type ActivityBooking,
+} from "@/components/admin/BookingActivity";
+import { AddBookingMenu } from "@/components/admin/AddBookingMenu";
+import { RevenueChart } from "@/components/admin/RevenueChart";
+import { Sparkline } from "@/components/admin/Sparkline";
+import { Avatar } from "@/components/shared/Avatar";
+import { StatusChip } from "@/components/shared/StatusChip";
 
-const QUICK_ACTIONS = [
-  { href: "/admin/bookings/new", label: "New Booking", icon: Plus },
-  { href: "/admin/calendar", label: "Check Calendar", icon: CalendarDays },
-  { href: "/admin/calendar/block", label: "Block Dates", icon: Lock },
-  { href: "/admin/bookings", label: "Bookings & Payouts", icon: Wallet },
-];
+type BookingRow = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  source: string;
+  status: string;
+  sale_price: number | null;
+  clients: unknown;
+  booking_properties: unknown;
+};
+
+function clientName(row: { clients: unknown }): string | null {
+  return (row.clients as { name: string } | null)?.name ?? null;
+}
+
+function unitNames(row: { booking_properties: unknown }): string {
+  return ((row.booking_properties as { properties: { name: string } | null }[] | null) ?? [])
+    .map((bp) => bp.properties?.name)
+    .filter(Boolean)
+    .join(", ");
+}
+
+function toActivity(b: BookingRow): ActivityBooking {
+  return {
+    id: b.id,
+    guestName: b.guest_name,
+    clientName: clientName(b),
+    units: unitNames(b),
+    checkIn: b.check_in,
+    checkOut: b.check_out,
+    source: b.source,
+    status: b.status,
+  };
+}
+
+function greeting(): string {
+  const hour = Number(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Karachi", hour: "2-digit", hour12: false })
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/** Period-over-period delta. With no prior-month data it says so rather than inventing a trend. */
+function Delta({ current, previous, suffix }: { current: number; previous: number; suffix?: string }) {
+  if (previous === 0) {
+    return (
+      <p className="text-[11px] text-ink-muted mt-1">
+        {current === 0 ? "No activity last month" : "First month with activity"}
+      </p>
+    );
+  }
+  const pct = Math.round(((current - previous) / previous) * 1000) / 10;
+  const up = pct >= 0;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <p className={`text-[11px] mt-1 flex items-center gap-0.5 ${up ? "text-positive" : "text-negative"}`}>
+      <Icon size={12} />
+      {up ? "+" : "−"}
+      {Math.abs(pct)}% {suffix ?? "vs last month"}
+    </p>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  icon: Icon,
+  tint,
+  iconInk,
+  series,
+  sparkId,
+  href,
+  children,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Home;
+  tint: string;
+  iconInk?: string;
+  series: number[];
+  sparkId: string;
+  href?: string;
+  children?: React.ReactNode;
+}) {
+  const inner = (
+    <>
+      <div className="flex gap-3.5 p-4 md:p-5 pb-2">
+        <span
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{ backgroundColor: tint }}
+        >
+          <Icon size={20} strokeWidth={2} className={iconInk ?? "text-white"} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs text-ink-secondary">{label}</p>
+          <p className="text-2xl font-semibold mt-0.5 text-ink-primary truncate">{value}</p>
+          {children}
+        </div>
+      </div>
+      <div className="px-4 md:px-5 pb-4">
+        <Sparkline values={series} color={tint} id={sparkId} />
+      </div>
+    </>
+  );
+  const className = "card card-hover overflow-hidden flex flex-col justify-between";
+  return href ? (
+    <Link href={href} className={className}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={className}>{inner}</div>
+  );
+}
+
+function OccupancyDonut({
+  occupied,
+  blocked,
+  available,
+}: {
+  occupied: number;
+  blocked: number;
+  available: number;
+}) {
+  const r = 54;
+  const c = 2 * Math.PI * r;
+  const segments = [
+    { value: occupied, color: "var(--color-hostello-purple-glow)" },
+    { value: blocked, color: "var(--color-status-blocked)" },
+    { value: available, color: "var(--color-positive)" },
+  ];
+  let offset = 0;
+  return (
+    <svg viewBox="0 0 140 140" className="w-36 h-36 -rotate-90 shrink-0">
+      <circle cx="70" cy="70" r={r} fill="none" stroke="var(--color-surface-3)" strokeWidth="16" />
+      {segments.map((s) => {
+        const len = (s.value / 100) * c;
+        const dash = <circle
+          key={s.color}
+          cx="70"
+          cy="70"
+          r={r}
+          fill="none"
+          stroke={s.color}
+          strokeWidth="16"
+          strokeDasharray={`${len} ${c - len}`}
+          strokeDashoffset={-offset}
+        />;
+        offset += len;
+        return dash;
+      })}
+    </svg>
+  );
+}
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -17,152 +198,441 @@ export default async function AdminDashboard() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user!.id)
-    .single();
-
-  const { count: clientCount } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true });
-
-  const { count: propertyCount } = await supabase
-    .from("properties")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "active");
-
-  const { year, month0 } = parseMonthParam(undefined);
-  const grid = getMonthGrid(year, month0);
-  const visibleDates = grid.filter((c) => c.date !== null).map((c) => c.date as string);
-  const monthStart = visibleDates[0];
-  const monthEnd = visibleDates[visibleDates.length - 1];
-
-  const { data: monthBookings } = await supabase
-    .from("bookings")
-    .select("sale_price, hostello_share, settled")
-    .neq("status", "cancelled")
-    .lte("check_in", monthEnd)
-    .gte("check_out", monthStart);
-
-  const totals = (monthBookings ?? []).reduce(
-    (acc, b) => {
-      acc.gross += Number(b.sale_price ?? 0);
-      if (b.settled) {
-        acc.received += Number(b.hostello_share ?? 0);
-      } else {
-        acc.awaiting += Number(b.hostello_share ?? 0);
-      }
-      return acc;
-    },
-    { gross: 0, received: 0, awaiting: 0 }
-  );
+  if (!user) redirect("/login");
 
   const today = todayISO();
   const in7 = addDaysISO(today, 7);
+  const in30 = addDaysISO(today, 30);
 
-  const { data: upcoming } = await supabase
-    .from("bookings")
-    .select("id, guest_name, check_in, check_out, clients(name), booking_properties(properties(name))")
-    .neq("status", "cancelled")
-    .gte("check_in", today)
-    .lte("check_in", in7)
-    .order("check_in")
-    .limit(6);
+  const { year, month0 } = parseMonthParam(undefined);
+  const days = getMonthGrid(year, month0)
+    .filter((c) => c.date !== null)
+    .map((c) => c.date as string);
+  const monthStart = days[0];
+  const monthEnd = days[days.length - 1];
+
+  const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
+  const prevDays = getMonthGrid(prevYear, prevMonth0)
+    .filter((c) => c.date !== null)
+    .map((c) => c.date as string);
+  const prevStart = prevDays[0];
+  const prevEnd = prevDays[prevDays.length - 1];
+
+  const bookingFields =
+    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, settled, created_at, clients(name), booking_properties(property_id, properties(name))";
+
+  const [
+    { data: profile },
+    { data: properties },
+    { data: monthBookings },
+    { data: prevBookings },
+    { data: activityRows },
+    { data: recentBookings },
+    { data: blocks },
+    { data: confirmedBookings },
+    { count: createdToday },
+  ] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    supabase.from("properties").select("id, created_at").eq("status", "active"),
+    supabase
+      .from("bookings")
+      .select(bookingFields)
+      .neq("status", "cancelled")
+      .lte("check_in", monthEnd)
+      .gte("check_out", monthStart),
+    supabase
+      .from("bookings")
+      .select("sale_price")
+      .neq("status", "cancelled")
+      .lte("check_in", prevEnd)
+      .gte("check_out", prevStart),
+    supabase
+      .from("bookings")
+      .select(bookingFields)
+      .neq("status", "cancelled")
+      .gte("check_out", today)
+      .lte("check_in", in30)
+      .order("check_in"),
+    supabase.from("bookings").select(bookingFields).order("created_at", { ascending: false }).limit(6),
+    supabase
+      .from("calendar_blocks")
+      .select("property_id, start_date, end_date, block_type")
+      .lte("start_date", monthEnd)
+      .gte("end_date", monthStart),
+    supabase.from("bookings").select("sale_price, advance_received").eq("status", "confirmed"),
+    supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", `${today}T00:00:00Z`),
+  ]);
+
+  // ── Revenue ────────────────────────────────────────────────────────────────
+  // Same overlap window the Bookings & Payouts page uses, so the two never disagree.
+  const grossThisMonth = (monthBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const awaiting = (monthBookings ?? []).reduce(
+    (s, b) => s + (b.settled ? 0 : Number(b.hostello_share ?? 0)),
+    0
+  );
+
+  // Cumulative daily series: each booking lands on its check-in day (clamped into
+  // the month), so the last point equals the month total shown on the KPI card.
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const revenuePerDay = new Array(days.length).fill(0);
+  const bookingsPerDay = new Array(days.length).fill(0);
+  for (const b of (monthBookings ?? []) as unknown as BookingRow[]) {
+    const i = dayIndex.get(b.check_in > monthStart ? b.check_in : monthStart) ?? 0;
+    revenuePerDay[i] += Number(b.sale_price ?? 0);
+    bookingsPerDay[i] += 1;
+  }
+  const cumulate = (arr: number[]) => arr.map(((sum) => (v: number) => (sum += v))(0));
+  const revenueSeries = cumulate(revenuePerDay);
+  const bookingSeries = cumulate(bookingsPerDay);
+
+  // ── Occupancy ──────────────────────────────────────────────────────────────
+  // Booking check_out is exclusive; calendar_blocks.end_date is inclusive.
+  const activeIds = new Set((properties ?? []).map((p) => p.id));
+  const occupiedCells = new Set<string>();
+  const blockedCells = new Set<string>();
+
+  for (const b of (monthBookings ?? []) as unknown as BookingRow[]) {
+    const ids = ((b.booking_properties as { property_id: string }[] | null) ?? [])
+      .map((bp) => bp.property_id)
+      .filter((id) => activeIds.has(id));
+    if (ids.length === 0) continue;
+    for (
+      let d = b.check_in > monthStart ? b.check_in : monthStart;
+      d < b.check_out && d <= monthEnd;
+      d = addDaysISO(d, 1)
+    ) {
+      for (const id of ids) occupiedCells.add(`${id}|${d}`);
+    }
+  }
+
+  for (const bl of blocks ?? []) {
+    if (!activeIds.has(bl.property_id)) continue;
+    const target = bl.block_type === "booked" ? occupiedCells : blockedCells;
+    for (
+      let d = bl.start_date > monthStart ? bl.start_date : monthStart;
+      d <= bl.end_date && d <= monthEnd;
+      d = addDaysISO(d, 1)
+    ) {
+      target.add(`${bl.property_id}|${d}`);
+    }
+  }
+
+  const activeCount = activeIds.size;
+  const totalNights = activeCount * days.length;
+  const occupancyByDay = days.map((d) => {
+    let sold = 0;
+    for (const id of activeIds) if (occupiedCells.has(`${id}|${d}`)) sold++;
+    return activeCount > 0 ? (sold / activeCount) * 100 : 0;
+  });
+  const nightsSold = occupiedCells.size;
+  const nightsBlocked = [...blockedCells].filter((k) => !occupiedCells.has(k)).length;
+  const nightsAvailable = totalNights - nightsSold - nightsBlocked;
+  const pctOf = (n: number) => (totalNights > 0 ? Math.round((n / totalNights) * 100) : 0);
+  const occupancyPct = pctOf(nightsSold);
+
+  // ── Properties ─────────────────────────────────────────────────────────────
+  const propertyCreatedAt = (properties ?? []).map((p) => String(p.created_at).slice(0, 10)).sort();
+  const addedThisMonth = propertyCreatedAt.filter((d) => d >= monthStart).length;
+  const propertySeries = days.map((d) => propertyCreatedAt.filter((c) => c <= d).length);
+
+  // ── Activity + today ───────────────────────────────────────────────────────
+  const activity = ((activityRows ?? []) as unknown as BookingRow[]).map(toActivity);
+  const upcoming = activity.filter((b) => b.checkIn >= today);
+  const checkins = activity.filter((b) => b.checkIn >= today && b.checkIn <= in7);
+  const checkouts = activity.filter((b) => b.checkOut >= today && b.checkOut <= in7);
+
+  const checkinsToday = activity.filter((b) => b.checkIn === today);
+  const checkoutsToday = activity.filter((b) => b.checkOut === today);
+  const pendingPayments = (confirmedBookings ?? []).filter(
+    (b) => Number(b.advance_received ?? 0) < Number(b.sale_price ?? 0)
+  ).length;
+
+  const todayTiles = [
+    { label: "Check-ins", value: checkinsToday.length, icon: LogIn, tint: "var(--color-positive)" },
+    { label: "Check-outs", value: checkoutsToday.length, icon: LogOut, tint: "var(--color-hostello-purple-glow)" },
+    { label: "New bookings", value: createdToday ?? 0, icon: FilePlus2, tint: "var(--color-channel-booking)" },
+    { label: "Payments pending", value: pendingPayments, icon: Clock, tint: "var(--color-status-pending)" },
+  ];
+
+  const todayFeed = [
+    ...checkinsToday.map((b) => ({ kind: "Check-in", b })),
+    ...checkoutsToday.map((b) => ({ kind: "Check-out", b })),
+  ];
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <p className="text-ink-muted text-xs tracking-wide">OVERVIEW</p>
-        <h1 className="text-2xl font-semibold mt-1">
-          Welcome{profile?.full_name ? `, ${profile.full_name}` : ""}
-        </h1>
+    <div className="flex flex-col gap-4 animate-in">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold">
+            {greeting()}
+            {profile?.full_name ? `, ${profile.full_name}` : ""} 👋
+          </h1>
+          <p className="text-sm text-ink-secondary mt-1.5">
+            Here&apos;s what&apos;s happening across your portfolio today.
+          </p>
+        </div>
+        <AddBookingMenu />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-        <Link
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Kpi
+          label="Properties"
+          value={String(activeCount)}
+          icon={Home}
+          tint="var(--color-hostello-purple-glow)"
+          series={propertySeries}
+          sparkId="spark-properties"
           href="/admin/clients"
-          className="card p-4 md:p-6 flex flex-col gap-1 hover:border-border-strong border border-transparent transition-colors"
         >
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Users size={12} /> Clients
+          <p className="text-[11px] text-ink-muted mt-1">
+            {addedThisMonth > 0 ? `+${addedThisMonth} this month` : "None added this month"}
           </p>
-          <p className="text-2xl md:text-3xl font-semibold">{clientCount ?? 0}</p>
-        </Link>
-        <div className="card p-4 md:p-6 flex flex-col gap-1">
-          <p className="text-ink-muted text-xs">Active properties</p>
-          <p className="text-2xl md:text-3xl font-semibold">{propertyCount ?? 0}</p>
-        </div>
-        <div className="card p-4 md:p-6 flex flex-col gap-1">
-          <p className="text-ink-muted text-xs">This month&apos;s revenue</p>
-          <p className="text-xl md:text-2xl font-semibold text-ink-primary">{formatPKR(totals.gross)}</p>
-        </div>
-        <div className="card p-4 md:p-6 flex flex-col gap-1 border border-hostello-gold/30">
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Clock size={11} /> Awaiting
+        </Kpi>
+
+        <Kpi
+          label="Bookings"
+          value={String((monthBookings ?? []).length)}
+          icon={CalendarDays}
+          tint="var(--color-channel-booking)"
+          series={bookingSeries}
+          sparkId="spark-bookings"
+          href="/admin/bookings"
+        >
+          <Delta current={(monthBookings ?? []).length} previous={(prevBookings ?? []).length} />
+        </Kpi>
+
+        <Kpi
+          label="Occupancy"
+          value={activeCount === 0 ? "—" : `${occupancyPct}%`}
+          icon={BarChart3}
+          tint="var(--color-positive)"
+          iconInk="text-surface-0"
+          series={occupancyByDay}
+          sparkId="spark-occupancy"
+        >
+          <p className="text-[11px] text-ink-muted mt-1">
+            {activeCount === 0
+              ? "Add a property to track occupancy"
+              : `${nightsSold} of ${totalNights} nights sold`}
           </p>
-          <p className="text-xl md:text-2xl font-semibold text-status-pending">{formatPKR(totals.awaiting)}</p>
-        </div>
+        </Kpi>
+
+        <Kpi
+          label={`Revenue (${formatMonthLabel(year, month0).split(" ")[0]})`}
+          value={formatPKR(grossThisMonth)}
+          icon={CircleDollarSign}
+          tint="var(--color-hostello-gold)"
+          iconInk="text-surface-0"
+          series={revenueSeries}
+          sparkId="spark-revenue"
+          href="/admin/bookings"
+        >
+          <Delta current={grossThisMonth} previous={grossLastMonth} />
+        </Kpi>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {QUICK_ACTIONS.map((a) => (
-          <Link
-            key={a.href}
-            href={a.href}
-            className="card p-4 flex items-center gap-3 hover:border-border-strong border border-transparent transition-colors"
-          >
-            <div
-              className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
-              style={{ backgroundColor: "var(--color-hostello-gold)" }}
-            >
-              <a.icon size={16} className="text-surface-0" strokeWidth={2.5} />
+      <div className="grid xl:grid-cols-2 gap-4 items-start">
+        <div className="flex flex-col gap-4">
+          <section className="card p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-medium">Booking activity</h2>
+              <Link
+                href="/admin/bookings"
+                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+              >
+                View all
+              </Link>
             </div>
-            <span className="text-sm font-medium text-ink-primary">{a.label}</span>
-          </Link>
-        ))}
+            <BookingActivity upcoming={upcoming} checkins={checkins} checkouts={checkouts} />
+          </section>
+
+          <section className="card p-5 flex flex-col gap-4">
+            <h2 className="text-base font-medium">Occupancy</h2>
+            {activeCount === 0 ? (
+              <p className="py-10 text-center text-sm text-ink-secondary">
+                No active properties yet — occupancy starts once you add one.
+              </p>
+            ) : (
+              <div className="flex items-center gap-6 flex-wrap justify-center sm:justify-start">
+                <div className="relative">
+                  <OccupancyDonut
+                    occupied={pctOf(nightsSold)}
+                    blocked={pctOf(nightsBlocked)}
+                    available={pctOf(nightsAvailable)}
+                  />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-2xl font-semibold">{occupancyPct}%</p>
+                    <p className="text-[10px] text-ink-muted mt-0.5">Occupancy rate</p>
+                  </div>
+                </div>
+                <ul className="flex flex-col gap-2.5 text-sm min-w-[180px]">
+                  {[
+                    { label: "Occupied", n: nightsSold, color: "var(--color-hostello-purple-glow)" },
+                    { label: "Blocked", n: nightsBlocked, color: "var(--color-status-blocked)" },
+                    { label: "Available", n: nightsAvailable, color: "var(--color-positive)" },
+                  ].map((s) => (
+                    <li key={s.label} className="flex items-center justify-between gap-6">
+                      <span className="flex items-center gap-2 text-ink-secondary">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: s.color }}
+                        />
+                        {s.label}
+                      </span>
+                      <span className="text-ink-primary">{pctOf(s.n)}%</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <section className="card p-5 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-medium">Revenue overview</h2>
+              <Link
+                href="/admin/bookings"
+                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+              >
+                View bookings
+              </Link>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold">{formatPKR(grossThisMonth)}</p>
+              <Delta current={grossThisMonth} previous={grossLastMonth} />
+            </div>
+            {grossThisMonth === 0 ? (
+              <p className="py-12 text-center text-sm text-ink-secondary">
+                No revenue recorded in {formatMonthLabel(year, month0)} yet.
+              </p>
+            ) : (
+              <RevenueChart dates={days} series={revenueSeries} />
+            )}
+          </section>
+
+          <section className="card p-5 flex flex-col gap-4">
+            <h2 className="text-base font-medium">Today&apos;s summary</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {todayTiles.map((t) => (
+                <div key={t.label} className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5">
+                  <span
+                    className="w-7 h-7 rounded-md flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${t.tint} 20%, transparent)` }}
+                  >
+                    <t.icon size={14} style={{ color: t.tint }} />
+                  </span>
+                  <p className="text-lg font-semibold leading-none">{t.value}</p>
+                  <p className="text-[11px] text-ink-muted leading-tight">{t.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {todayFeed.length === 0 ? (
+              <p className="rounded-lg bg-surface-2/60 py-6 text-center text-sm text-ink-secondary">
+                Nothing arriving or leaving today.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {todayFeed.map(({ kind, b }) => (
+                  <li
+                    key={`${kind}-${b.id}`}
+                    className="flex items-center gap-3 rounded-lg bg-surface-2/60 px-3 py-2.5"
+                  >
+                    <Avatar name={b.guestName} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-ink-primary truncate">
+                        {kind}: {b.units || b.clientName || "—"}
+                      </p>
+                      <p className="text-xs text-ink-secondary truncate mt-0.5">
+                        Guest: {b.guestName ?? "—"}
+                      </p>
+                    </div>
+                    <StatusChip status={b.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {awaiting > 0 && (
+              <p className="text-xs text-ink-muted border-t border-border-hairline pt-3">
+                <span className="text-status-pending font-medium">{formatPKR(awaiting)}</span> in Hostello
+                share still awaiting settlement this month.
+              </p>
+            )}
+          </section>
+        </div>
       </div>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-ink-secondary">Check-ins in the next 7 days</h2>
+      <section className="card p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-medium">Recent bookings</h2>
           <Link
             href="/admin/bookings"
-            className="text-xs text-hostello-gold hover:underline flex items-center gap-1"
+            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
           >
-            <CheckCircle2 size={12} /> View all bookings
+            View all bookings
           </Link>
         </div>
 
-        {(!upcoming || upcoming.length === 0) && (
-          <div className="card p-8 text-center text-sm text-ink-secondary">
-            Nothing checking in over the next week.
+        {!recentBookings || recentBookings.length === 0 ? (
+          <div className="py-10 text-center text-sm text-ink-secondary">
+            No bookings recorded yet.
+            <div className="mt-3">
+              <Link href="/admin/bookings/new" className="text-hostello-gold hover:underline">
+                Add the first one →
+              </Link>
+            </div>
           </div>
-        )}
-
-        {upcoming && upcoming.length > 0 && (
-          <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
-            {upcoming.map((b) => {
-              const clientData = b.clients as unknown as { name: string } | null;
-              const unitNames = (b.booking_properties as unknown as { properties: { name: string } | null }[])
-                ?.map((bp) => bp.properties?.name)
-                .filter(Boolean)
-                .join(", ");
-              return (
-                <div key={b.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                  <div className="min-w-0">
-                    <p className="text-sm text-ink-primary truncate">
-                      {clientData?.name ?? "—"} · {unitNames || "—"}
-                    </p>
-                    <p className="text-xs text-ink-secondary mt-0.5">
-                      {b.guest_name ?? "Guest"} · {b.check_in} → {b.check_out}
-                    </p>
-                  </div>
-                  <ArrowRight size={14} className="text-ink-muted shrink-0" />
-                </div>
-              );
-            })}
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
+              <thead>
+                <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
+                  <th className="pb-3 pr-4 font-normal">Guest</th>
+                  <th className="pb-3 pr-4 font-normal">Property</th>
+                  <th className="pb-3 pr-4 font-normal">Dates</th>
+                  <th className="pb-3 pr-4 font-normal">Source</th>
+                  <th className="pb-3 pr-4 font-normal">Total</th>
+                  <th className="pb-3 font-normal">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border-hairline)]">
+                {(recentBookings as unknown as BookingRow[]).map((b) => (
+                  <tr key={b.id}>
+                    <td className="py-3 pr-4">
+                      <span className="flex items-center gap-2.5 min-w-0">
+                        <Avatar name={b.guest_name} size={28} />
+                        <span className="text-ink-primary truncate">{b.guest_name ?? "Guest"}</span>
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-ink-secondary">
+                      {unitNames(b) || clientName(b) || "—"}
+                    </td>
+                    <td className="py-3 pr-4 text-ink-secondary whitespace-nowrap">
+                      {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
+                    </td>
+                    <td className="py-3 pr-4 text-ink-secondary">
+                      <span className="flex items-center gap-1.5">
+                        <ChannelBadge source={b.source} />
+                        {sourceLabel(b.source) ?? b.source}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-ink-primary whitespace-nowrap">
+                      {formatPKR(Number(b.sale_price ?? 0))}
+                    </td>
+                    <td className="py-3">
+                      <StatusChip status={b.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

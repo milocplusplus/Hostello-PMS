@@ -60,3 +60,53 @@ export function addDaysISO(dateISO: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** "14 Sep" — short label for booking rows and date badges. */
+export function formatDayMonth(dateISO: string): string {
+  return new Date(dateISO + "T00:00:00Z").toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
+/** "Mon" — column header letter block for the calendar grid. */
+export function weekdayShort(dateISO: string): string {
+  return new Date(dateISO + "T00:00:00Z").toLocaleDateString("en-US", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
+}
+
+export function isWeekend(dateISO: string): boolean {
+  const day = new Date(dateISO + "T00:00:00Z").getUTCDay();
+  return day === 0 || day === 6;
+}
+
+/** Sunday of the week containing dateISO — matches getMonthGrid's Sun–Sat columns. */
+export function startOfWeekISO(dateISO: string): string {
+  const d = new Date(dateISO + "T00:00:00Z");
+  return addDaysISO(dateISO, -d.getUTCDay());
+}
+
+/** `count` consecutive ISO dates starting at startISO. */
+export function daysFrom(startISO: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => addDaysISO(startISO, i));
+}
+
+/** "14 – 20 Sep 2026" / "28 Sep – 4 Oct 2026" — week-view range label. */
+export function formatRangeLabel(startISO: string, endISO: string): string {
+  const start = new Date(startISO + "T00:00:00Z");
+  const end = new Date(endISO + "T00:00:00Z");
+  const sameMonth = start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+  const left = sameMonth
+    ? String(start.getUTCDate())
+    : start.toLocaleDateString("en-US", { day: "numeric", month: "short", timeZone: "UTC" });
+  const right = end.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `${left} – ${right}`;
+}

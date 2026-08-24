@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./node_modules/**)",
+      "Read(./.next/**)",
+      "Read(./dist/**)",
+      "Read(./build/**)",
+      "Read(./out/**)",
+      "Read(./coverage/**)",
+      "Read(./.vercel/**)",
+      "Read(./package-lock.json)",
+      "Read(./pnpm-lock.yaml)",
+      "Read(./yarn.lock)",
+      "Read(./**/*.min.js)",
+      "Read(./**/*.map)",
+      "Read(./**/*.mp4)",
+      "Read(./**/*.mov)",
+      "Read(./**/*.png)",
+      "Read(./**/*.jpg)",
+      "Read(./**/*.jpeg)",
+      "Read(./**/*.webp)",
+      "Read(./**/*.pdf)",
+      "Read(./.env*)"
+    ]
+  }
+}

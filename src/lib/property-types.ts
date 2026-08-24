@@ -9,3 +9,7 @@ export const PROPERTY_TYPES = [
   { value: "villa", label: "Villa" },
   { value: "cottage", label: "Cottage" },
 ] as const;
+
+export function propertyTypeLabel(value: string | null | undefined) {
+  return PROPERTY_TYPES.find((t) => t.value === value)?.label ?? null;
+}
