@@ -451,6 +451,16 @@ reassign the alias, so nothing broke.
   - **Not verified: the signed-in pages.** Still no credentials on this machine.
     The round-trip reduction is structural and readable in the diff, but the
     before/after timings can only be taken with a real session.
+  - Deployed 2026-08-25 as `dpl_384kwQMRXUujSE9cS3QitDx4rxqh` (READY, production,
+    commit `e1745bb`). Vercel reports `regions: ["syd1"]` and the response header
+    now reads `x-vercel-id: bom1::syd1::…` — the pin took. Smoke test after deploy:
+    `/login`, `/offline`, `/sw.js`, `/manifest.webmanifest`, `/icons/*` and
+    `/favicon.ico` all 200; `/`, `/admin`, `/admin/bookings`, `/admin/calendar`,
+    `/admin/today`, `/admin/notifications`, `/client`, `/client/calendar`,
+    `/client/today`, `/client/notifications` all 307 to login. The public routes
+    time the same as before, as they should — they make no database calls, so
+    they were never what was slow. **The gain is on the signed-in pages and has
+    not been measured.**
   - **Left alone on purpose.** `next build` warns that the `middleware` file
     convention is deprecated in favour of `proxy` — the app's entire auth gate
     lives in that file, `node_modules/next/dist/docs/` is unreadable in this
