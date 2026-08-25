@@ -75,7 +75,8 @@
     Timeline view (deferred).
 
 - **Phase 4 (Management pages + client portal parity)** — built 2026-08-25,
-  **not yet deployed**. `npm run build` and `npm run lint` both clean (the 2
+  deployed 2026-08-25 as `dpl_DoD7ZQprLYSxQBJFvTJhDSZkYWTF` (READY, production).
+  `npm run build` and `npm run lint` both clean (the 2
   old unused-import warnings are gone — those files were rewritten).
   - `src/app/admin/bookings/page.tsx` — rows now link to `/admin/bookings/[id]`
     (the leading Guest cell is the anchor; Mark received / Cancel stay as forms
