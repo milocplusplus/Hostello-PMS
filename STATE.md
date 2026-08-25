@@ -49,8 +49,20 @@ Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 Phase 2 + 3 shipped as `dpl_7JfmujCpqA8LueTG5gujr3VhiucB` (READY, production) on
 `hostello-pms.vercel.app`.
 
-**Env vars:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are now
-set on the Vercel project as **Config** (not Secret) across all environments. They
+**The Supabase URL and anon key now live in `src/lib/supabase/config.ts`**, not in
+env vars. `server.ts`, `client.ts` and `middleware.ts` all read from there. An env
+var overrides the default only when set *and* made entirely of printable ASCII —
+because the Vercel env var was once saved as Supabase's **masked** key display
+(`eyJhbGci` + ~400 `U+2022` bullets), and `fetch` refuses to put a non-Latin-1
+character in an HTTP header, so every auth call died with "Cannot convert argument
+to a ByteString" and the login form reported it as a wrong password. Both values
+are public by design (`NEXT_PUBLIC_*` is inlined into the client bundle, so the
+anon key is already downloadable); RLS protects the data. To verify what is
+actually deployed, download `/_next/static/immutable/chunks/*.js` and grep.
+
+**Env vars (legacy):** `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+are set on the Vercel project as **Config** (not Secret) across all environments.
+The anon key one still holds the corrupted bulleted value; it is now ignored. They
 were missing when Git deploys started — the earlier uploads had the values baked
 in, so the first Git build shipped without them and every route 500'd with
 `MIDDLEWARE_INVOCATION_FAILED` ("Your project's URL and Key are required to create
