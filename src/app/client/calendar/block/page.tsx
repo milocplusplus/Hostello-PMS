@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { createClientCalendarBlock, deleteClientCalendarBlock } from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { fieldLabel, fieldInput, primaryButton, primaryButtonStyle, errorBanner } from "@/lib/form-styles";
@@ -14,16 +15,10 @@ export default async function ClientBlockDatesPage({
   const { error, month: monthParam } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
   const { year, month0 } = parseMonthParam(monthParam);

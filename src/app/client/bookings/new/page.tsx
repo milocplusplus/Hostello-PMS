@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { createClientBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import type { DealModel, OtaModel } from "@/lib/payout";
@@ -13,16 +14,10 @@ export default async function ClientNewBookingPage({
   const { error, property, date } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
   const { data: properties } = await supabase

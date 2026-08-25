@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { CalendarDays, CalendarX2, Lock, Wallet, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { markAllRead, markOneRead } from "./actions";
 import { secondaryButton } from "@/lib/form-styles";
 
@@ -25,16 +26,10 @@ function formatWhen(iso: string) {
 
 export default async function ClientNotificationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
   const { data: notifications } = await supabase

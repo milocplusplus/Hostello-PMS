@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarDays, Phone, Users, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { DEAL_MODELS, formatPKR, isOtaSource, nightsBetween } from "@/lib/payout";
@@ -39,9 +40,7 @@ export default async function BookingDetailPage({
   const { receipt_error } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
   const { data: booking } = await supabase

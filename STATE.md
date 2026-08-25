@@ -389,6 +389,75 @@ reassign the alias, so nothing broke.
     tables), property thumbnails and "4BR · Max 10 guests" (no columns), the
     Maintenance bar type (needs an enum migration).
 
+
+- **Latency pass — the app was slow because the server was on the wrong
+  continent** (2026-08-25). `npm run build` and `npm run lint` clean. **Not yet
+  deployed.**
+  - **The cause.** Supabase lives in `ap-southeast-2` (Sydney). Vercel was
+    running the functions in `iad1` (Washington DC) — the default — so every
+    single query crossed the Pacific and back at roughly 220 ms a go, and a page
+    load makes four to seven of them one after another. Measured from Karachi:
+    `x-vercel-id: bom1::iad1::…`, `/login` 520 ms with no session and no
+    database work at all.
+  - **`vercel.json` pins the functions to `syd1`**, next to the database. That
+    turns each of those round trips from ~220 ms into single-digit
+    milliseconds. It is one line and it is the whole fix; everything below is
+    the same problem attacked from the other side, by making fewer trips.
+    Confirm it took after the next deploy: `x-vercel-id` should read
+    `bom1::syd1::…`. Middleware still runs at the edge near the user, which is
+    where it belongs.
+  - **`src/lib/auth.ts`** — `currentUser()`, `currentProfile()`,
+    `currentClient()`, each wrapped in React's `cache()`. Every page was
+    re-running the exact lookups its own layout had just done: `getUser()` was
+    called in the middleware, the layout *and* the page, and all eight client
+    portal pages re-fetched the `clients` row the client layout already had.
+    Now it is one call per request no matter how many callers ask. `currentClient()`
+    selects the superset of columns the portal uses, so one cached row serves
+    every page.
+  - **Waterfalls flattened.** The admin layout fires the profile and both
+    notification queries together instead of chaining them. Both calendars send
+    the block lookup alongside the booking-link lookup rather than behind it,
+    and the admin calendar's property and client-terms queries now go out
+    together. On a client calendar load that is 11 database calls down to 8, and
+    the longest chain 7 deep down to 6.
+  - **`loading.tsx` in both portals** (`src/components/shared/PageSkeleton.tsx`,
+    plus a `.skeleton` utility and a `prefers-reduced-motion` block in
+    `globals.css`). There was no loading boundary anywhere in the app, so every
+    navigation sat on the previous screen until the server answered — which is
+    what "unresponsive" actually looked like. The skeleton paints instantly and
+    the real page streams in behind it. It also switches Next's `<Link>`
+    prefetching on for these dynamic routes, which is why the nav now feels
+    instant rather than merely fast.
+  - **Middleware matcher narrowed** to `/`, `/login`, `/admin/*`, `/client/*`.
+    It was an exclude-list, so `/offline`, `/auth/forgot-password` and
+    `/auth/reset-password` were each paying for a Supabase session lookup they
+    had no use for.
+  - **`supabase/migrations/20260825233000_rls_initplan_and_fk_indexes.sql` is
+    written but NOT APPLIED** — the tool call was blocked. It does two things
+    Supabase's performance linter asks for: rewrites 13 policies so `auth.uid()`
+    is `(select auth.uid())` (bare, it is re-evaluated once per row; wrapped, it
+    is an InitPlan evaluated once per statement — same rows either way), and
+    adds covering indexes for five unindexed foreign keys. It uses `ALTER POLICY`,
+    not drop-and-recreate, so no policy is ever briefly missing. Worth applying,
+    but note it changes **nothing** at today's data volumes — the database was
+    never the bottleneck.
+  - Verified: build and lint clean; `PageSkeleton` rendered on a throwaway route
+    and checked in a browser (53 blocks, `surface-2`, pulse running, no sideways
+    scroll at 375 px or 1280 px, no console errors — route deleted); and against
+    the dev server, `/`, `/admin`, `/admin/bookings`, `/client`,
+    `/client/calendar` all still 307 to `/login` while `/login`, `/offline`,
+    `/manifest.webmanifest`, `/sw.js` and `/icons/*` all 200 — the narrowed
+    matcher did not open a hole.
+  - **Not verified: the signed-in pages.** Still no credentials on this machine.
+    The round-trip reduction is structural and readable in the diff, but the
+    before/after timings can only be taken with a real session.
+  - **Left alone on purpose.** `next build` warns that the `middleware` file
+    convention is deprecated in favour of `proxy` — the app's entire auth gate
+    lives in that file, `node_modules/next/dist/docs/` is unreadable in this
+    session, and a deprecation warning is not worth guessing at the migration
+    for. Also left: the two "unused index" lint hits, which mean nothing on a
+    database with no traffic yet.
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.

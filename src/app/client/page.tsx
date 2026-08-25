@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Home, BarChart3, CircleDollarSign, CalendarDays, Wallet, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import {
   getMonthGrid,
@@ -56,16 +57,10 @@ export default async function ClientDashboard({
   const periodKey = parsePeriod((await searchParams).period);
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id, name")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
 
   if (!clientRecord) redirect("/client");
 

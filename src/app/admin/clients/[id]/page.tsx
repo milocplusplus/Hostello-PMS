@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/auth";
 import {
   deleteClientRecord,
   deletePropertyRecord,
@@ -40,9 +41,7 @@ export default async function ClientDetailPage({
   const { error, notice } = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
   const { data: clientRecord } = await supabase

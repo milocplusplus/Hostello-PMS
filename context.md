@@ -89,6 +89,13 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   action is passed in).
 - `src/lib/{block-sources,property-types,pakistan-locations,form-styles}.ts` — enum
   label maps + shared input class tokens. Use these instead of hardcoding options.
+- `src/lib/auth.ts` — `currentUser`, `currentProfile`, `currentClient`, all
+  `cache()`-wrapped so a layout and the page inside it share one lookup instead
+  of each paying its own round trip. **Read identity through these, never with a
+  fresh `supabase.auth.getUser()` in a page.**
+- `src/app/{admin,client}/loading.tsx` + `src/components/shared/PageSkeleton.tsx`
+  — the loading boundary for every route in both portals. It is also what makes
+  `<Link>` prefetch work on these dynamic routes.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
 - `supabase/migrations/` — the live DB tracks 13 migrations; the repo only holds
   `0001_init_core_schema.sql` (profiles / clients / properties / payout_rules) and
@@ -163,6 +170,13 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - Never ship dead nav links or broken routes.
 
 ## Gotchas
+- **The database is in Sydney (`ap-southeast-2`) and `vercel.json` pins the
+  functions to `syd1` to sit next to it.** Do not remove that file or let the
+  region drift back to the `iad1` default — it puts a ~220 ms Pacific crossing on
+  every query, and a page makes several of them in a row. Latency, not SQL, is
+  what makes this app feel slow, so the thing to minimise is the number of
+  *sequential* Supabase calls per render: batch independent ones into a
+  `Promise.all`, and take identity from `src/lib/auth.ts` rather than re-fetching it.
 - **Live data is nearly empty** (1 cancelled booking, 1 calendar block, no revenue
   history) — pre-launch, not broken. Trend/sparkline/"% vs last month" UI must render
   honest empty states, never fabricated history.

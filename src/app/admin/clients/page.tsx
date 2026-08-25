@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, ChevronRight, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/auth";
 import { Avatar } from "@/components/shared/Avatar";
 import { DEAL_MODELS, formatPKR } from "@/lib/payout";
 import { todayISO } from "@/lib/calendar";
@@ -20,9 +21,7 @@ export default async function ClientsListPage({
 
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
   let clientQuery = supabase

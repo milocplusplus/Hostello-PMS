@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentProfile, currentUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { ClientShell } from "@/components/client/ClientShell";
 import { searchClient } from "@/app/client/search/actions";
@@ -28,25 +29,13 @@ export default async function ClientLayout({
 }) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single();
+  // Independent of each other — one round trip instead of two.
+  const [profile, clientRecord] = await Promise.all([currentProfile(), currentClient()]);
 
   if (profile?.role === "admin") redirect("/admin");
-
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id, name")
-    .eq("owner_user_id", user.id)
-    .single();
 
   if (!clientRecord) {
     // Signed-in client user with no linked client record yet — nothing to show.

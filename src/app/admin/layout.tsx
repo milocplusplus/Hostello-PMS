@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { currentProfile, currentUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { searchAdmin } from "@/app/admin/search/actions";
@@ -29,23 +30,14 @@ export default async function AdminLayout({
 }) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin") redirect("/client");
-
   // The bell shows the same rows the clients get, across the whole portfolio —
-  // admins have their own unread mark (`admin_read_at`).
-  const [{ data: recent }, { count: unreadCount }] = await Promise.all([
+  // admins have their own unread mark (`admin_read_at`). None of these three
+  // depend on each other, so they go out together rather than in a chain.
+  const [profile, { data: recent }, { count: unreadCount }] = await Promise.all([
+    currentProfile(),
     supabase
       .from("notifications")
       .select(
@@ -58,6 +50,8 @@ export default async function AdminLayout({
       .select("*", { count: "exact", head: true })
       .is("admin_read_at", null),
   ]);
+
+  if (profile?.role !== "admin") redirect("/client");
 
   const notifications: NotificationItem[] = ((recent ?? []) as unknown as NotificationRow[]).map(
     (n) => ({

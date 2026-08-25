@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/auth";
 import { secondaryButton } from "@/lib/form-styles";
 import {
   formatNotificationTime,
@@ -31,9 +32,7 @@ export default async function AdminNotificationsPage({
   const unreadOnly = filter === "unread";
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
   let query = supabase

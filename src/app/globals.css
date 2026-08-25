@@ -241,3 +241,29 @@ html {
 .animate-pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;
 }
+
+/* Route-level loading skeletons. Every navigation here waits on a database on
+   another continent; painting the page's shape immediately is what makes the
+   app feel instant instead of frozen. */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.skeleton {
+  background-color: var(--color-surface-2);
+  border-radius: 8px;
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .skeleton,
+  .animate-pulse-dot {
+    animation: none;
+  }
+}

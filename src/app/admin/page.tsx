@@ -11,6 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { sourceLabel } from "@/lib/block-sources";
 import {
@@ -87,9 +88,7 @@ export default async function AdminDashboard({
 }) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
   const today = todayISO();
@@ -116,7 +115,7 @@ export default async function AdminDashboard({
     "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, settled, created_at, clients(name), booking_properties(property_id, properties(name))";
 
   const [
-    { data: profile },
+    profile,
     { data: properties },
     { data: monthBookings },
     { data: prevBookings },
@@ -128,7 +127,8 @@ export default async function AdminDashboard({
     { data: periodBookings },
     { data: prevPeriodBookings },
   ] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    // Already fetched by the layout this request — the cache makes it free.
+    currentProfile(),
     supabase.from("properties").select("id, created_at").eq("status", "active"),
     supabase
       .from("bookings")

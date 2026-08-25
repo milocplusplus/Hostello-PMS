@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { cancelClientBooking } from "./actions";
@@ -24,16 +25,10 @@ export default async function ClientBookingsPage({
   const { month: monthParam } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
   const { year, month0 } = parseMonthParam(monthParam);

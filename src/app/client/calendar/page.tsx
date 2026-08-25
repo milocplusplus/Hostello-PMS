@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient, currentUser } from "@/lib/auth";
 import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
@@ -36,16 +37,10 @@ export default async function ClientCalendarPage({
   const sp = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: clientRecord } = await supabase
-    .from("clients")
-    .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
-    .eq("owner_user_id", user.id)
-    .single();
+  const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
   const { data: properties } = await supabase
@@ -114,10 +109,20 @@ export default async function ClientCalendarPage({
 
   const propertyIds = properties.map((p) => p.id);
 
-  const { data: bookingLinks } = await supabase
-    .from("booking_properties")
-    .select("booking_id, property_id")
-    .in("property_id", propertyIds);
+  // Blocks depend only on the property ids, so they ride along with the link
+  // lookup instead of waiting behind the bookings fetch.
+  const [{ data: bookingLinks }, { data: blocks }] = await Promise.all([
+    supabase
+      .from("booking_properties")
+      .select("booking_id, property_id")
+      .in("property_id", propertyIds),
+    supabase
+      .from("calendar_blocks")
+      .select("id, property_id, start_date, end_date, block_type, notes")
+      .in("property_id", propertyIds)
+      .lte("start_date", windowEnd)
+      .gte("end_date", windowStart),
+  ]);
 
   const bookingIds = [...new Set((bookingLinks ?? []).map((l) => l.booking_id))];
 
@@ -141,13 +146,6 @@ export default async function ClientCalendarPage({
       .gt("check_out", windowStart);
     bookings = data ?? [];
   }
-
-  const { data: blocks } = await supabase
-    .from("calendar_blocks")
-    .select("id, property_id, start_date, end_date, block_type, notes")
-    .in("property_id", propertyIds)
-    .lte("start_date", windowEnd)
-    .gte("end_date", windowStart);
 
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
   const bookingsByProperty = new Map<string, typeof bookings>();

@@ -51,9 +51,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // sw.js, the manifest and the icons are public by definition — keep them out
-    // so an install or an update check doesn't cost a session lookup.
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // Only the routes that actually need a session. `getUser()` is a network call
+  // to Supabase on every match, so an allow-list beats an exclude-list: the
+  // service worker, the manifest, the icons, `/offline` and the password-reset
+  // flow are all public and were each paying for a session lookup.
+  matcher: ["/", "/login", "/admin/:path*", "/client/:path*"],
 };

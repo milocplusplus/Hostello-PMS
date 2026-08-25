@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { currentUser } from "@/lib/auth";
 import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
@@ -46,22 +47,22 @@ export default async function CalendarPage({
   const sp = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { data: allProperties } = await supabase
-    .from("properties")
-    .select("id, name, type, city, stack_rate, client_id, clients(name)")
-    .eq("status", "active")
-    .order("name");
-
-  // Deal terms + stack rates for the quick-add modal's live payout preview.
-  const { data: clientTerms } = await supabase
-    .from("clients")
-    .select("id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
-    .order("name");
+  // The second is the deal terms + stack rates for the quick-add modal's live
+  // payout preview. Neither depends on the other.
+  const [{ data: allProperties }, { data: clientTerms }] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("id, name, type, city, stack_rate, client_id, clients(name)")
+      .eq("status", "active")
+      .order("name"),
+    supabase
+      .from("clients")
+      .select("id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
+      .order("name"),
+  ]);
 
   function href(overrides: Partial<Record<keyof Params, string | undefined>>) {
     const merged = { ...sp, ...overrides };
@@ -156,10 +157,32 @@ export default async function CalendarPage({
   const propertyIds = visible.map((p) => p.id);
 
   // ---- Data ---------------------------------------------------------------
-  const { data: bookingLinks } = await supabase
-    .from("booking_properties")
-    .select("booking_id, property_id")
-    .in("property_id", propertyIds);
+  // A channel or status filter is about bookings; manual blocks have neither,
+  // so they drop out of the view rather than pretending to match. Otherwise the
+  // blocks depend only on the property ids and go out with the link lookup.
+  const [{ data: bookingLinks }, { data: blocks }] = await Promise.all([
+    supabase
+      .from("booking_properties")
+      .select("booking_id, property_id")
+      .in("property_id", propertyIds),
+    channelFilter || statusFilter
+      ? Promise.resolve({
+          data: [] as {
+            id: string;
+            property_id: string;
+            start_date: string;
+            end_date: string;
+            block_type: string;
+            notes: string | null;
+          }[],
+        })
+      : supabase
+          .from("calendar_blocks")
+          .select("id, property_id, start_date, end_date, block_type, notes")
+          .in("property_id", propertyIds)
+          .lte("start_date", windowEnd)
+          .gte("end_date", windowStart),
+  ]);
 
   const bookingIds = [...new Set((bookingLinks ?? []).map((l) => l.booking_id))];
 
@@ -186,17 +209,6 @@ export default async function CalendarPage({
     const { data } = await query;
     bookings = data ?? [];
   }
-
-  // A channel or status filter is about bookings; manual blocks have neither,
-  // so they drop out of the view rather than pretending to match.
-  const { data: blocks } = channelFilter || statusFilter
-    ? { data: [] as { id: string; property_id: string; start_date: string; end_date: string; block_type: string; notes: string | null }[] }
-    : await supabase
-        .from("calendar_blocks")
-        .select("id, property_id, start_date, end_date, block_type, notes")
-        .in("property_id", propertyIds)
-        .lte("start_date", windowEnd)
-        .gte("end_date", windowStart);
 
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
   const bookingsByProperty = new Map<string, typeof bookings>();
