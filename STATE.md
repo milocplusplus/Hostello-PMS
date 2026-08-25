@@ -193,7 +193,9 @@
 - **Token receipts** (2026-08-25). A booking can now carry the screenshot that
   proves the advance token moved — either direction: received from the guest by
   Hostello, or paid on to the client. `npm run build` and `npm run lint` clean.
-  **Not yet deployed.**
+  Deployed 2026-08-25 as `dpl_71Bb8M1LxqB5V7KEyLS53HfrFmca` (READY, production,
+  commit `2b64f93`); `/login` 200 and the gated routes still 307 on
+  `hostello-pms.vercel.app`.
   - Migrations `add_booking_token_receipts` +
     `fix_booking_receipt_storage_policy_name_capture`, **applied to the live DB**
     (the repo holds one corrected file, `20260825230000_add_booking_token_receipts.sql`,
