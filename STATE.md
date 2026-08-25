@@ -248,6 +248,8 @@
     the booking it links to.
   - Re-probed per role: admin upload OK; the client sees the row and the file
     (1 each) but is DENIED on both the table insert and the storage insert.
+  - Deployed 2026-08-25 as `dpl_6udvjNvVe1WeAbpRC6JPeq69R5EF` (READY, production,
+    commit `9d13783`).
 
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
