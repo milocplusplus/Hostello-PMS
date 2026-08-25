@@ -57,10 +57,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/lib/{block-sources,property-types,pakistan-locations,form-styles}.ts` — enum
   label maps + shared input class tokens. Use these instead of hardcoding options.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
-- `supabase/migrations/0001_init_core_schema.sql` — **only** profiles / clients /
-  properties / payout_rules. `bookings`, `booking_properties`, `calendar_blocks`,
-  `notifications` and the later `properties` columns (`province`, `stack_rate`) exist
-  in the live DB but have no migration file. Read the live schema, not this file.
+- `supabase/migrations/` — the live DB tracks 13 migrations; the repo only holds
+  `0001_init_core_schema.sql` (profiles / clients / properties / payout_rules) and
+  `20260825062223_restrict_security_definer_function_grants.sql`. The 11 in between
+  (bookings, booking_properties, calendar_blocks, notifications, the extra
+  `properties` columns) were applied straight to Supabase and never committed.
+  Read the live schema, not these files. `list_migrations` shows the real list.
 - `AGENTS.md` — Next.js-generated agent rules, auto-re-added by `next dev`.
   `CLAUDE.md` imports it with `@AGENTS.md`; don't delete either.
 
