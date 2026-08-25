@@ -10,7 +10,13 @@ import {
   notifyPayoutSettled,
 } from "@/lib/notify";
 
-export async function createBooking(formData: FormData) {
+type SaveResult = { error: string } | { clientId: string; bookingId: string };
+
+/**
+ * The one place a booking gets written. Returns instead of redirecting so both
+ * the full page and the calendar's quick-add modal can use it.
+ */
+async function saveBooking(formData: FormData): Promise<SaveResult> {
   const client_id = formData.get("client_id") as string;
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
@@ -24,17 +30,11 @@ export async function createBooking(formData: FormData) {
   const notes = (formData.get("notes") as string)?.trim() || null;
 
   if (property_ids.length === 0) {
-    redirect(
-      `/admin/bookings/new?error=${encodeURIComponent("Select at least one unit.")}`
-    );
+    return { error: "Select at least one unit." };
   }
 
   if (!check_in || !check_out || check_out <= check_in) {
-    redirect(
-      `/admin/bookings/new?error=${encodeURIComponent(
-        "Check-out must be after check-in."
-      )}`
-    );
+    return { error: "Check-out must be after check-in." };
   }
 
   const supabase = await createClient();
@@ -52,9 +52,7 @@ export async function createBooking(formData: FormData) {
     .single();
 
   if (!clientRecord) {
-    redirect(
-      `/admin/bookings/new?error=${encodeURIComponent("Client not found.")}`
-    );
+    return { error: "Client not found." };
   }
 
   const { data: properties } = await supabase
@@ -83,11 +81,9 @@ export async function createBooking(formData: FormData) {
       .limit(1);
 
     if (clashes && clashes.length > 0) {
-      redirect(
-        `/admin/bookings/new?error=${encodeURIComponent(
-          "Those dates clash with an existing booking on one of the selected units."
-        )}`
-      );
+      return {
+        error: "Those dates clash with an existing booking on one of the selected units.",
+      };
     }
   }
 
@@ -95,9 +91,9 @@ export async function createBooking(formData: FormData) {
     salePrice: sale_price,
     checkIn: check_in,
     checkOut: check_out,
-    dealModel: clientRecord!.deal_model as DealModel,
-    sharePercent: Number(clientRecord!.share_percent),
-    deductPercent: Number(clientRecord!.deduct_percent),
+    dealModel: clientRecord.deal_model as DealModel,
+    sharePercent: Number(clientRecord.share_percent),
+    deductPercent: Number(clientRecord.deduct_percent),
     stackRate: stackRateTotal,
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
@@ -115,9 +111,9 @@ export async function createBooking(formData: FormData) {
       status,
       sale_price,
       advance_received,
-      deal_model_snapshot: clientRecord!.deal_model,
-      share_percent_snapshot: clientRecord!.share_percent,
-      deduct_percent_snapshot: clientRecord!.deduct_percent,
+      deal_model_snapshot: clientRecord.deal_model,
+      share_percent_snapshot: clientRecord.share_percent,
+      deduct_percent_snapshot: clientRecord.deduct_percent,
       stack_rate_snapshot: stackRateTotal,
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
@@ -129,20 +125,18 @@ export async function createBooking(formData: FormData) {
     .single();
 
   if (error || !newBooking) {
-    redirect(
-      `/admin/bookings/new?error=${encodeURIComponent(error?.message ?? "Could not save booking.")}`
-    );
+    return { error: error?.message ?? "Could not save booking." };
   }
 
   const linkRows = property_ids.map((property_id) => ({
-    booking_id: newBooking!.id,
+    booking_id: newBooking.id,
     property_id,
   }));
   await supabase.from("booking_properties").insert(linkRows);
 
   await notifyBookingCreated(supabase, {
     clientId: client_id,
-    bookingId: newBooking!.id,
+    bookingId: newBooking.id,
     unitNames: (properties ?? []).map((p) => p.name),
     checkIn: check_in,
     checkOut: check_out,
@@ -154,7 +148,24 @@ export async function createBooking(formData: FormData) {
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/admin/calendar");
   revalidatePath(`/admin/clients/${client_id}`);
-  redirect(`/admin/clients/${client_id}`);
+
+  return { clientId: client_id, bookingId: newBooking.id };
+}
+
+export async function createBooking(formData: FormData) {
+  const result = await saveBooking(formData);
+
+  if ("error" in result) {
+    redirect(`/admin/bookings/new?error=${encodeURIComponent(result.error)}`);
+  }
+
+  redirect(`/admin/clients/${result.clientId}`);
+}
+
+/** Same write, but for the calendar's quick-add modal: it stays on the page. */
+export async function createBookingInline(formData: FormData) {
+  const result = await saveBooking(formData);
+  return "error" in result ? { error: result.error } : { error: null };
 }
 
 export async function markBookingSettled(formData: FormData) {

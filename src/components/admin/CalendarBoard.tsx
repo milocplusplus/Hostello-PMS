@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Lock } from "lucide-react";
-import { weekdayShort, isWeekend } from "@/lib/calendar";
+import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronRight, Lock, X } from "lucide-react";
+import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
+import { BookingForm } from "@/components/admin/BookingForm";
+import { createBookingInline } from "@/app/admin/bookings/actions";
+
+type BookingFormProps = ComponentProps<typeof BookingForm>;
 
 export type CalendarSegment = {
   key: string;
@@ -45,16 +50,20 @@ export function CalendarBoard({
   today,
   groups,
   cellMin,
-  newBookingHref,
+  bookingProperties,
+  bookingClients,
 }: {
   days: string[];
   today: string;
   groups: CalendarGroup[];
   cellMin: number;
-  /** (propertyId, date) => href for an empty day */
-  newBookingHref: string;
+  bookingProperties: BookingFormProps["properties"];
+  bookingClients: BookingFormProps["clients"];
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
+    null
+  );
   const columns = `200px repeat(${days.length}, minmax(${cellMin}px, 1fr))`;
   const minWidth = 200 + days.length * cellMin;
 
@@ -65,6 +74,7 @@ export function CalendarBoard({
   }
 
   return (
+    <>
     <div className="card overflow-x-auto">
       <div style={{ minWidth }}>
         {/* Day header */}
@@ -143,9 +153,12 @@ export function CalendarBoard({
                           style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
                         />
                       ) : (
-                        <Link
+                        <button
                           key={d}
-                          href={`${newBookingHref}?property=${row.id}&date=${d}`}
+                          type="button"
+                          onClick={() =>
+                            setDraft({ propertyId: row.id, propertyName: row.name, date: d })
+                          }
                           title={`Add booking — ${d}`}
                           className={`transition-colors hover:bg-hostello-purple-glow/15 ${dayTint(d)}`}
                           style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
@@ -161,6 +174,98 @@ export function CalendarBoard({
             </div>
           );
         })}
+      </div>
+    </div>
+
+    {draft && (
+      <QuickAddBooking
+        draft={draft}
+        properties={bookingProperties}
+        clients={bookingClients}
+        onClose={() => setDraft(null)}
+      />
+    )}
+    </>
+  );
+}
+
+/**
+ * Quick-add for a single clicked day. The clicked date is one night, so
+ * check-out defaults to the morning after; both fields stay editable.
+ */
+function QuickAddBooking({
+  draft,
+  properties,
+  clients,
+  onClose,
+}: {
+  draft: { propertyId: string; propertyName: string; date: string };
+  properties: BookingFormProps["properties"];
+  clients: BookingFormProps["clients"];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function submit(formData: FormData) {
+    const result = await createBookingInline(formData);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    onClose();
+    router.refresh();
+  }
+
+  const checkOut = addDaysISO(draft.date, 1);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/70 overflow-y-auto p-4 sm:p-8"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="max-w-lg mx-auto"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add a booking"
+      >
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <h2 className="text-lg font-medium">Add a booking</h2>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {draft.propertyName} · {formatDayMonth(draft.date)} → {formatDayMonth(checkOut)} · 1 night
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-md text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <BookingForm
+          action={submit}
+          properties={properties}
+          clients={clients}
+          initialPropertyId={draft.propertyId}
+          initialDate={draft.date}
+          initialCheckOut={checkOut}
+          error={error}
+        />
       </div>
     </div>
   );

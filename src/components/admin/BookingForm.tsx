@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { calculatePayout, type DealModel } from "@/lib/payout";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import {
@@ -32,6 +33,7 @@ export function BookingForm({
   clients,
   initialPropertyId,
   initialDate,
+  initialCheckOut,
   error,
 }: {
   action: (formData: FormData) => void;
@@ -39,6 +41,7 @@ export function BookingForm({
   clients: ClientTerms[];
   initialPropertyId?: string;
   initialDate?: string;
+  initialCheckOut?: string;
   error?: string;
 }) {
   const sortedProperties = useMemo(
@@ -49,7 +52,7 @@ export function BookingForm({
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? sortedProperties[0]?.id ?? "");
   const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
   const [checkIn, setCheckIn] = useState(initialDate ?? "");
-  const [checkOut, setCheckOut] = useState("");
+  const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
   const [salePrice, setSalePrice] = useState("");
   const [source, setSource] = useState("hostello");
   const [showMore, setShowMore] = useState(false);
@@ -297,9 +300,21 @@ export function BookingForm({
 
       {error && <p className={errorBanner}>{error}</p>}
 
-      <button type="submit" className={`mt-2 ${primaryButton}`} style={primaryButtonStyle}>
-        Save booking
-      </button>
+      <SubmitButton />
     </form>
+  );
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className={`mt-2 ${primaryButton} disabled:opacity-60`}
+      style={primaryButtonStyle}
+    >
+      {pending ? "Saving…" : "Save booking"}
+    </button>
   );
 }

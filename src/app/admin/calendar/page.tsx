@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { formatPKR } from "@/lib/payout";
+import { formatPKR, type DealModel } from "@/lib/payout";
 import {
   CalendarBoard,
   type CalendarGroup,
@@ -26,8 +26,6 @@ import {
   formatRangeLabel,
 } from "@/lib/calendar";
 
-const PAGE_SIZE = 7;
-
 type Params = {
   month?: string;
   view?: string;
@@ -35,7 +33,6 @@ type Params = {
   property?: string;
   channel?: string;
   status?: string;
-  page?: string;
 };
 
 export default async function CalendarPage({
@@ -53,8 +50,14 @@ export default async function CalendarPage({
 
   const { data: allProperties } = await supabase
     .from("properties")
-    .select("id, name, type, city, client_id, clients(name)")
+    .select("id, name, type, city, stack_rate, client_id, clients(name)")
     .eq("status", "active")
+    .order("name");
+
+  // Deal terms + stack rates for the quick-add modal's live payout preview.
+  const { data: clientTerms } = await supabase
+    .from("clients")
+    .select("id, deal_model, share_percent, deduct_percent")
     .order("name");
 
   function href(overrides: Partial<Record<keyof Params, string | undefined>>) {
@@ -85,6 +88,7 @@ export default async function CalendarPage({
       name: p.name,
       type: p.type as string | null,
       city: p.city as string | null,
+      stackRate: Number(p.stack_rate ?? 0),
       clientId: p.client_id as string,
       clientName: (p.clients as unknown as { name: string } | null)?.name ?? "—",
     }))
@@ -124,17 +128,15 @@ export default async function CalendarPage({
   const windowEnd = days[days.length - 1];
   const dayIdx = new Map(days.map((d, i) => [d, i]));
 
-  // ---- Filters + pagination ----------------------------------------------
+  // ---- Filters ------------------------------------------------------------
   const propertyFilter = options.some((p) => p.id === sp.property) ? sp.property : undefined;
   const channelFilter = sp.channel || undefined;
   const statusFilter = sp.status === "confirmed" || sp.status === "tentative" ? sp.status : undefined;
   const filtersActive = Boolean(propertyFilter || channelFilter || statusFilter);
 
+  // Every property in one board — no paging. Client groups collapse instead.
   const visible = propertyFilter ? options.filter((p) => p.id === propertyFilter) : options;
-  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, Number(sp.page) || 1), pageCount);
-  const paged = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const propertyIds = paged.map((p) => p.id);
+  const propertyIds = visible.map((p) => p.id);
 
   // ---- Data ---------------------------------------------------------------
   const { data: bookingLinks } = await supabase
@@ -284,7 +286,7 @@ export default async function CalendarPage({
   }
 
   const groups: CalendarGroup[] = [];
-  for (const p of paged) {
+  for (const p of visible) {
     let group = groups.find((g) => g.clientId === p.clientId);
     if (!group) {
       group = { clientId: p.clientId, clientName: p.clientName, rows: [] };
@@ -293,8 +295,20 @@ export default async function CalendarPage({
     group.rows.push(buildRow(p));
   }
 
-  const rangeStart = visible.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(page * PAGE_SIZE, visible.length);
+  const bookingProperties = options.map((p) => ({
+    id: p.id,
+    name: p.name,
+    stack_rate: p.stackRate,
+    client_id: p.clientId,
+    client_name: p.clientName,
+  }));
+
+  const bookingClients = (clientTerms ?? []).map((c) => ({
+    id: c.id,
+    deal_model: c.deal_model as DealModel,
+    share_percent: Number(c.share_percent),
+    deduct_percent: Number(c.deduct_percent),
+  }));
 
   const legend: { label: string; color: string }[] = [
     { label: "Airbnb", color: sourceColor("airbnb") },
@@ -376,7 +390,7 @@ export default async function CalendarPage({
           />
           {filtersActive && (
             <Link
-              href={href({ property: undefined, channel: undefined, status: undefined, page: undefined })}
+              href={href({ property: undefined, channel: undefined, status: undefined })}
               className="text-xs text-ink-muted hover:text-ink-secondary transition-colors"
             >
               Clear
@@ -406,48 +420,18 @@ export default async function CalendarPage({
         today={today}
         groups={groups}
         cellMin={view === "week" ? 130 : 34}
-        newBookingHref="/admin/bookings/new"
+        bookingProperties={bookingProperties}
+        bookingClients={bookingClients}
       />
 
-      <div className="flex items-center justify-between gap-3 text-xs text-ink-muted">
-        <p>
-          {visible.length === 0
-            ? "No properties match these filters."
-            : `Showing ${rangeStart}–${rangeEnd} of ${visible.length} ${
-                visible.length === 1 ? "property" : "properties"
-              }`}
-          {channelFilter && ` · ${sourceLabel(channelFilter) ?? channelFilter}`}
-        </p>
-        {pageCount > 1 && (
-          <div className="flex items-center gap-1">
-            <Link
-              href={href({ page: String(Math.max(1, page - 1)) })}
-              aria-disabled={page === 1}
-              className={`px-2 py-1 rounded-md border border-border-hairline transition-colors ${
-                page === 1
-                  ? "opacity-40 pointer-events-none"
-                  : "hover:border-border-strong hover:text-ink-secondary"
-              }`}
-            >
-              Prev
-            </Link>
-            <span className="px-2">
-              {page} / {pageCount}
-            </span>
-            <Link
-              href={href({ page: String(Math.min(pageCount, page + 1)) })}
-              aria-disabled={page === pageCount}
-              className={`px-2 py-1 rounded-md border border-border-hairline transition-colors ${
-                page === pageCount
-                  ? "opacity-40 pointer-events-none"
-                  : "hover:border-border-strong hover:text-ink-secondary"
-              }`}
-            >
-              Next
-            </Link>
-          </div>
-        )}
-      </div>
+      <p className="text-xs text-ink-muted">
+        {visible.length === 0
+          ? "No properties match these filters."
+          : `${visible.length} ${visible.length === 1 ? "property" : "properties"} across ${
+              groups.length
+            } ${groups.length === 1 ? "client" : "clients"}`}
+        {channelFilter && ` · ${sourceLabel(channelFilter) ?? channelFilter}`}
+      </p>
     </div>
   );
 }
