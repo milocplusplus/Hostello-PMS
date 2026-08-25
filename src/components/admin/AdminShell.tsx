@@ -181,7 +181,7 @@ export function AdminShell({
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-1 border-b border-border-hairline flex items-center justify-between px-4 py-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-1 border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo />
         <button
           type="button"
@@ -197,7 +197,7 @@ export function AdminShell({
       {menuOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMenuOpen(false)} aria-hidden />
-          <div className="relative w-64 bg-surface-1 border-r border-border-hairline flex flex-col">
+          <div className="relative w-64 bg-surface-1 border-r border-border-hairline flex flex-col safe-panel">
             <div className="px-5 py-6 flex items-center justify-between">
               <Logo />
               <button
@@ -247,7 +247,7 @@ export function AdminShell({
           <UserMenu userName={userName} logoutAction={logoutAction} />
         </div>
 
-        <div className="max-w-6xl w-full mx-auto px-4 md:px-8 py-6 md:py-10 pt-20 md:pt-10 flex-1">
+        <div className="max-w-6xl w-full mx-auto px-4 md:px-8 safe-main flex-1">
           {children}
         </div>
       </div>

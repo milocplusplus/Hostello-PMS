@@ -145,6 +145,46 @@
   - Deployed 2026-08-25 as `dpl_4j9uo1PSPn9Bubh76czhM5stgVSw` (READY, production,
     commit `2ebdf04`).
 
+- **Installable app (PWA)** — built 2026-08-25, **not yet deployed**. The app
+  installs to an Android or iOS home screen from the browser and runs standalone
+  (no address bar). No rewrite: it is the same server-rendered app, wrapped.
+  `npm run build` and `npm run lint` clean.
+  - `src/app/manifest.ts` — Next metadata route, served at `/manifest.webmanifest`.
+    `display: standalone`, theme + background `#0a0910`, `start_url: "/"` so the
+    installed icon lands each role on its own dashboard through the existing
+    redirect. Icons in `public/icons/` (192/512 `any` + 192/512 `maskable` +
+    a 180 `apple-touch-icon`) — purple→gold gradient with a white H monogram,
+    generated with GDI+ (`System.Drawing`), no image dependency added.
+  - `public/sw.js` — deliberately narrow. Every page here is per-user HTML, so
+    **nothing personalized is ever cached**: content-hashed `/_next/static/` and
+    `/icons/` are cache-first, navigations are network-only falling back to a
+    precached `/offline`, and everything else (Server Actions, RSC payloads,
+    Supabase) passes straight through. Bump `CACHE_VERSION` to evict.
+  - `src/app/offline/page.tsx` — the fallback. Verified for real: with the server
+    stopped, a navigation to `/admin/bookings` rendered it instead of a browser
+    error page.
+  - `src/components/shared/PwaSetup.tsx` (in the root layout) — registers the SW
+    **in production only** (in dev, cache-first hands back stale Turbopack chunks
+    and looks like a phantom bug) and shows the install banner: one-tap Install on
+    Android via `beforeinstallprompt`, and the Share → Add to Home Screen
+    instruction on iOS, which fires no such event. Dismissal sticks in
+    localStorage. Install eligibility is read through `useSyncExternalStore`, not
+    an effect — React 19's `set-state-in-effect` lint rule rejects the effect
+    version, and this keeps SSR rendering nothing so there is no hydration gap.
+  - Mobile fixes in `globals.css`: `.safe-topbar` / `.safe-panel` / `.safe-main`
+    pay back `env(safe-area-inset-*)` (both shells use them; they resolve to the
+    exact old padding on a phone with no notch), `min-h-screen` → `100dvh`, and
+    inputs are forced to 16px under 768px — below that iOS zooms the page in on
+    focus, and every form here is `text-sm`. That last one needs `!important` to
+    outrank the Tailwind class; it is one rule instead of ~20 edited inputs.
+  - `src/middleware.ts` matcher now also skips `sw.js`, `manifest.webmanifest`
+    and `icons/` — all public, and they were costing a session lookup each.
+  - Not built: native Play Store / App Store packages. That is a Capacitor shell
+    around the deployed URL and is the agreed next step, not a rewrite. **iOS
+    cannot be built on this machine** (Windows) — it needs a Mac or a cloud
+    builder. Also skipped: push notifications, and a bottom tab bar for phones
+    (the drawer nav in both shells is what mobile still uses).
+
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
