@@ -345,9 +345,13 @@ reassign the alias, so nothing broke.
     The route was deleted before committing. Production smoke test after deploy:
     `/login` 200, `/admin/calendar` and `/client/calendar` 307.
 
-- **Dashboard build-out from the design inspo** (2026-08-25). Five features, both
-  portals, all backed by real tables — nothing invented. `npm run build` and
-  `npm run lint` clean.
+- **Dashboard build-out from the design inspo** (2026-08-25, deployed as
+  `dpl_7M9vya9UmAwB8GpG7k4NC9KtpMoG`, READY, production, commit `21e4687`).
+  Five features, both portals, all backed by real tables — nothing invented.
+  `npm run build` and `npm run lint` clean. Production smoke test after deploy:
+  `/login` and `/manifest.webmanifest` 200; `/admin`, `/admin/today`,
+  `/admin/notifications`, `/admin/calendar`, `/client`, `/client/today`,
+  `/client/notifications` all 307 to login.
   - **Notification bell in both top bars** (`src/components/shared/NotificationBell.tsx`):
     unread badge, last 8 items, Mark all read, "View all". Fed from the layouts,
     so it is on every page of both portals.
@@ -393,7 +397,8 @@ reassign the alias, so nothing broke.
    rows, unknown at 40), and whether the heat shading reads at a glance.
 3. `/client/notifications` is the last page still on its original design
    (the bell and the admin activity feed are new; that page is not).
-4. Push to deploy — the dashboard build-out is on disk, not shipped.
+4. Open the bell and both day sheets once signed in — like everything since
+   Phase 4 they were verified by rendering, not against real data.
 
 ## Open questions / debt
 - **Client password reset is undeliverable with fake emails.** `requestPasswordReset`
