@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, CalendarDays, Wallet, Bell, Menu, X } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Wallet, Bell, Sun, Menu, X, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
+import { GlobalSearch } from "@/components/shared/GlobalSearch";
+import { NotificationBell } from "@/components/shared/NotificationBell";
+import { UserMenu } from "@/components/shared/UserMenu";
+import type { NotificationItem } from "@/lib/notifications";
+import type { SearchResult } from "@/lib/search";
 
 const NAV = [
   { href: "/client", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/client/today", label: "Today", icon: Sun, exact: false },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
   { href: "/client/notifications", label: "Notifications", icon: Bell, exact: false },
@@ -70,17 +76,50 @@ function NavLinks({
   );
 }
 
+function SidebarFooter({
+  userName,
+  logoutAction,
+}: {
+  userName: string;
+  logoutAction: () => Promise<void>;
+}) {
+  return (
+    <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
+          {userName.slice(0, 1).toUpperCase()}
+        </div>
+        <span className="text-xs text-ink-secondary truncate">{userName}</span>
+      </div>
+      <form action={logoutAction}>
+        <button
+          type="submit"
+          className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
+        >
+          Sign out
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export function ClientShell({
   userName,
   clientName,
   unreadCount = 0,
+  notifications,
   logoutAction,
+  searchAction,
+  markAllReadAction,
   children,
 }: {
   userName: string;
   clientName: string;
   unreadCount?: number;
+  notifications: NotificationItem[];
   logoutAction: () => Promise<void>;
+  searchAction: (query: string) => Promise<SearchResult[]>;
+  markAllReadAction: () => Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -98,43 +137,28 @@ export function ClientShell({
           <NavLinks pathname={pathname} unreadCount={unreadCount} />
         </nav>
 
-        <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand"
-            >
-              {userName.slice(0, 1).toUpperCase()}
-            </div>
-            <span className="text-xs text-ink-secondary truncate">{userName}</span>
-          </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
+        <SidebarFooter userName={userName} logoutAction={logoutAction} />
       </aside>
 
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-1 border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo clientName={clientName} />
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          className="p-2 -mr-2 text-ink-secondary shrink-0 relative"
-        >
-          <Menu size={20} />
-          {unreadCount > 0 && (
-            <span
-              className="absolute top-1 right-1 w-2 h-2 rounded-full"
-              style={{ backgroundColor: "var(--color-hostello-gold)" }}
-            />
-          )}
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <NotificationBell
+            items={notifications}
+            unreadCount={unreadCount}
+            allHref="/client/notifications"
+            markAllAction={markAllReadAction}
+          />
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            className="p-2 -mr-2 text-ink-secondary"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}
@@ -158,32 +182,39 @@ export function ClientShell({
               </button>
             </div>
             <nav className="flex-1 px-3 flex flex-col gap-0.5">
-              <NavLinks pathname={pathname} unreadCount={unreadCount} onNavigate={() => setMenuOpen(false)} />
+              <NavLinks
+                pathname={pathname}
+                unreadCount={unreadCount}
+                onNavigate={() => setMenuOpen(false)}
+              />
             </nav>
-            <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand"
-                >
-                  {userName.slice(0, 1).toUpperCase()}
-                </div>
-                <span className="text-xs text-ink-secondary truncate">{userName}</span>
-              </div>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
+            <SidebarFooter userName={userName} logoutAction={logoutAction} />
           </div>
         </div>
       )}
 
-      <div className="flex-1 min-w-0 overflow-x-hidden">
-        <div className="max-w-5xl mx-auto px-4 md:px-8 safe-main">{children}</div>
+      <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col">
+        {/* Desktop top bar */}
+        <div className="hidden md:flex items-center gap-4 px-8 py-4 border-b border-border-hairline bg-surface-0/80 backdrop-blur sticky top-0 z-20">
+          <GlobalSearch searchAction={searchAction} />
+          <div className="flex-1" />
+          <Link
+            href="/client/bookings/new"
+            className="rounded-lg py-2 px-4 text-sm font-medium text-white flex items-center gap-1.5 gradient-brand transition-transform hover:scale-[1.02]"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Add booking
+          </Link>
+          <NotificationBell
+            items={notifications}
+            unreadCount={unreadCount}
+            allHref="/client/notifications"
+            markAllAction={markAllReadAction}
+          />
+          <UserMenu userName={userName} roleLabel="Owner" logoutAction={logoutAction} />
+        </div>
+
+        <div className="max-w-5xl w-full mx-auto px-4 md:px-8 safe-main flex-1">{children}</div>
       </div>
     </div>
   );

@@ -345,14 +345,55 @@ reassign the alias, so nothing broke.
     The route was deleted before committing. Production smoke test after deploy:
     `/login` 200, `/admin/calendar` and `/client/calendar` 307.
 
+- **Dashboard build-out from the design inspo** (2026-08-25). Five features, both
+  portals, all backed by real tables — nothing invented. `npm run build` and
+  `npm run lint` clean.
+  - **Notification bell in both top bars** (`src/components/shared/NotificationBell.tsx`):
+    unread badge, last 8 items, Mark all read, "View all". Fed from the layouts,
+    so it is on every page of both portals.
+  - **Admin activity feed** at `/admin/notifications` — the recorded debt. Admins
+    already had `notifications: admin full access`; what was missing was their own
+    read state. Migration `add_notification_admin_read_state`, **applied to the
+    live DB** and committed: `notifications.admin_read_at`, a partial index, and a
+    `before update` trigger that reverts the column unless `is_admin()` — RLS
+    cannot scope a single column and the client UPDATE policy covers every column
+    of their own rows. All / Unread filter, per-row and bulk mark-read.
+    `notify.ts` now writes "Payout: Rs X" instead of "Your payout: Rs X", since
+    both audiences read the same row.
+  - **Client portal desktop top bar** — search + Add booking + bell + user menu,
+    matching admin. `GlobalSearch` took a `searchAction` prop instead of importing
+    the admin action; new `src/app/client/search/actions.ts` searches the owner's
+    own properties and bookings (RLS scopes it; the hrefs are what differ).
+    `UserMenu` moved out of `AdminShell` into `src/components/shared/`.
+  - **Day sheet** at `/admin/today` and `/client/today`, shared
+    `src/components/shared/TodayBoard.tsx`: arriving / departing / staying tonight
+    with guest, unit, channel, nights, amount and a `tel:` link, plus payments
+    pending (admin, same definition as the dashboard tile) and blocks covering
+    today. Both dashboards' Today tiles now link into it; the client dashboard
+    gained the whole Today's summary panel it never had.
+  - **Revenue period selector** on both dashboards (`?period=`, `src/lib/period.ts`):
+    this month / last month / last 3 months / this year, each compared with the
+    same span one period back. KPI cards stay on the current month, as in the
+    inspo. `Delta` no longer says "last month" when the window is not a month.
+  - Verified by rendering, not by signing in — still no credentials on this
+    machine. The bell, day sheet, period select and user menu were rendered with
+    sample data on a throwaway route: dropdown opens with the right counts, no
+    console errors, no sideways scroll at 375px. The bell panel was hanging 60px
+    off-screen left on a phone (right-anchored to a button that is not at the
+    right edge) — its width is now `min(22rem, 100vw-6rem)`. Route deleted.
+  - Not built: nav for Channels / Pricing / Expenses / Payouts / Reports (no
+    tables), property thumbnails and "4BR · Max 10 guests" (no columns), the
+    Maintenance bar type (needs an enum migration).
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
 2. Open the new calendar once signed in with real clients. Two things only real
    data can answer: whether the overview needs a client search box (fine at ~6
    rows, unknown at 40), and whether the heat shading reads at a glance.
-3. `/client/notifications` is the last page still on its original design.
-4. Admin-facing notifications still need a role-aware query (see debt below).
+3. `/client/notifications` is the last page still on its original design
+   (the bell and the admin activity feed are new; that page is not).
+4. Push to deploy — the dashboard build-out is on disk, not shipped.
 
 ## Open questions / debt
 - **Client password reset is undeliverable with fake emails.** `requestPasswordReset`
@@ -376,8 +417,6 @@ reassign the alias, so nothing broke.
   Current call: type · city subtext and initials avatars, real images later.
 - `.env.local` is not present locally — copy `.env.local.example` and fill in the
   Supabase keys before `npm run dev`. (`node_modules` is installed.)
-- Admin-facing notifications need a role-aware query; `notifications` RLS is scoped
-  to `owner_user_id` (clients only).
 
 ## Notes for next session
 - Data is thin because the app is pre-launch, not because something is broken.

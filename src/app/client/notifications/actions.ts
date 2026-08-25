@@ -23,8 +23,7 @@ export async function markAllRead() {
     .eq("client_id", clientRecord.id)
     .is("read_at", null);
 
-  revalidatePath("/client/notifications");
-  revalidatePath("/client");
+  revalidatePath("/client", "layout");
 }
 
 export async function markOneRead(formData: FormData) {
@@ -38,6 +37,5 @@ export async function markOneRead(formData: FormData) {
     .eq("id", id)
     .is("read_at", null);
 
-  revalidatePath("/client/notifications");
-  revalidatePath("/client");
+  revalidatePath("/client", "layout");
 }

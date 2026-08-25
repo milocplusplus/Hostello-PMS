@@ -8,15 +8,19 @@ import {
   Users,
   CalendarDays,
   Wallet,
+  Bell,
+  Sun,
   Menu,
   X,
   Plus,
-  ChevronDown,
-  LogOut,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { HostelloMark } from "@/components/shared/HostelloMark";
+import { NotificationBell } from "@/components/shared/NotificationBell";
+import { UserMenu } from "@/components/shared/UserMenu";
+import type { NotificationItem } from "@/lib/notifications";
+import type { SearchResult } from "@/lib/search";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact: boolean };
 type NavGroup = { label: string; items: NavItem[] };
@@ -24,7 +28,11 @@ type NavGroup = { label: string; items: NavItem[] };
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true }],
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+      { href: "/admin/today", label: "Today", icon: Sun, exact: false },
+      { href: "/admin/notifications", label: "Activity", icon: Bell, exact: false },
+    ],
   },
   {
     label: "Operations",
@@ -51,7 +59,15 @@ function Logo() {
   );
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  unreadCount,
+  onNavigate,
+}: {
+  pathname: string;
+  unreadCount: number;
+  onNavigate?: () => void;
+}) {
   return (
     <>
       {NAV_GROUPS.map((group) => (
@@ -62,6 +78,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
           {group.items.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             const Icon = item.icon;
+            const badge = item.href === "/admin/notifications" ? unreadCount : 0;
             return (
               <Link
                 key={item.href}
@@ -74,7 +91,15 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
                 }`}
               >
                 <Icon size={16} strokeWidth={2} className={active ? "text-hostello-gold" : ""} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badge > 0 && (
+                  <span
+                    className="text-[10px] font-medium text-surface-0 rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center"
+                    style={{ backgroundColor: "var(--color-hostello-gold)" }}
+                  >
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -84,50 +109,29 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
   );
 }
 
-function UserMenu({
+function SidebarFooter({
   userName,
   logoutAction,
 }: {
   userName: string;
   logoutAction: () => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-full hover:bg-surface-2 transition-colors"
-      >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand"
-        >
+    <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
           {userName.slice(0, 1).toUpperCase()}
         </div>
-        <div className="hidden sm:flex flex-col items-start leading-none">
-          <span className="text-sm text-ink-primary">{userName}</span>
-          <span className="text-[10px] text-ink-muted mt-0.5">Admin</span>
-        </div>
-        <ChevronDown size={14} className="text-ink-muted hidden sm:block" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-44 card p-1.5 z-50 animate-in">
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-              >
-                <LogOut size={14} />
-                Sign out
-              </button>
-            </form>
-          </div>
-        </>
-      )}
+        <span className="text-xs text-ink-secondary truncate">{userName}</span>
+      </div>
+      <form action={logoutAction}>
+        <button
+          type="submit"
+          className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
+        >
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }
@@ -135,10 +139,18 @@ function UserMenu({
 export function AdminShell({
   userName,
   logoutAction,
+  searchAction,
+  notifications,
+  unreadCount,
+  markAllReadAction,
   children,
 }: {
   userName: string;
   logoutAction: () => Promise<void>;
+  searchAction: (query: string) => Promise<SearchResult[]>;
+  notifications: NotificationItem[];
+  unreadCount: number;
+  markAllReadAction: () => Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -153,40 +165,31 @@ export function AdminShell({
         </div>
 
         <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto pb-4">
-          <NavLinks pathname={pathname} />
+          <NavLinks pathname={pathname} unreadCount={unreadCount} />
         </nav>
 
-        <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand"
-            >
-              {userName.slice(0, 1).toUpperCase()}
-            </div>
-            <span className="text-xs text-ink-secondary truncate">{userName}</span>
-          </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
+        <SidebarFooter userName={userName} logoutAction={logoutAction} />
       </aside>
 
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-1 border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo />
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          className="p-2 -mr-2 text-ink-secondary"
-        >
-          <Menu size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell
+            items={notifications}
+            unreadCount={unreadCount}
+            allHref="/admin/notifications"
+            markAllAction={markAllReadAction}
+          />
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            className="p-2 -mr-2 text-ink-secondary"
+          >
+            <Menu size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}
@@ -206,24 +209,13 @@ export function AdminShell({
               </button>
             </div>
             <nav className="flex-1 px-3 flex flex-col gap-0.5 overflow-y-auto">
-              <NavLinks pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+              <NavLinks
+                pathname={pathname}
+                unreadCount={unreadCount}
+                onNavigate={() => setMenuOpen(false)}
+              />
             </nav>
-            <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
-                  {userName.slice(0, 1).toUpperCase()}
-                </div>
-                <span className="text-xs text-ink-secondary truncate">{userName}</span>
-              </div>
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
-                >
-                  Sign out
-                </button>
-              </form>
-            </div>
+            <SidebarFooter userName={userName} logoutAction={logoutAction} />
           </div>
         </div>
       )}
@@ -231,7 +223,7 @@ export function AdminShell({
       <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col">
         {/* Desktop top bar */}
         <div className="hidden md:flex items-center gap-4 px-8 py-4 border-b border-border-hairline bg-surface-0/80 backdrop-blur sticky top-0 z-20">
-          <GlobalSearch />
+          <GlobalSearch searchAction={searchAction} />
           <div className="flex-1" />
           <Link
             href="/admin/bookings/new"
@@ -240,7 +232,13 @@ export function AdminShell({
             <Plus size={15} strokeWidth={2.5} />
             Add booking
           </Link>
-          <UserMenu userName={userName} logoutAction={logoutAction} />
+          <NotificationBell
+            items={notifications}
+            unreadCount={unreadCount}
+            allHref="/admin/notifications"
+            markAllAction={markAllReadAction}
+          />
+          <UserMenu userName={userName} roleLabel="Admin" logoutAction={logoutAction} />
         </div>
 
         <div className="max-w-6xl w-full mx-auto px-4 md:px-8 safe-main flex-1">

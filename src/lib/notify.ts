@@ -50,7 +50,7 @@ export async function notifyBookingCreated(
   const units = args.unitNames.filter(Boolean).join(", ") || "your property";
   const parts = [
     dateRange(args.checkIn, args.checkOut),
-    `Your payout: ${formatPKR(args.clientPayout)}`,
+    `Payout: ${formatPKR(args.clientPayout)}`,
   ];
   // The token is what confirms the booking, so the client sees it landed.
   if (args.advanceReceived && args.advanceReceived > 0) {

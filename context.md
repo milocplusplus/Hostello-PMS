@@ -56,7 +56,21 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   `CalendarRow` are exported from `CalendarBoard`.
 - `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (no photo columns
   exist) and the confirmed/tentative/cancelled chip
-- `src/components/shared/GlobalSearch.tsx` — top-bar search input
+- `src/components/shared/GlobalSearch.tsx` — top-bar search input. Takes a
+  `searchAction` prop; admin passes `admin/search/actions.ts`, the client portal
+  `client/search/actions.ts`. `SearchResult` lives in `src/lib/search.ts`.
+- `src/components/shared/{NotificationBell,UserMenu}.tsx` — top-bar bell (unread
+  badge + recent panel + Mark all read) and avatar/sign-out menu, both shells.
+- `src/app/admin/notifications/**` — the admin activity feed (every client's
+  notifications, admin unread state). `src/app/client/notifications/**` is the
+  owner's own. Both bells are fed from the layouts.
+- `src/app/{admin,client}/today/page.tsx` + `src/components/shared/TodayBoard.tsx`
+  — the day sheet: arrivals / departures / staying tonight, plus payments pending
+  (admin) and blocks today. The dashboards' "Today's summary" tiles link here.
+- `src/lib/period.ts` + `src/components/shared/PeriodSelect.tsx` — the revenue
+  window (`?period=`) on both dashboards: this month / last month / last 3 months
+  / this year, each compared with the same span one period back. KPI cards stay
+  on the current month.
 - `src/app/manifest.ts` + `public/sw.js` + `public/icons/` + `src/app/offline/page.tsx`
   + `src/components/shared/PwaSetup.tsx` — the installable-app (PWA) layer. The SW
   caches **only** hashed `/_next/static/` and `/icons/`; navigations are
@@ -104,7 +118,10 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design
 - `notifications` — client_id, kind enum(`booking_created|booking_cancelled|
   dates_blocked|dates_unblocked|payout_settled`), title, body, booking_id,
-  property_id, read_at. **Client-facing only** (RLS scoped to owner_user_id).
+  property_id, read_at, admin_read_at. Read by **both** roles: `read_at` is the
+  owner's mark (RLS scoped to owner_user_id), `admin_read_at` is Hostello's, and
+  a `before update` trigger stops a client from touching the admin one. Admins
+  read every row through `notifications: admin full access`.
 - `booking_receipts` — booking_id, kind enum(`guest_to_hostello|hostello_to_client`),
   storage_path, amount, uploaded_by, created_at. The screenshot proving the advance
   token moved. Bytes live in the **private** `booking-receipts` storage bucket at

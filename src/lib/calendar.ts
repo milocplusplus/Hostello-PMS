@@ -117,3 +117,14 @@ export function daysBetweenISO(a: string, b: string): number {
     (Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86_400_000
   );
 }
+
+/** "Tuesday, 25 August 2026" — the day-sheet heading. */
+export function formatFullDate(dateISO: string): string {
+  return new Date(dateISO + "T00:00:00Z").toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}

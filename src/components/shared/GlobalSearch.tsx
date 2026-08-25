@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Users, Building2, CalendarClock, Loader2 } from "lucide-react";
-import { searchAdmin, type SearchResult } from "@/app/admin/search/actions";
+import type { SearchResult } from "@/lib/search";
 
 const KIND_ICON = {
   client: Users,
@@ -11,7 +11,12 @@ const KIND_ICON = {
   booking: CalendarClock,
 } as const;
 
-export function GlobalSearch() {
+/** Shared by both shells; each passes its own scoped Server Action. */
+export function GlobalSearch({
+  searchAction,
+}: {
+  searchAction: (query: string) => Promise<SearchResult[]>;
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -54,12 +59,12 @@ export function GlobalSearch() {
     }
     const handle = setTimeout(() => {
       startTransition(async () => {
-        const r = await searchAdmin(query);
+        const r = await searchAction(query);
         setResults(r);
       });
     }, 200);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, searchAction]);
 
   function go(href: string) {
     setOpen(false);

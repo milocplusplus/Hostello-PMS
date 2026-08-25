@@ -29,6 +29,8 @@ import {
 } from "@/components/admin/BookingActivity";
 import { AddBookingMenu } from "@/components/admin/AddBookingMenu";
 import { RevenueChart } from "@/components/admin/RevenueChart";
+import { PeriodSelect } from "@/components/shared/PeriodSelect";
+import { parsePeriod, periodRange } from "@/lib/period";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { Kpi, Delta, OccupancyDonut } from "@/components/shared/Kpi";
@@ -78,7 +80,11 @@ function greeting(): string {
   return "Good evening";
 }
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const supabase = await createClient();
 
   const {
@@ -87,6 +93,8 @@ export default async function AdminDashboard() {
   if (!user) redirect("/login");
 
   const today = todayISO();
+  // The KPI row is always this month; the revenue card follows this window.
+  const period = periodRange(parsePeriod((await searchParams).period), today);
   const in7 = addDaysISO(today, 7);
   const in30 = addDaysISO(today, 30);
 
@@ -117,6 +125,8 @@ export default async function AdminDashboard() {
     { data: blocks },
     { data: confirmedBookings },
     { count: createdToday },
+    { data: periodBookings },
+    { data: prevPeriodBookings },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
     supabase.from("properties").select("id, created_at").eq("status", "active"),
@@ -150,6 +160,18 @@ export default async function AdminDashboard() {
       .from("bookings")
       .select("*", { count: "exact", head: true })
       .gte("created_at", `${today}T00:00:00Z`),
+    supabase
+      .from("bookings")
+      .select("check_in, sale_price")
+      .neq("status", "cancelled")
+      .lte("check_in", period.end)
+      .gte("check_out", period.start),
+    supabase
+      .from("bookings")
+      .select("sale_price")
+      .neq("status", "cancelled")
+      .lte("check_in", period.prevEnd)
+      .gte("check_out", period.prevStart),
   ]);
 
   // ── Revenue ────────────────────────────────────────────────────────────────
@@ -174,6 +196,20 @@ export default async function AdminDashboard() {
   const cumulate = (arr: number[]) => arr.map(((sum) => (v: number) => (sum += v))(0));
   const revenueSeries = cumulate(revenuePerDay);
   const bookingSeries = cumulate(bookingsPerDay);
+
+  // Same shape again over whichever window the period select is on.
+  const periodGross = (periodBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const prevPeriodGross = (prevPeriodBookings ?? []).reduce(
+    (s, b) => s + Number(b.sale_price ?? 0),
+    0
+  );
+  const periodIndex = new Map(period.days.map((d, i) => [d, i]));
+  const periodPerDay = new Array(period.days.length).fill(0);
+  for (const b of periodBookings ?? []) {
+    const i = periodIndex.get(b.check_in > period.start ? b.check_in : period.start) ?? 0;
+    periodPerDay[i] += Number(b.sale_price ?? 0);
+  }
+  const periodSeries = cumulate(periodPerDay);
 
   // ── Occupancy ──────────────────────────────────────────────────────────────
   // Booking check_out is exclusive; calendar_blocks.end_date is inclusive.
@@ -238,10 +274,34 @@ export default async function AdminDashboard() {
   ).length;
 
   const todayTiles = [
-    { label: "Check-ins", value: checkinsToday.length, icon: LogIn, tint: "var(--color-positive)" },
-    { label: "Check-outs", value: checkoutsToday.length, icon: LogOut, tint: "var(--color-hostello-purple-glow)" },
-    { label: "New bookings", value: createdToday ?? 0, icon: FilePlus2, tint: "var(--color-channel-booking)" },
-    { label: "Payments pending", value: pendingPayments, icon: Clock, tint: "var(--color-status-pending)" },
+    {
+      label: "Check-ins",
+      value: checkinsToday.length,
+      icon: LogIn,
+      tint: "var(--color-positive)",
+      href: "/admin/today",
+    },
+    {
+      label: "Check-outs",
+      value: checkoutsToday.length,
+      icon: LogOut,
+      tint: "var(--color-hostello-purple-glow)",
+      href: "/admin/today",
+    },
+    {
+      label: "New bookings",
+      value: createdToday ?? 0,
+      icon: FilePlus2,
+      tint: "var(--color-channel-booking)",
+      href: "/admin/bookings",
+    },
+    {
+      label: "Payments pending",
+      value: pendingPayments,
+      icon: Clock,
+      tint: "var(--color-status-pending)",
+      href: "/admin/today",
+    },
   ];
 
   const todayFeed = [
@@ -382,31 +442,43 @@ export default async function AdminDashboard() {
           <section className="card p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-medium">Revenue overview</h2>
-              <Link
-                href="/admin/bookings"
-                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
-              >
-                View bookings
-              </Link>
+              <PeriodSelect value={period.key} />
             </div>
             <div>
-              <p className="text-2xl font-semibold">{formatPKR(grossThisMonth)}</p>
-              <Delta current={grossThisMonth} previous={grossLastMonth} />
+              <p className="text-2xl font-semibold">{formatPKR(periodGross)}</p>
+              <Delta
+                current={periodGross}
+                previous={prevPeriodGross}
+                suffix={period.compareLabel}
+              />
+              <p className="text-[11px] text-ink-muted mt-1">{period.label}</p>
             </div>
-            {grossThisMonth === 0 ? (
+            {periodGross === 0 ? (
               <p className="py-12 text-center text-sm text-ink-secondary">
-                No revenue recorded in {formatMonthLabel(year, month0)} yet.
+                No revenue recorded in {period.label} yet.
               </p>
             ) : (
-              <RevenueChart dates={days} series={revenueSeries} />
+              <RevenueChart dates={period.days} series={periodSeries} />
             )}
           </section>
 
           <section className="card p-5 flex flex-col gap-4">
-            <h2 className="text-base font-medium">Today&apos;s summary</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-medium">Today&apos;s summary</h2>
+              <Link
+                href="/admin/today"
+                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+              >
+                Open day sheet
+              </Link>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {todayTiles.map((t) => (
-                <div key={t.label} className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5">
+                <Link
+                  key={t.label}
+                  href={t.href}
+                  className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5 border border-transparent hover:border-border-strong transition-colors"
+                >
                   <span
                     className="w-7 h-7 rounded-md flex items-center justify-center"
                     style={{ backgroundColor: `color-mix(in srgb, ${t.tint} 20%, transparent)` }}
@@ -415,7 +487,7 @@ export default async function AdminDashboard() {
                   </span>
                   <p className="text-lg font-semibold leading-none">{t.value}</p>
                   <p className="text-[11px] text-ink-muted leading-tight">{t.label}</p>
-                </div>
+                </Link>
               ))}
             </div>
 

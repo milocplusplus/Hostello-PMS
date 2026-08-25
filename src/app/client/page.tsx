@@ -17,6 +17,10 @@ import {
 } from "@/components/admin/BookingActivity";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { Kpi, Delta, OccupancyDonut } from "@/components/shared/Kpi";
+import { PeriodSelect } from "@/components/shared/PeriodSelect";
+import { Avatar } from "@/components/shared/Avatar";
+import { StatusChip } from "@/components/shared/StatusChip";
+import { parsePeriod, periodRange } from "@/lib/period";
 
 const QUICK_ACTIONS = [
   { href: "/client/bookings/new", label: "New booking", icon: Plus },
@@ -44,7 +48,12 @@ function unitNames(row: { booking_properties: unknown }): string {
     .join(", ");
 }
 
-export default async function ClientDashboard() {
+export default async function ClientDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const periodKey = parsePeriod((await searchParams).period);
   const supabase = await createClient();
 
   const {
@@ -63,6 +72,8 @@ export default async function ClientDashboard() {
   const today = todayISO();
   const in7 = addDaysISO(today, 7);
   const in30 = addDaysISO(today, 30);
+  // The KPI row stays on this month; the payout chart follows this window.
+  const period = periodRange(periodKey, today);
 
   const { year, month0 } = parseMonthParam(undefined);
   const days = getMonthGrid(year, month0)
@@ -87,6 +98,8 @@ export default async function ClientDashboard() {
     { data: prevBookings },
     { data: activityRows },
     { data: blocks },
+    { data: periodBookings },
+    { data: prevPeriodBookings },
   ] = await Promise.all([
     supabase
       .from("properties")
@@ -120,6 +133,20 @@ export default async function ClientDashboard() {
       .select("property_id, start_date, end_date, block_type")
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
+    supabase
+      .from("bookings")
+      .select("check_in, client_payout")
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .lte("check_in", period.end)
+      .gte("check_out", period.start),
+    supabase
+      .from("bookings")
+      .select("client_payout")
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .lte("check_in", period.prevEnd)
+      .gte("check_out", period.prevStart),
   ]);
 
   // ── Money ──────────────────────────────────────────────────────────────────
@@ -145,6 +172,23 @@ export default async function ClientDashboard() {
   const cumulate = (arr: number[]) => arr.map(((sum) => (v: number) => (sum += v))(0));
   const payoutSeries = cumulate(payoutPerDay);
   const grossSeries = cumulate(grossPerDay);
+
+  // Same shape again over whichever window the period select is on.
+  const periodPayout = (periodBookings ?? []).reduce(
+    (s, b) => s + Number(b.client_payout ?? 0),
+    0
+  );
+  const prevPeriodPayout = (prevPeriodBookings ?? []).reduce(
+    (s, b) => s + Number(b.client_payout ?? 0),
+    0
+  );
+  const periodIndex = new Map(period.days.map((d, i) => [d, i]));
+  const periodPerDay = new Array(period.days.length).fill(0);
+  for (const b of periodBookings ?? []) {
+    const i = periodIndex.get(b.check_in > period.start ? b.check_in : period.start) ?? 0;
+    periodPerDay[i] += Number(b.client_payout ?? 0);
+  }
+  const periodSeries = cumulate(periodPerDay);
 
   // ── Occupancy ──────────────────────────────────────────────────────────────
   // Booking check_out is exclusive; calendar_blocks.end_date is inclusive.
@@ -208,6 +252,25 @@ export default async function ClientDashboard() {
   const upcoming = activity.filter((b) => b.checkIn >= today);
   const checkins = activity.filter((b) => b.checkIn >= today && b.checkIn <= in7);
   const checkouts = activity.filter((b) => b.checkOut >= today && b.checkOut <= in7);
+
+  // ── Today ──────────────────────────────────────────────────────────────────
+  const checkinsToday = activity.filter((b) => b.checkIn === today);
+  const checkoutsToday = activity.filter((b) => b.checkOut === today);
+  const inHouseTonight = activity.filter((b) => b.checkIn <= today && b.checkOut > today).length;
+  const todayTiles = [
+    { label: "Check-ins", value: checkinsToday.length, tint: "var(--color-positive)" },
+    {
+      label: "Check-outs",
+      value: checkoutsToday.length,
+      tint: "var(--color-hostello-purple-glow)",
+    },
+    { label: "In house", value: inHouseTonight, tint: "var(--color-channel-booking)" },
+    { label: "Nights sold", value: nightsSold, tint: "var(--color-hostello-gold)" },
+  ];
+  const todayFeed = [
+    ...checkinsToday.map((b) => ({ kind: "Check-in", b })),
+    ...checkoutsToday.map((b) => ({ kind: "Check-out", b })),
+  ];
 
   return (
     <div className="flex flex-col gap-4 animate-in">
@@ -278,20 +341,29 @@ export default async function ClientDashboard() {
         <div className="card p-5 lg:col-span-2 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium">Payout, month to date</h2>
-              <p className="text-xs text-ink-muted mt-0.5">
-                Cumulative — {formatMonthLabel(year, month0)}
-              </p>
+              <h2 className="text-sm font-medium">Payout overview</h2>
+              <p className="text-xs text-ink-muted mt-0.5">Cumulative — {period.label}</p>
             </div>
+            <PeriodSelect value={period.key} />
+          </div>
+          <div>
+            <p className="text-xl font-semibold">{formatPKR(periodPayout)}</p>
+            <Delta
+              current={periodPayout}
+              previous={prevPeriodPayout}
+              suffix={period.compareLabel}
+            />
             {awaiting > 0 && (
-              <span className="text-xs text-status-pending">{formatPKR(awaiting)} awaiting</span>
+              <p className="text-xs text-status-pending mt-1">
+                {formatPKR(awaiting)} awaiting settlement this month
+              </p>
             )}
           </div>
-          {payoutThisMonth > 0 ? (
-            <RevenueChart dates={days} series={payoutSeries} />
+          {periodPayout > 0 ? (
+            <RevenueChart dates={period.days} series={periodSeries} />
           ) : (
             <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
-              No payouts recorded this month yet.
+              No payouts recorded in {period.label} yet.
             </p>
           )}
         </div>
@@ -338,6 +410,58 @@ export default async function ClientDashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="card p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-sm font-medium">Today&apos;s summary</h2>
+          <Link
+            href="/client/today"
+            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+          >
+            Open day sheet
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {todayTiles.map((t) => (
+            <Link
+              key={t.label}
+              href="/client/today"
+              className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5 border border-transparent hover:border-border-strong transition-colors"
+            >
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.tint }} />
+              <p className="text-lg font-semibold leading-none">{t.value}</p>
+              <p className="text-[11px] text-ink-muted leading-tight">{t.label}</p>
+            </Link>
+          ))}
+        </div>
+
+        {todayFeed.length === 0 ? (
+          <p className="rounded-lg bg-surface-2/60 py-6 text-center text-sm text-ink-secondary">
+            Nothing arriving or leaving today.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {todayFeed.map(({ kind, b }) => (
+              <li
+                key={`${kind}-${b.id}`}
+                className="flex items-center gap-3 rounded-lg bg-surface-2/60 px-3 py-2.5"
+              >
+                <Avatar name={b.guestName} size={30} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink-primary truncate">
+                    {kind}: {b.units || "—"}
+                  </p>
+                  <p className="text-xs text-ink-secondary truncate mt-0.5">
+                    Guest: {b.guestName ?? "—"}
+                  </p>
+                </div>
+                <StatusChip status={b.status} />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="card p-5 flex flex-col gap-3">

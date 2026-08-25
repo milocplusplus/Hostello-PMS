@@ -13,11 +13,15 @@ export function Delta({
   suffix?: string;
 }) {
   if (previous === 0) {
-    return (
-      <p className="text-[11px] text-ink-muted mt-1">
-        {current === 0 ? "No activity last month" : "First month with activity"}
-      </p>
-    );
+    // With a custom comparison window the month wording would be wrong.
+    const text = suffix
+      ? current === 0
+        ? "No activity to compare"
+        : "Nothing recorded in the previous period"
+      : current === 0
+        ? "No activity last month"
+        : "First month with activity";
+    return <p className="text-[11px] text-ink-muted mt-1">{text}</p>;
   }
   const pct = Math.round(((current - previous) / previous) * 1000) / 10;
   const up = pct >= 0;

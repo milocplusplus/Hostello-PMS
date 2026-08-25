@@ -1,14 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-
-export type SearchResult = {
-  kind: "client" | "property" | "booking";
-  id: string;
-  title: string;
-  subtitle: string;
-  href: string;
-};
+import type { SearchResult } from "@/lib/search";
 
 /**
  * Real server-side search across clients, properties, and bookings.
