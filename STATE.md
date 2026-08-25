@@ -287,6 +287,27 @@ went out two-thirds complete and failed to build
 (`dpl_3yoDuQWkADtrPfj6AnYdrAQ1e8xG`, ERROR). A failed production build does not
 reassign the alias, so nothing broke.
 
+- **Real logo on the app and the icons** (2026-08-25, deployed as
+  `dpl_BCzXuRfMx1n8HVWTmcMToDQGZaqU`, READY, production). `npm run build` and
+  `npm run lint` clean.
+  - `src/components/shared/HostelloMark.tsx` — the mark traced off the supplied
+    logo files: two front panels shearing down to the right, each with its side
+    face folded back and shearing up. viewBox `0 0 100 117`, so `size` is the
+    height and the artwork is narrower than it is tall. Front faces white, side
+    faces purple (the logo itself is mono silver — flip the two gradient stops
+    if that is ever wanted).
+  - It replaces the `Building2`-in-a-gradient-square placeholder in `AdminShell`
+    and `ClientShell`, and the plain purple square on the login,
+    forgot-password and reset-password pages. Sidebar "PMS" is purple now, not gold.
+  - Every icon in `public/icons` and `src/app/favicon.ico` regenerated from the
+    same geometry with GDI+ (there is no `sharp` here). The generator lives in
+    the session scratchpad, not the repo — the polygon table in `HostelloMark.tsx`
+    is the source of truth; redraw from it if the icons ever need regenerating.
+  - **Icon URLs carry `?v=2` and `sw.js` `CACHE_VERSION` is now `v2`.** `/icons/`
+    is cached cache-first by the service worker, so without both an already
+    installed app keeps serving the old artwork forever. Any future icon change
+    needs the same pair of bumps.
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
