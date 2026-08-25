@@ -5,6 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
 import {
+  attachReceipt,
+  receiptFile,
+  receiptKind,
+  validateReceipt,
+  RECEIPT_BUCKET,
+} from "@/lib/receipts";
+import {
   notifyBookingCreated,
   notifyBookingCancelled,
   notifyPayoutSettled,
@@ -36,6 +43,12 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   if (!check_in || !check_out || check_out <= check_in) {
     return { error: "Check-out must be after check-in." };
   }
+
+  // Check the attachment before anything is written — once the booking exists,
+  // rejecting the form would only invite a duplicate.
+  const receipt = receiptFile(formData);
+  const receiptProblem = receipt ? validateReceipt(receipt) : null;
+  if (receiptProblem) return { error: receiptProblem };
 
   const supabase = await createClient();
 
@@ -138,6 +151,18 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   }));
   await supabase.from("booking_properties").insert(linkRows);
 
+  // Best-effort, like the notification below: the booking is already real, and
+  // a receipt can always be attached again from the booking page.
+  if (receipt) {
+    await attachReceipt(supabase, {
+      bookingId: newBooking.id,
+      file: receipt,
+      kind: receiptKind(formData),
+      amount: advance_received,
+      uploadedBy: user?.id ?? null,
+    });
+  }
+
   await notifyBookingCreated(supabase, {
     clientId: client_id,
     bookingId: newBooking.id,
@@ -170,6 +195,60 @@ export async function createBooking(formData: FormData) {
 export async function createBookingInline(formData: FormData) {
   const result = await saveBooking(formData);
   return "error" in result ? { error: result.error } : { error: null };
+}
+
+export async function uploadBookingReceipt(formData: FormData) {
+  const bookingId = formData.get("booking_id") as string;
+  const file = receiptFile(formData);
+
+  if (!file) {
+    redirect(`/admin/bookings/${bookingId}?receipt_error=${encodeURIComponent("Choose a file first.")}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await attachReceipt(supabase, {
+    bookingId,
+    file,
+    kind: receiptKind(formData),
+    amount: Number(formData.get("receipt_amount")) || null,
+    uploadedBy: user?.id ?? null,
+  });
+
+  if (error) {
+    redirect(`/admin/bookings/${bookingId}?receipt_error=${encodeURIComponent(error)}`);
+  }
+
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/client/bookings/[id]", "page");
+  redirect(`/admin/bookings/${bookingId}`);
+}
+
+export async function deleteBookingReceipt(formData: FormData) {
+  const id = formData.get("id") as string;
+  const bookingId = formData.get("booking_id") as string;
+
+  const supabase = await createClient();
+
+  const { data: receipt } = await supabase
+    .from("booking_receipts")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("booking_receipts").delete().eq("id", id);
+  if (error) return;
+
+  if (receipt?.storage_path) {
+    await supabase.storage.from(RECEIPT_BUCKET).remove([receipt.storage_path]);
+  }
+
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/client/bookings/[id]", "page");
+  redirect(`/admin/bookings/${bookingId}`);
 }
 
 export async function markBookingSettled(formData: FormData) {

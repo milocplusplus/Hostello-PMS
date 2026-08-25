@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
+import { attachReceipt, receiptFile, receiptKind, validateReceipt } from "@/lib/receipts";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -30,6 +31,11 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   if (!check_in || !check_out || check_out <= check_in) {
     return { error: "Check-out must be after check-in." };
   }
+
+  // Checked before the write, so a bad attachment can't strand a saved booking.
+  const receipt = receiptFile(formData);
+  const receiptProblem = receipt ? validateReceipt(receipt) : null;
+  if (receiptProblem) return { error: receiptProblem };
 
   const supabase = await createClient();
   const {
@@ -129,6 +135,18 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
     property_id,
   }));
   await supabase.from("booking_properties").insert(linkRows);
+
+  // Best-effort — the booking is already real, and the receipt can be attached
+  // again later.
+  if (receipt) {
+    await attachReceipt(supabase, {
+      bookingId: newBooking.id,
+      file: receipt,
+      kind: receiptKind(formData),
+      amount: advance_received,
+      uploadedBy: user?.id ?? null,
+    });
+  }
 
   revalidatePath("/client/bookings");
   revalidatePath("/client/bookings/[id]", "page");

@@ -190,6 +190,44 @@
     builder. Also skipped: push notifications, and a bottom tab bar for phones
     (the drawer nav in both shells is what mobile still uses).
 
+- **Token receipts** (2026-08-25). A booking can now carry the screenshot that
+  proves the advance token moved — either direction: received from the guest by
+  Hostello, or paid on to the client. `npm run build` and `npm run lint` clean.
+  **Not yet deployed.**
+  - Migrations `add_booking_token_receipts` +
+    `fix_booking_receipt_storage_policy_name_capture`, **applied to the live DB**
+    (the repo holds one corrected file, `20260825230000_add_booking_token_receipts.sql`,
+    so a fresh DB gets the fixed version in one step). New
+    `booking_receipt_kind` enum and `booking_receipts` table, plus a **private**
+    `booking-receipts` storage bucket capped at 8 MB and limited to
+    png/jpeg/webp/heic/pdf.
+  - `src/lib/receipts.ts` is the only code that touches the bucket:
+    `validateReceipt` (size + type, run *before* the booking is written so a bad
+    file can't strand a saved booking), `attachReceipt` (upload then insert;
+    removes the file if the row fails), `listReceipts` (rows + 1-hour signed URLs).
+  - `src/components/shared/BookingReceipts.tsx` — thumbnail grid + upload form,
+    shared by both portals. The client portal passes no `uploadAction`/`deleteAction`,
+    so it renders read-only, and only when there is something to show.
+  - `BookingForm` gained an optional file input + "receipt is for" select under
+    **More details**, next to Advance received — so the screenshot can go on at
+    creation time, which is when the token actually arrives. Both `saveBooking`
+    and `saveClientBooking` attach it after the insert, best-effort like `notify.ts`.
+  - `uploadBookingReceipt` / `deleteBookingReceipt` in
+    `admin/bookings/actions.ts` handle after-the-fact attachments from
+    `/admin/bookings/[id]`; errors come back through `?receipt_error=`.
+  - `next.config.ts` sets `experimental.serverActions.bodySizeLimit: "10mb"` —
+    the 1 MB default rejects an ordinary phone screenshot.
+  - RLS verified by probing as each role: a client can attach to their own
+    booking and read only their own objects; a spoofed `uploaded_by`, a foreign
+    booking id and a foreign storage folder are all denied; admins see and write
+    everything. **A real bug surfaced and was fixed here** — the first version of
+    the storage policies used a bare `name`, which bound to `clients.name` instead
+    of the object path and denied every client upload. See the gotcha in
+    `context.md`.
+  - **Not verified in a browser**: the upload round-trip (Server Action → Storage
+    API → signed-URL render) needs a signed-in session, and there are no
+    credentials on this machine. Worth doing on first login.
+
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
@@ -228,6 +266,7 @@ reassign the alias, so nothing broke.
 
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
+   Same login: attach a real screenshot to a booking and confirm it renders back.
 2. `/client/notifications` is the last page still on its original design.
 3. Admin-facing notifications still need a role-aware query (see debt below).
 

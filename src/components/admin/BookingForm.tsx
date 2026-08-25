@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { calculatePayout, isOtaSource, type DealModel, type OtaModel } from "@/lib/payout";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
+import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
 import {
   fieldLabel,
   fieldInput,
@@ -257,6 +258,33 @@ export function BookingForm({
                 defaultValue={0}
                 className={fieldInput}
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="receipt" className={fieldLabel}>
+                Token receipt (screenshot, optional)
+              </label>
+              <input
+                id="receipt"
+                name="receipt"
+                type="file"
+                accept={RECEIPT_ACCEPT}
+                className={`${fieldInput} file:mr-3 file:rounded file:border-0 file:bg-surface-3 file:px-2 file:py-1 file:text-xs file:text-ink-secondary`}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="receipt_kind" className={fieldLabel}>
+                Receipt is for
+              </label>
+              <select id="receipt_kind" name="receipt_kind" className={fieldInput}>
+                {RECEIPT_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>
+                    {k.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

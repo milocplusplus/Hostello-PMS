@@ -60,6 +60,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/lib/calendar.ts` — `getMonthGrid`, `formatMonthLabel`, `parseMonthParam`,
   `formatMonthParam`, `addMonths`, `todayISO`, `addDaysISO`, `formatDayMonth`
 - `src/lib/notify.ts` — `notifyBookingCreated/Cancelled/DatesBlocked/PayoutSettled`
+- `src/lib/receipts.ts` — token-receipt upload/list helpers (`attachReceipt`,
+  `listReceipts`, `validateReceipt`, `RECEIPT_KINDS`). The only code that touches
+  the `booking-receipts` storage bucket. `src/components/shared/BookingReceipts.tsx`
+  renders the card on both booking detail pages (upload controls only when an
+  action is passed in).
 - `src/lib/{block-sources,property-types,pakistan-locations,form-styles}.ts` — enum
   label maps + shared input class tokens. Use these instead of hardcoding options.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
@@ -92,6 +97,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `notifications` — client_id, kind enum(`booking_created|booking_cancelled|
   dates_blocked|dates_unblocked|payout_settled`), title, body, booking_id,
   property_id, read_at. **Client-facing only** (RLS scoped to owner_user_id).
+- `booking_receipts` — booking_id, kind enum(`guest_to_hostello|hostello_to_client`),
+  storage_path, amount, uploaded_by, created_at. The screenshot proving the advance
+  token moved. Bytes live in the **private** `booking-receipts` storage bucket at
+  `<booking_id>/<uuid>.<ext>` — that first path segment is what the storage RLS
+  policies key on. Admins upload/delete; clients read their own and can attach one
+  when creating a booking.
 
 ## Key flows
 1. **Booking create** — `components/admin/BookingForm.tsx` → `app/{admin,client}/bookings/actions.ts`
@@ -116,6 +127,8 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - Extend `notify.ts` with new kinds rather than replacing it.
 - Reuse `BookingForm.tsx` for any "add booking" entry point — do not duplicate it.
 - Never introduce a second revenue system. `payout.ts` is authoritative.
+- Receipt files are never served publicly. Sign a short-lived URL on the server
+  (`listReceipts`) and render that; do not make the bucket public.
 - Never let the service worker cache HTML, RSC payloads or Supabase responses —
   it would serve one signed-in account's pages to another. Static assets only.
 - Phone padding goes through `.safe-topbar` / `.safe-panel` / `.safe-main` in
@@ -129,6 +142,10 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `calendar_blocks.end_date` is **inclusive**; booking `check_out` is **exclusive**.
   Easiest off-by-one bug in this codebase.
 - No "maintenance" block type (`blocked|booked` only) — adding one needs a migration.
+- In a `storage.objects` policy, write `objects.name`, never bare `name`. `clients`
+  has a `name` column, so an unqualified `name` inside a subquery that joins
+  `clients` silently binds to *that* column and the policy denies everything.
+  This bit the receipt policies once already.
 - Channels / Pricing / Expenses / Payouts / Reports have **zero backing tables** —
   out of scope, no nav for them.
 - Vercel is git-connected to `milocplusplus/Hostello-PMS`, production branch

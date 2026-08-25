@@ -10,6 +10,8 @@ import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { BookingReceipts } from "@/components/shared/BookingReceipts";
+import { listReceipts } from "@/lib/receipts";
 import { cancelClientBooking } from "../actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
@@ -52,7 +54,9 @@ export default async function ClientBookingDetailPage({
 
   if (!booking) notFound();
 
-  const units = ((booking.booking_properties as unknown as {
+  const receipts = await listReceipts(supabase, booking.id);
+
+  const units =((booking.booking_properties as unknown as {
     properties: { id: string; name: string; city: string | null; type: string | null } | null;
   }[]) ?? [])
     .map((bp) => bp.properties)
@@ -145,6 +149,8 @@ export default async function ClientBookingDetailPage({
           />
         </div>
       </div>
+
+      {receipts.length > 0 && <BookingReceipts bookingId={booking.id} receipts={receipts} />}
 
       {booking.notes && (
         <div className="card p-5">

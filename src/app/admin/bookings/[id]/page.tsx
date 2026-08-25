@@ -10,7 +10,14 @@ import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { markBookingSettled, cancelBooking } from "../actions";
+import { BookingReceipts } from "@/components/shared/BookingReceipts";
+import { listReceipts } from "@/lib/receipts";
+import {
+  markBookingSettled,
+  cancelBooking,
+  uploadBookingReceipt,
+  deleteBookingReceipt,
+} from "../actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
@@ -23,10 +30,13 @@ function Line({ label, value, gold }: { label: string; value: string; gold?: boo
 
 export default async function BookingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ receipt_error?: string }>;
 }) {
   const { id } = await params;
+  const { receipt_error } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -43,6 +53,8 @@ export default async function BookingDetailPage({
     .maybeSingle();
 
   if (!booking) notFound();
+
+  const receipts = await listReceipts(supabase, booking.id);
 
   const client = booking.clients as unknown as { name: string } | null;
   const units = ((booking.booking_properties as unknown as {
@@ -159,6 +171,14 @@ export default async function BookingDetailPage({
           />
         </div>
       </div>
+
+      <BookingReceipts
+        bookingId={booking.id}
+        receipts={receipts}
+        uploadAction={uploadBookingReceipt}
+        deleteAction={deleteBookingReceipt}
+        error={receipt_error}
+      />
 
       {booking.notes && (
         <div className="card p-5">
