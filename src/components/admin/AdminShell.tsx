@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   Users,
-  Building2,
   CalendarDays,
   Wallet,
   Menu,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
+import { HostelloMark } from "@/components/shared/HostelloMark";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact: boolean };
 type NavGroup = { label: string; items: NavItem[] };
@@ -42,14 +42,10 @@ const NAV_GROUPS: NavGroup[] = [
 function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 gradient-brand"
-      >
-        <Building2 size={16} className="text-white" strokeWidth={2} />
-      </div>
+      <HostelloMark size={30} className="shrink-0" />
       <div className="flex flex-col leading-none">
         <span className="text-sm font-semibold tracking-wide">HOSTELLO</span>
-        <span className="text-[10px] text-hostello-gold tracking-widest mt-0.5">PMS</span>
+        <span className="text-[10px] text-hostello-purple-glow tracking-widest mt-0.5">PMS</span>
       </div>
     </div>
   );

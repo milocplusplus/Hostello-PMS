@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, CalendarDays, Wallet, Building2, Bell, Menu, X } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Wallet, Bell, Menu, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { HostelloMark } from "@/components/shared/HostelloMark";
 
 const NAV = [
   { href: "/client", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -16,11 +17,7 @@ const NAV = [
 function Logo({ clientName }: { clientName: string }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 gradient-brand"
-      >
-        <Building2 size={16} className="text-white" strokeWidth={2} />
-      </div>
+      <HostelloMark size={30} className="shrink-0" />
       <div className="flex flex-col leading-none min-w-0">
         <span className="text-sm font-semibold tracking-wide">HOSTELLO</span>
         <span className="text-[10px] text-ink-muted tracking-wide mt-0.5 truncate">

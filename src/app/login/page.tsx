@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { login } from "./actions";
+import { HostelloMark } from "@/components/shared/HostelloMark";
 
 export default async function LoginPage({
   searchParams,
@@ -14,14 +15,7 @@ export default async function LoginPage({
         {/* Wordmark */}
         <div className="flex flex-col items-center gap-1 mb-10">
           <div className="flex items-center gap-2">
-            <div
-              aria-hidden
-              className="w-6 h-6 rounded-sm"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--color-hostello-purple-mid), var(--color-hostello-purple))",
-              }}
-            />
+            <HostelloMark size={26} />
             <span className="text-ink-primary text-lg font-medium tracking-wide">
               HOSTELLO
             </span>

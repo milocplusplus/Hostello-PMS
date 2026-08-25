@@ -11,7 +11,7 @@
  * Bump CACHE_VERSION to evict old caches on the next deploy.
  */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `hostello-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 
@@ -20,7 +20,7 @@ self.addEventListener("install", (event) => {
     caches
       .open(STATIC_CACHE)
       .then((cache) =>
-        cache.addAll([OFFLINE_URL, "/icons/icon-192.png", "/icons/icon-512.png"])
+        cache.addAll([OFFLINE_URL, "/icons/icon-192.png?v=2", "/icons/icon-512.png?v=2"])
       )
       .then(() => self.skipWaiting())
   );
