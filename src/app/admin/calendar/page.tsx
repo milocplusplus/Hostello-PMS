@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { sourceColor, sourceLabel } from "@/lib/block-sources";
+import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createBookingInline } from "@/app/admin/bookings/actions";
 import {
   CalendarBoard,
-  type CalendarGroup,
   type CalendarRow,
   type CalendarSegment,
 } from "@/components/admin/CalendarBoard";
+import { CalendarOverview, type OverviewClient } from "@/components/admin/CalendarOverview";
+import { CalendarAgenda } from "@/components/shared/CalendarAgenda";
 import { CalendarFilters } from "@/components/admin/CalendarFilters";
 import {
   getMonthGrid,
@@ -31,6 +32,7 @@ type Params = {
   month?: string;
   view?: string;
   start?: string;
+  client?: string;
   property?: string;
   channel?: string;
   status?: string;
@@ -95,9 +97,18 @@ export default async function CalendarPage({
     }))
     .sort((a, b) => a.clientName.localeCompare(b.clientName) || a.name.localeCompare(b.name));
 
+  // ---- Scope --------------------------------------------------------------
+  // One client at a time. No scope = the portfolio overview, which is the level
+  // you navigate from; a bare ?property= (older links) lands on its owner.
+  const propertyOwner = options.find((p) => p.id === sp.property)?.clientId;
+  const scopeId = options.some((p) => p.clientId === sp.client) ? sp.client : propertyOwner;
+  const scope = scopeId
+    ? { id: scopeId, name: options.find((p) => p.clientId === scopeId)!.clientName }
+    : null;
+
   // ---- Window -------------------------------------------------------------
   const today = todayISO();
-  const view = sp.view === "week" ? "week" : "month";
+  const view = scope && (sp.view === "week" || sp.view === "agenda") ? sp.view : "month";
   const { year, month0 } = parseMonthParam(sp.month);
   const monthStr = formatMonthParam(year, month0);
 
@@ -129,14 +140,19 @@ export default async function CalendarPage({
   const windowEnd = days[days.length - 1];
   const dayIdx = new Map(days.map((d, i) => [d, i]));
 
-  // ---- Filters ------------------------------------------------------------
-  const propertyFilter = options.some((p) => p.id === sp.property) ? sp.property : undefined;
-  const channelFilter = sp.channel || undefined;
-  const statusFilter = sp.status === "confirmed" || sp.status === "tentative" ? sp.status : undefined;
+  // ---- Filters (inside a scope only) --------------------------------------
+  const propertyFilter =
+    scope && options.some((p) => p.id === sp.property && p.clientId === scope.id)
+      ? sp.property
+      : undefined;
+  const channelFilter = scope ? sp.channel || undefined : undefined;
+  const statusFilter =
+    scope && (sp.status === "confirmed" || sp.status === "tentative") ? sp.status : undefined;
   const filtersActive = Boolean(propertyFilter || channelFilter || statusFilter);
 
-  // Every property in one board — no paging. Client groups collapse instead.
-  const visible = propertyFilter ? options.filter((p) => p.id === propertyFilter) : options;
+  const visible = scope
+    ? options.filter((p) => p.clientId === scope.id && (!propertyFilter || p.id === propertyFilter))
+    : options;
   const propertyIds = visible.map((p) => p.id);
 
   // ---- Data ---------------------------------------------------------------
@@ -173,7 +189,7 @@ export default async function CalendarPage({
 
   // A channel or status filter is about bookings; manual blocks have neither,
   // so they drop out of the view rather than pretending to match.
-  const { data: blocks } = filtersActive && (channelFilter || statusFilter)
+  const { data: blocks } = channelFilter || statusFilter
     ? { data: [] as { id: string; property_id: string; start_date: string; end_date: string; block_type: string; notes: string | null }[] }
     : await supabase
         .from("calendar_blocks")
@@ -219,13 +235,16 @@ export default async function CalendarPage({
 
     for (const b of bookingsByProperty.get(p.id) ?? []) {
       // check_out is exclusive — the last occupied night is the day before.
-      const pos = place(b.check_in, addDaysISO(b.check_out, -1));
+      const lastNight = addDaysISO(b.check_out, -1);
+      const pos = place(b.check_in, lastNight);
       if (!pos) continue;
       segments.push({
         key: `b-${b.id}`,
         kind: "booking",
         ...pos,
         lane: 0,
+        startDate: b.check_in,
+        endDate: lastNight,
         color: sourceColor(b.source),
         source: b.source,
         title: b.guest_name ?? "Guest",
@@ -246,6 +265,8 @@ export default async function CalendarPage({
         kind: "block",
         ...pos,
         lane: 0,
+        startDate: bl.start_date,
+        endDate: bl.end_date,
         color: booked ? "var(--color-status-booked)" : "var(--color-status-blocked)",
         source: null,
         title: bl.notes ?? (booked ? "Booked" : "Blocked"),
@@ -274,27 +295,17 @@ export default async function CalendarPage({
       for (let i = seg.startIdx; i < seg.startIdx + seg.span; i++) covered[i] = true;
     }
 
-    const subtext = [propertyTypeLabel(p.type), p.city].filter(Boolean).join(" · ");
-
     return {
       id: p.id,
       name: p.name,
-      subtext,
+      subtext: [propertyTypeLabel(p.type), p.city].filter(Boolean).join(" · "),
       lanes: Math.max(1, laneEnds.length),
       covered,
       segments,
     };
   }
 
-  const groups: CalendarGroup[] = [];
-  for (const p of visible) {
-    let group = groups.find((g) => g.clientId === p.clientId);
-    if (!group) {
-      group = { clientId: p.clientId, clientName: p.clientName, rows: [] };
-      groups.push(group);
-    }
-    group.rows.push(buildRow(p));
-  }
+  const rows = visible.map(buildRow);
 
   const bookingProperties = options.map((p) => ({
     id: p.id,
@@ -313,6 +324,145 @@ export default async function CalendarPage({
     ota_share_percent: Number(c.ota_share_percent),
   }));
 
+  const header = (
+    <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <p className="text-ink-muted text-xs tracking-wide">AVAILABILITY</p>
+        <h1 className="text-2xl font-semibold mt-1">{scope ? scope.name : "Calendar"}</h1>
+      </div>
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/admin/calendar/block?month=${monthStr}`}
+          className="rounded-md py-2 px-3 text-xs font-medium text-ink-secondary border border-border-hairline flex items-center gap-1.5 hover:border-border-strong transition-colors"
+        >
+          <Lock size={13} />
+          Block dates
+        </Link>
+        <Link
+          href="/admin/bookings/new"
+          className="rounded-md py-2 px-3 text-xs font-medium text-surface-0 flex items-center gap-1.5"
+          style={{ backgroundColor: "var(--color-hostello-gold)" }}
+        >
+          <Plus size={13} strokeWidth={2.5} />
+          Add booking
+        </Link>
+      </div>
+    </div>
+  );
+
+  const monthNav = (
+    <div className="flex items-center gap-1">
+      <Link
+        href={prevHref}
+        aria-label="Previous"
+        className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+      >
+        <ChevronLeft size={16} />
+      </Link>
+      <p className="text-sm font-medium min-w-[150px] text-center">{rangeLabel}</p>
+      <Link
+        href={nextHref}
+        aria-label="Next"
+        className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+      >
+        <ChevronRight size={16} />
+      </Link>
+      {(sp.month || sp.start) && (
+        <Link
+          href={href({ month: undefined, start: undefined })}
+          className="ml-1 text-xs text-ink-muted hover:text-ink-secondary transition-colors"
+        >
+          Today
+        </Link>
+      )}
+    </div>
+  );
+
+  // ---- Portfolio overview -------------------------------------------------
+  if (!scope) {
+    const byClient = new Map<string, OverviewClient>();
+    visible.forEach((p, i) => {
+      const row = rows[i];
+      let entry = byClient.get(p.clientId);
+      if (!entry) {
+        entry = {
+          id: p.clientId,
+          name: p.clientName,
+          properties: 0,
+          occupied: new Array(days.length).fill(0),
+          arrivals: 0,
+          href: href({ client: p.clientId, property: undefined }),
+        };
+        byClient.set(p.clientId, entry);
+      }
+      entry.properties += 1;
+      for (let d = 0; d < days.length; d++) if (row.covered[d]) entry.occupied[d] += 1;
+      entry.arrivals += row.segments.filter((s) => s.kind === "booking" && !s.clippedStart).length;
+    });
+
+    const clients = [...byClient.values()];
+    const capacity = visible.length * days.length;
+    const nights = clients.reduce((sum, c) => sum + c.occupied.reduce((a, b) => a + b, 0), 0);
+    const pct = capacity > 0 ? Math.round((nights / capacity) * 100) : 0;
+    const arrivals = clients.reduce((sum, c) => sum + c.arrivals, 0);
+
+    return (
+      <div className="flex flex-col gap-5">
+        {header}
+
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {monthNav}
+          <p className="text-xs text-ink-muted">
+            {visible.length} {visible.length === 1 ? "property" : "properties"} ·{" "}
+            {clients.length} {clients.length === 1 ? "client" : "clients"} · {pct}% booked ·{" "}
+            {arrivals} {arrivals === 1 ? "arrival" : "arrivals"}
+          </p>
+        </div>
+
+        <CalendarOverview days={days} today={today} clients={clients} />
+
+        <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
+          <span>Pick a client to open their property calendar.</span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm"
+              style={{ backgroundColor: "var(--color-surface-2)" }}
+            />
+            All free
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm"
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--color-hostello-purple-glow) 45%, var(--color-surface-2))",
+              }}
+            />
+            Some units taken
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm"
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--color-hostello-purple-glow) 85%, var(--color-surface-2))",
+              }}
+            />
+            Fully booked
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- One client ---------------------------------------------------------
+  const scopeClients = [...new Map(options.map((p) => [p.clientId, p.clientName])).entries()].map(
+    ([id, name]) => ({ id, name })
+  );
+  const scopeProperties = options
+    .filter((p) => p.clientId === scope.id)
+    .map((p) => ({ id: p.id, name: p.name }));
+
   const legend: { label: string; color: string }[] = [
     { label: "Airbnb", color: sourceColor("airbnb") },
     { label: "Booking.com", color: sourceColor("booking_com") },
@@ -323,52 +473,21 @@ export default async function CalendarPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-ink-muted text-xs tracking-wide">AVAILABILITY</p>
-          <h1 className="text-2xl font-semibold mt-1">Calendar</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/calendar/block?month=${monthStr}`}
-            className="rounded-md py-2 px-3 text-xs font-medium text-ink-secondary border border-border-hairline flex items-center gap-1.5 hover:border-border-strong transition-colors"
-          >
-            <Lock size={13} />
-            Block dates
-          </Link>
-          <Link
-            href="/admin/bookings/new"
-            className="rounded-md py-2 px-3 text-xs font-medium text-surface-0 flex items-center gap-1.5"
-            style={{ backgroundColor: "var(--color-hostello-gold)" }}
-          >
-            <Plus size={13} strokeWidth={2.5} />
-            Add booking
-          </Link>
-        </div>
-      </div>
+      <Link
+        href={href({ client: undefined, property: undefined, view: undefined, start: undefined })}
+        className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink-secondary transition-colors w-fit"
+      >
+        <ArrowLeft size={13} />
+        All clients
+      </Link>
+
+      {header}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <Link
-              href={prevHref}
-              aria-label="Previous"
-              className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </Link>
-            <p className="text-sm font-medium min-w-[150px] text-center">{rangeLabel}</p>
-            <Link
-              href={nextHref}
-              aria-label="Next"
-              className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-            >
-              <ChevronRight size={16} />
-            </Link>
-          </div>
-
+        <div className="flex items-center gap-3 flex-wrap">
+          {monthNav}
           <div className="flex items-center rounded-md border border-border-hairline p-0.5">
-            {(["month", "week"] as const).map((v) => (
+            {(["month", "week", "agenda"] as const).map((v) => (
               <Link
                 key={v}
                 href={href({ view: v === "month" ? undefined : v, start: undefined })}
@@ -386,7 +505,9 @@ export default async function CalendarPage({
 
         <div className="flex items-center gap-2">
           <CalendarFilters
-            properties={options.map((p) => ({ id: p.id, name: p.name, clientName: p.clientName }))}
+            clients={scopeClients}
+            client={scope.id}
+            properties={scopeProperties}
             property={propertyFilter ?? ""}
             channel={channelFilter ?? ""}
             status={statusFilter ?? ""}
@@ -402,39 +523,44 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
-        {legend.map((l) => (
-          <span key={l.label} className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-sm"
-              style={{ backgroundColor: l.color }}
-            />
-            {l.label}
+      {view !== "agenda" && (
+        <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
+          {legend.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: l.color }}
+              />
+              {l.label}
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm border border-border-strong" />
+            Available — click to book
           </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm border border-border-strong" />
-          Available — click to book
-        </span>
-      </div>
+        </div>
+      )}
 
-      <CalendarBoard
-        days={days}
-        today={today}
-        groups={groups}
-        cellMin={view === "week" ? 130 : 34}
-        bookingProperties={bookingProperties}
-        bookingClients={bookingClients}
-        createAction={createBookingInline}
-      />
+      {rows.length === 0 ? (
+        <div className="card p-10 text-center text-sm text-ink-secondary">
+          No properties match these filters.
+        </div>
+      ) : view === "agenda" ? (
+        <CalendarAgenda days={days} today={today} rows={rows} />
+      ) : (
+        <CalendarBoard
+          days={days}
+          today={today}
+          rows={rows}
+          cellMin={view === "week" ? 130 : 34}
+          bookingProperties={bookingProperties}
+          bookingClients={bookingClients}
+          createAction={createBookingInline}
+        />
+      )}
 
       <p className="text-xs text-ink-muted">
-        {visible.length === 0
-          ? "No properties match these filters."
-          : `${visible.length} ${visible.length === 1 ? "property" : "properties"} across ${
-              groups.length
-            } ${groups.length === 1 ? "client" : "clients"}`}
-        {channelFilter && ` · ${sourceLabel(channelFilter) ?? channelFilter}`}
+        {rows.length} {rows.length === 1 ? "property" : "properties"} · {scope.name}
       </p>
     </div>
   );

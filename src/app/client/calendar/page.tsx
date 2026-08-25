@@ -8,10 +8,10 @@ import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createClientBookingInline } from "@/app/client/bookings/actions";
 import {
   CalendarBoard,
-  type CalendarGroup,
   type CalendarRow,
   type CalendarSegment,
 } from "@/components/admin/CalendarBoard";
+import { CalendarAgenda } from "@/components/shared/CalendarAgenda";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -20,15 +20,20 @@ import {
   addMonths,
   todayISO,
   addDaysISO,
+  daysFrom,
+  startOfWeekISO,
   formatDayMonth,
+  formatRangeLabel,
 } from "@/lib/calendar";
+
+type Params = { month?: string; view?: string; start?: string };
 
 export default async function ClientCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<Params>;
 }) {
-  const { month: monthParam } = await searchParams;
+  const sp = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -50,7 +55,7 @@ export default async function ClientCalendarPage({
     .eq("status", "active")
     .order("name");
 
-  const { year, month0 } = parseMonthParam(monthParam);
+  const { year, month0 } = parseMonthParam(sp.month);
   const monthStr = formatMonthParam(year, month0);
 
   if (!properties || properties.length === 0) {
@@ -67,13 +72,45 @@ export default async function ClientCalendarPage({
     );
   }
 
-  const days = getMonthGrid(year, month0)
-    .filter((c) => c.date !== null)
-    .map((c) => c.date as string);
+  function href(overrides: Partial<Record<keyof Params, string | undefined>>) {
+    const merged = { ...sp, ...overrides };
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(merged)) if (v) params.set(k, v);
+    const qs = params.toString();
+    return qs ? `/client/calendar?${qs}` : "/client/calendar";
+  }
+
+  // ---- Window -------------------------------------------------------------
+  const today = todayISO();
+  const view = sp.view === "week" || sp.view === "agenda" ? sp.view : "month";
+
+  let days: string[];
+  let rangeLabel: string;
+  let prevHref: string;
+  let nextHref: string;
+
+  if (view === "week") {
+    const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(sp.start ?? "")
+      ? (sp.start as string)
+      : startOfWeekISO(today);
+    days = daysFrom(weekStart, 7);
+    rangeLabel = formatRangeLabel(days[0], days[6]);
+    prevHref = href({ start: addDaysISO(weekStart, -7) });
+    nextHref = href({ start: addDaysISO(weekStart, 7) });
+  } else {
+    days = getMonthGrid(year, month0)
+      .filter((c) => c.date !== null)
+      .map((c) => c.date as string);
+    rangeLabel = formatMonthLabel(year, month0);
+    const prev = addMonths(year, month0, -1);
+    const next = addMonths(year, month0, 1);
+    prevHref = href({ month: formatMonthParam(prev.year, prev.month0) });
+    nextHref = href({ month: formatMonthParam(next.year, next.month0) });
+  }
+
   const windowStart = days[0];
   const windowEnd = days[days.length - 1];
   const dayIdx = new Map(days.map((d, i) => [d, i]));
-  const today = todayISO();
 
   const propertyIds = properties.map((p) => p.id);
 
@@ -129,7 +166,7 @@ export default async function ClientCalendarPage({
     blocksByProperty.set(b.property_id, list);
   }
 
-  /** Clips an inclusive date range to the visible month. */
+  /** Clips an inclusive date range to the visible window. */
   function place(startDate: string, lastDate: string) {
     if (lastDate < windowStart || startDate > windowEnd) return null;
     const from = startDate < windowStart ? windowStart : startDate;
@@ -149,13 +186,16 @@ export default async function ClientCalendarPage({
 
     for (const b of bookingsByProperty.get(p.id) ?? []) {
       // check_out is exclusive — the last occupied night is the day before.
-      const pos = place(b.check_in, addDaysISO(b.check_out, -1));
+      const lastNight = addDaysISO(b.check_out, -1);
+      const pos = place(b.check_in, lastNight);
       if (!pos) continue;
       segments.push({
         key: `b-${b.id}`,
         kind: "booking",
         ...pos,
         lane: 0,
+        startDate: b.check_in,
+        endDate: lastNight,
         color: sourceColor(b.source),
         source: b.source,
         title: b.guest_name ?? "Guest",
@@ -177,6 +217,8 @@ export default async function ClientCalendarPage({
         kind: "block",
         ...pos,
         lane: 0,
+        startDate: bl.start_date,
+        endDate: bl.end_date,
         color: booked ? "var(--color-status-booked)" : "var(--color-status-blocked)",
         source: null,
         title: bl.notes ?? (booked ? "Booked" : "Blocked"),
@@ -215,13 +257,7 @@ export default async function ClientCalendarPage({
     };
   }
 
-  const groups: CalendarGroup[] = [
-    {
-      clientId: clientRecord.id,
-      clientName: clientRecord.name,
-      rows: properties.map(buildRow),
-    },
-  ];
+  const rows = properties.map(buildRow);
 
   const bookingProperties = properties.map((p) => ({
     id: p.id,
@@ -241,9 +277,6 @@ export default async function ClientCalendarPage({
       ota_share_percent: Number(clientRecord.ota_share_percent),
     },
   ];
-
-  const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
-  const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
 
   const legend: { label: string; color: string }[] = [
     { label: "Airbnb", color: sourceColor("airbnb") },
@@ -279,53 +312,82 @@ export default async function ClientCalendarPage({
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        <Link
-          href={`/client/calendar?month=${formatMonthParam(prevYear, prevMonth0)}`}
-          aria-label="Previous month"
-          className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-        >
-          <ChevronLeft size={16} />
-        </Link>
-        <p className="text-sm font-medium min-w-[150px] text-center">
-          {formatMonthLabel(year, month0)}
-        </p>
-        <Link
-          href={`/client/calendar?month=${formatMonthParam(nextYear, nextMonth0)}`}
-          aria-label="Next month"
-          className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-        >
-          <ChevronRight size={16} />
-        </Link>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1">
+          <Link
+            href={prevHref}
+            aria-label="Previous"
+            className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </Link>
+          <p className="text-sm font-medium min-w-[150px] text-center">{rangeLabel}</p>
+          <Link
+            href={nextHref}
+            aria-label="Next"
+            className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+          >
+            <ChevronRight size={16} />
+          </Link>
+          {(sp.month || sp.start) && (
+            <Link
+              href={href({ month: undefined, start: undefined })}
+              className="ml-1 text-xs text-ink-muted hover:text-ink-secondary transition-colors"
+            >
+              Today
+            </Link>
+          )}
+        </div>
+
+        <div className="flex items-center rounded-md border border-border-hairline p-0.5">
+          {(["month", "week", "agenda"] as const).map((v) => (
+            <Link
+              key={v}
+              href={href({ view: v === "month" ? undefined : v, start: undefined })}
+              className={`px-3 py-1 rounded text-xs capitalize transition-colors ${
+                view === v
+                  ? "bg-hostello-purple-glow text-white"
+                  : "text-ink-secondary hover:text-ink-primary"
+              }`}
+            >
+              {v}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
-        {legend.map((l) => (
-          <span key={l.label} className="flex items-center gap-1.5">
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-sm"
-              style={{ backgroundColor: l.color }}
-            />
-            {l.label}
+      {view !== "agenda" && (
+        <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
+          {legend.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: l.color }}
+              />
+              {l.label}
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-sm border border-border-strong" />
+            Available — click to book
           </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm border border-border-strong" />
-          Available — click to book
-        </span>
-      </div>
+        </div>
+      )}
 
-      <CalendarBoard
-        days={days}
-        today={today}
-        groups={groups}
-        cellMin={34}
-        bookingProperties={bookingProperties}
-        bookingClients={bookingClients}
-        createAction={createClientBookingInline}
-        groupHeaders={false}
-        allowReceipt={false}
-      />
+      {view === "agenda" ? (
+        <CalendarAgenda days={days} today={today} rows={rows} />
+      ) : (
+        <CalendarBoard
+          days={days}
+          today={today}
+          rows={rows}
+          cellMin={view === "week" ? 130 : 34}
+          bookingProperties={bookingProperties}
+          bookingClients={bookingClients}
+          createAction={createClientBookingInline}
+          allowReceipt={false}
+        />
+      )}
 
       <p className="text-xs text-ink-muted">
         {properties.length} {properties.length === 1 ? "property" : "properties"}

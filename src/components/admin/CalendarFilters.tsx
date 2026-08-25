@@ -9,14 +9,19 @@ const selectClass =
 const caret =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%237c7789' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>\")";
 
-export type PropertyOption = { id: string; name: string; clientName: string };
+/** Properties of the client currently in scope — not the whole portfolio. */
+export type PropertyOption = { id: string; name: string };
 
 export function CalendarFilters({
+  clients,
+  client,
   properties,
   property,
   channel,
   status,
 }: {
+  clients: { id: string; name: string }[];
+  client: string;
   properties: PropertyOption[];
   property: string;
   channel: string;
@@ -30,17 +35,27 @@ export function CalendarFilters({
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
-    params.delete("page");
+    // A different client has different properties; the old pick can't survive.
+    if (key === "client") params.delete("property");
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const groups = properties.reduce<Record<string, PropertyOption[]>>((acc, p) => {
-    (acc[p.clientName] ??= []).push(p);
-    return acc;
-  }, {});
-
   return (
     <div className="flex items-center gap-2 flex-wrap">
+      <select
+        aria-label="Client"
+        value={client}
+        onChange={(e) => update("client", e.target.value)}
+        className={selectClass}
+        style={{ backgroundImage: caret }}
+      >
+        {clients.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+
       <select
         aria-label="Filter by property"
         value={property}
@@ -49,14 +64,10 @@ export function CalendarFilters({
         style={{ backgroundImage: caret }}
       >
         <option value="">All properties</option>
-        {Object.entries(groups).map(([clientName, list]) => (
-          <optgroup key={clientName} label={clientName}>
-            {list.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </optgroup>
+        {properties.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
         ))}
       </select>
 

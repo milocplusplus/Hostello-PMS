@@ -110,3 +110,10 @@ export function formatRangeLabel(startISO: string, endISO: string): string {
   });
   return `${left} – ${right}`;
 }
+
+/** Whole days from `a` to `b` — negative when b is before a. */
+export function daysBetweenISO(a: string, b: string): number {
+  return Math.round(
+    (Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86_400_000
+  );
+}

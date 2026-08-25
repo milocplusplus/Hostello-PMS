@@ -3,7 +3,7 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, Lock, X } from "lucide-react";
+import { Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingForm } from "@/components/admin/BookingForm";
@@ -18,6 +18,10 @@ export type CalendarSegment = {
   lane: number;
   clippedStart: boolean;
   clippedEnd: boolean;
+  /** True range, unclipped — the board reads the idx pair, the agenda these. */
+  startDate: string;
+  /** Last occupied night, inclusive. */
+  endDate: string;
   color: string;
   source: string | null;
   title: string;
@@ -36,44 +40,39 @@ export type CalendarRow = {
   segments: CalendarSegment[];
 };
 
-export type CalendarGroup = {
-  clientId: string;
-  clientName: string;
-  rows: CalendarRow[];
-};
-
 const LANE_HEIGHT = 38;
 
 /** The quick-add write. Admin and client portals each pass their own. */
 export type InlineCreate = (formData: FormData) => Promise<{ error: string | null }>;
 
+/**
+ * One owner's properties as a timeline. The portfolio-wide board is gone — every
+ * calendar is scoped to a single client now, so there are no groups in here.
+ */
 export function CalendarBoard({
   days,
   today,
-  groups,
+  rows,
   cellMin,
   bookingProperties,
   bookingClients,
   createAction,
-  groupHeaders = true,
   allowReceipt = true,
 }: {
   days: string[];
   today: string;
-  groups: CalendarGroup[];
+  rows: CalendarRow[];
   cellMin: number;
   bookingProperties: BookingFormProps["properties"];
   bookingClients: BookingFormProps["clients"];
   createAction: InlineCreate;
-  groupHeaders?: boolean;
   allowReceipt?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
     null
   );
-  const columns = `200px repeat(${days.length}, minmax(${cellMin}px, 1fr))`;
-  const minWidth = 200 + days.length * cellMin;
+  const columns = `var(--cal-name) repeat(${days.length}, minmax(${cellMin}px, 1fr))`;
+  const minWidth = `calc(var(--cal-name) + ${days.length * cellMin}px)`;
 
   function dayTint(date: string) {
     if (date === today) return "bg-hostello-gold/[0.07] border-l border-hostello-gold/40";
@@ -83,120 +82,92 @@ export function CalendarBoard({
 
   return (
     <>
-    <div className="card overflow-x-auto">
-      <div style={{ minWidth }}>
-        {/* Day header */}
-        <div
-          className="grid border-b border-border-hairline"
-          style={{ gridTemplateColumns: columns }}
-        >
-          <div className="sticky left-0 z-20 bg-surface-1 px-4 py-3 text-[10px] uppercase tracking-wider text-ink-muted">
-            Property
+      <div className="card overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]">
+        <div style={{ minWidth }}>
+          {/* Day header */}
+          <div
+            className="grid border-b border-border-hairline"
+            style={{ gridTemplateColumns: columns }}
+          >
+            <div className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 py-3 text-[10px] uppercase tracking-wider text-ink-muted">
+              Property
+            </div>
+            {days.map((d) => (
+              <div key={d} className={`py-2 text-center ${dayTint(d)}`}>
+                <p className="text-[9px] uppercase tracking-wide text-ink-muted">
+                  {weekdayShort(d).charAt(0)}
+                </p>
+                <p
+                  className={`text-xs mt-0.5 ${
+                    d === today
+                      ? "font-semibold text-surface-0 mx-auto w-5 h-5 leading-5 rounded-full bg-hostello-gold"
+                      : "text-ink-secondary"
+                  }`}
+                >
+                  {Number(d.slice(8, 10))}
+                </p>
+              </div>
+            ))}
           </div>
-          {days.map((d) => (
+
+          {rows.map((row) => (
             <div
-              key={d}
-              className={`py-2 text-center ${dayTint(d)}`}
-              style={{ gridColumn: "auto" }}
+              key={row.id}
+              className="grid border-t border-border-hairline first:border-t-0"
+              style={{
+                gridTemplateColumns: columns,
+                gridTemplateRows: `repeat(${row.lanes}, ${LANE_HEIGHT}px)`,
+              }}
             >
-              <p className="text-[9px] uppercase tracking-wide text-ink-muted">
-                {weekdayShort(d).charAt(0)}
-              </p>
-              <p
-                className={`text-xs mt-0.5 ${
-                  d === today
-                    ? "font-semibold text-surface-0 mx-auto w-5 h-5 leading-5 rounded-full bg-hostello-gold"
-                    : "text-ink-secondary"
-                }`}
+              <div
+                className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 flex flex-col justify-center border-r border-border-hairline"
+                style={{ gridColumn: 1, gridRow: `1 / -1` }}
               >
-                {Number(d.slice(8, 10))}
-              </p>
+                <p className="text-xs text-ink-primary truncate">{row.name}</p>
+                {row.subtext && (
+                  <p className="text-[10px] text-ink-muted truncate mt-0.5">{row.subtext}</p>
+                )}
+              </div>
+
+              {days.map((d, i) =>
+                row.covered[i] ? (
+                  <div
+                    key={d}
+                    className={dayTint(d)}
+                    style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
+                  />
+                ) : (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() =>
+                      setDraft({ propertyId: row.id, propertyName: row.name, date: d })
+                    }
+                    title={`Add booking — ${d}`}
+                    className={`transition-colors hover:bg-hostello-purple-glow/15 ${dayTint(d)}`}
+                    style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
+                  />
+                )
+              )}
+
+              {row.segments.map((seg) => (
+                <Bar key={seg.key} seg={seg} />
+              ))}
             </div>
           ))}
         </div>
-
-        {groups.map((group) => {
-          const isCollapsed = groupHeaders ? collapsed[group.clientId] ?? false : false;
-          return (
-            <div key={group.clientId} className="border-b border-border-hairline last:border-0">
-              {groupHeaders && (
-                <div className="bg-surface-2/40">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsed((c) => ({ ...c, [group.clientId]: !isCollapsed }))
-                    }
-                    className="sticky left-0 flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink-primary transition-colors"
-                  >
-                    {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                    {group.clientName}
-                    <span className="text-ink-muted font-normal">({group.rows.length})</span>
-                  </button>
-                </div>
-              )}
-
-              {!isCollapsed &&
-                group.rows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="grid border-t border-border-hairline"
-                    style={{
-                      gridTemplateColumns: columns,
-                      gridTemplateRows: `repeat(${row.lanes}, ${LANE_HEIGHT}px)`,
-                    }}
-                  >
-                    <div
-                      className="sticky left-0 z-20 bg-surface-1 px-4 flex flex-col justify-center border-r border-border-hairline"
-                      style={{ gridColumn: 1, gridRow: `1 / -1` }}
-                    >
-                      <p className="text-xs text-ink-primary truncate">{row.name}</p>
-                      {row.subtext && (
-                        <p className="text-[10px] text-ink-muted truncate mt-0.5">{row.subtext}</p>
-                      )}
-                    </div>
-
-                    {days.map((d, i) =>
-                      row.covered[i] ? (
-                        <div
-                          key={d}
-                          className={dayTint(d)}
-                          style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
-                        />
-                      ) : (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() =>
-                            setDraft({ propertyId: row.id, propertyName: row.name, date: d })
-                          }
-                          title={`Add booking — ${d}`}
-                          className={`transition-colors hover:bg-hostello-purple-glow/15 ${dayTint(d)}`}
-                          style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
-                        />
-                      )
-                    )}
-
-                    {row.segments.map((seg) => (
-                      <Bar key={seg.key} seg={seg} />
-                    ))}
-                  </div>
-                ))}
-            </div>
-          );
-        })}
       </div>
-    </div>
 
-    {draft && (
-      <QuickAddBooking
-        draft={draft}
-        properties={bookingProperties}
-        clients={bookingClients}
-        createAction={createAction}
-        allowReceipt={allowReceipt}
-        onClose={() => setDraft(null)}
-      />
-    )}
+      {draft && (
+        <QuickAddBooking
+          draft={draft}
+          properties={bookingProperties}
+          clients={bookingClients}
+          createAction={createAction}
+          allowReceipt={allowReceipt}
+          onClose={() => setDraft(null)}
+        />
+      )}
     </>
   );
 }
