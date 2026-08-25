@@ -308,11 +308,51 @@ reassign the alias, so nothing broke.
     installed app keeps serving the old artwork forever. Any future icon change
     needs the same pair of bumps.
 
+- **Calendar rebuilt as two levels** (2026-08-25, deployed as
+  `dpl_9PWgQtbq26GHGynpnCFpoZcHfxp6`, READY, production, commit `6e7dd71`).
+  Every client and every property in one board was unnavigable — that was the
+  brief. `npm run build` and `npm run lint` clean.
+  - `/admin/calendar` with no `?client=` is now the **portfolio overview**:
+    `src/components/admin/CalendarOverview.tsx`, one row per client, one cell per
+    day, shaded by `occupied ÷ that client's property count`, plus `N properties ·
+    P% booked · A arriving`. The strip is a fluid `repeat(N, minmax(0,1fr))` grid,
+    so it never scrolls sideways at any width. Click a row → `?client=<id>`.
+  - `?client=<id>` is the old timeline, scoped. Breadcrumb back, a client `<select>`
+    to hop sideways, property/channel/status filters scoped to that client. A bare
+    `?property=` (the link on `/admin/clients/[id]`) resolves to its owning client,
+    so old links still land.
+  - **The all-clients-in-one board is deliberately gone.** The heat strip answers
+    "who has space" and the click-through gives the detail. If it is ever wanted
+    back, it belongs behind an explicit toggle, not as the default.
+  - `CalendarBoard` takes flat `rows` now, not `groups` — the group-header /
+    collapse machinery went with the portfolio board. Its name column is
+    `[--cal-name:124px] md:[--cal-name:200px]`.
+  - New third view **Agenda** (`src/components/shared/CalendarAgenda.tsx`), on both
+    portals: per day, departures then arrivals then `X of Y units occupied`; quiet
+    days skipped; today always shown. Reads the same `rows`. This is the phone
+    answer — the month timeline is ~1180px wide inside a 327px card, measured.
+  - `CalendarSegment` gained `startDate` / `endDate` (inclusive last night) so the
+    agenda can show the true, unclipped range and night count; `calendar.ts` gained
+    `daysBetweenISO`.
+  - The client portal renders the identical scoped screen — same board, same
+    Month · Week · Agenda toggle, same agenda component. Week view and the "Today"
+    jump are new on that side.
+  - **Verified by rendering, not by signing in.** There are still no credentials on
+    this machine, so the real pages could not be opened. Instead the three
+    components were rendered with sample data on a throwaway route and checked in a
+    browser: nights/occupancy counts correct, no console errors, page body never
+    scrolls sideways at 375px, overview strips align with their header at 1280px.
+    The route was deleted before committing. Production smoke test after deploy:
+    `/login` 200, `/admin/calendar` and `/client/calendar` 307.
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
-2. `/client/notifications` is the last page still on its original design.
-3. Admin-facing notifications still need a role-aware query (see debt below).
+2. Open the new calendar once signed in with real clients. Two things only real
+   data can answer: whether the overview needs a client search box (fine at ~6
+   rows, unknown at 40), and whether the heat shading reads at a glance.
+3. `/client/notifications` is the last page still on its original design.
+4. Admin-facing notifications still need a role-aware query (see debt below).
 
 ## Open questions / debt
 - **Client password reset is undeliverable with fake emails.** `requestPasswordReset`

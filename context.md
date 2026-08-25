@@ -28,9 +28,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/app/admin/page.tsx` — admin dashboard: greeting, 4 KPIs (properties / bookings /
   occupancy / revenue with period-over-period), booking-activity tabs, occupancy donut,
   Today panel, quick actions, recently-added table. Occupancy math lives here.
-- `src/app/admin/calendar/page.tsx` — portfolio calendar grid; groups properties by
-  client; contains the per-cell `statusFor()` logic. `calendar/block/page.tsx` +
-  `calendar/actions.ts` handle blocking.
+- `src/app/admin/calendar/page.tsx` — **two levels.** No `?client=` renders the
+  portfolio overview (`CalendarOverview`: one row per client, one heat cell per
+  day); `?client=<id>` renders that one client's property timeline. A bare
+  `?property=` resolves to its owning client. Holds `place()` / `buildRow()`, the
+  availability math. `calendar/block/page.tsx` + `calendar/actions.ts` handle blocking.
 - `src/app/admin/clients/**` — client CRUD, and nested property CRUD under
   `clients/[id]/properties/**`
 - `src/app/admin/bookings/**` — booking list + create + `actions.ts`
@@ -46,6 +48,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/components/admin/{Sparkline,RevenueChart,AddBookingMenu}.tsx` — KPI trend line
   (renders nothing when the series is flat), cumulative revenue area chart with hover
   tooltip, and the split "Add booking ▾" CTA that holds the quick actions
+- `src/components/admin/{CalendarBoard,CalendarOverview,CalendarFilters}.tsx` +
+  `src/components/shared/CalendarAgenda.tsx` — the calendar's three views, all four
+  **shared by admin AND client**. `CalendarBoard` takes flat `rows` and is always
+  one client's properties; `CalendarOverview` is the admin-only portfolio heat map;
+  `CalendarAgenda` renders the same `rows` as a day sheet. `CalendarSegment` /
+  `CalendarRow` are exported from `CalendarBoard`.
 - `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (no photo columns
   exist) and the confirmed/tentative/cancelled chip
 - `src/components/shared/GlobalSearch.tsx` — top-bar search input
@@ -111,8 +119,9 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
    `booking_properties` → `notify.ts` writes a `notifications` row.
 2. **Availability** — a date's status per property comes from *two* independent tables:
    `bookings` via `booking_properties` (half-open: `check_in ≤ date < check_out`) and
-   `calendar_blocks` (inclusive `start_date`..`end_date`). See `statusFor()` in
-   `app/admin/calendar/page.tsx`.
+   `calendar_blocks` (inclusive `start_date`..`end_date`). See `buildRow()` /
+   `place()` in `app/admin/calendar/page.tsx` — `place()` converts `check_out` to
+   an inclusive last night before clipping to the window.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
    off gross first; `hostello_share` depends on deal_model (0 for fixed/self-sourced/tentative).
