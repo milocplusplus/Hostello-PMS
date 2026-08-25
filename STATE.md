@@ -145,9 +145,14 @@
   - Deployed 2026-08-25 as `dpl_4j9uo1PSPn9Bubh76czhM5stgVSw` (READY, production,
     commit `2ebdf04`).
 
-- **Installable app (PWA)** — built 2026-08-25, **not yet deployed**. The app
-  installs to an Android or iOS home screen from the browser and runs standalone
-  (no address bar). No rewrite: it is the same server-rendered app, wrapped.
+- **Installable app (PWA)** — built and deployed 2026-08-25 as
+  `dpl_EUiAFffsPJxnQ196unpi5JnJrf65` (READY, production, commit `29dc00a`).
+  Verified live on `hostello-pms.vercel.app`: service worker registers and
+  activates, `/manifest.webmanifest` serves, all four manifest icons and the
+  apple-touch icon return 200 `image/png`, `/offline` precaches, no console
+  errors. The app installs to an Android or iOS home screen from the browser and
+  runs standalone (no address bar). No rewrite — the same server-rendered app,
+  wrapped.
   `npm run build` and `npm run lint` clean.
   - `src/app/manifest.ts` — Next metadata route, served at `/manifest.webmanifest`.
     `display: standalone`, theme + background `#0a0910`, `start_url: "/"` so the
