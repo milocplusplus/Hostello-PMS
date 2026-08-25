@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { calculatePayout, type DealModel } from "@/lib/payout";
 
-export async function createClientBooking(formData: FormData) {
+type SaveResult = { error: string } | { bookingId: string };
+
+/**
+ * The one place a client-side booking gets written. Returns instead of
+ * redirecting so both the full page and the calendar's quick-add modal use it.
+ */
+async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   const client_id = formData.get("client_id") as string;
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
@@ -18,13 +24,11 @@ export async function createClientBooking(formData: FormData) {
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
 
-  function fail(msg: string) {
-    redirect(`/client/bookings/new?error=${encodeURIComponent(msg)}`);
+  if (property_ids.length === 0) {
+    return { error: "Select at least one unit." };
   }
-
-  if (property_ids.length === 0) fail("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) {
-    fail("Check-out must be after check-in.");
+    return { error: "Check-out must be after check-in." };
   }
 
   const supabase = await createClient();
@@ -40,8 +44,7 @@ export async function createClientBooking(formData: FormData) {
     .single();
 
   if (!ownClient || ownClient.id !== client_id) {
-    fail("You can only add bookings for your own properties.");
-    return;
+    return { error: "You can only add bookings for your own properties." };
   }
 
   const { data: properties } = await supabase
@@ -50,8 +53,7 @@ export async function createClientBooking(formData: FormData) {
     .in("id", property_ids);
 
   if ((properties ?? []).some((p) => p.client_id !== client_id)) {
-    fail("All units in one booking must be your own properties.");
-    return;
+    return { error: "All units in one booking must be your own properties." };
   }
 
   const stackRateTotal = (properties ?? []).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
@@ -73,8 +75,7 @@ export async function createClientBooking(formData: FormData) {
       .limit(1);
 
     if (clashes && clashes.length > 0) {
-      fail("Those dates clash with an existing booking on one of the selected units.");
-      return;
+      return { error: "Those dates clash with an existing booking on one of the selected units." };
     }
   }
 
@@ -116,8 +117,7 @@ export async function createClientBooking(formData: FormData) {
     .single();
 
   if (error || !newBooking) {
-    fail(error?.message ?? "Could not save booking.");
-    return;
+    return { error: error?.message ?? "Could not save booking." };
   }
 
   const linkRows = property_ids.map((property_id) => ({
@@ -127,8 +127,26 @@ export async function createClientBooking(formData: FormData) {
   await supabase.from("booking_properties").insert(linkRows);
 
   revalidatePath("/client/bookings");
+  revalidatePath("/client/bookings/[id]", "page");
   revalidatePath("/client/calendar");
+
+  return { bookingId: newBooking.id };
+}
+
+export async function createClientBooking(formData: FormData) {
+  const result = await saveClientBooking(formData);
+
+  if ("error" in result) {
+    redirect(`/client/bookings/new?error=${encodeURIComponent(result.error)}`);
+  }
+
   redirect("/client/calendar");
+}
+
+/** Same write, but for the calendar's quick-add modal: it stays on the page. */
+export async function createClientBookingInline(formData: FormData) {
+  const result = await saveClientBooking(formData);
+  return "error" in result ? { error: result.error } : { error: null };
 }
 
 export async function cancelClientBooking(formData: FormData) {
@@ -139,6 +157,7 @@ export async function cancelClientBooking(formData: FormData) {
 
   if (!error) {
     revalidatePath("/client/bookings");
+    revalidatePath("/client/bookings/[id]", "page");
     revalidatePath("/client/calendar");
   }
 }

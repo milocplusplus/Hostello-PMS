@@ -5,12 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { cancelClientBooking } from "./actions";
+import { Avatar } from "@/components/shared/Avatar";
+import { ChannelBadge } from "@/components/admin/BookingActivity";
 import {
   getMonthGrid,
   formatMonthLabel,
   parseMonthParam,
   formatMonthParam,
   addMonths,
+  formatDayMonth,
 } from "@/lib/calendar";
 
 export default async function ClientBookingsPage({
@@ -134,13 +137,34 @@ export default async function ClientBookingsPage({
                   .join(", ");
                 const nights = nightsBetween(b.check_in, b.check_out);
                 return (
-                  <tr key={b.id} className="border-b border-border-hairline last:border-0">
-                    <td className="px-4 py-3 text-ink-primary">{unitNames || "—"}</td>
-                    <td className="px-4 py-3 text-ink-secondary">
-                      {b.check_in} → {b.check_out}
+                  <tr
+                    key={b.id}
+                    className="border-b border-border-hairline last:border-0 hover:bg-surface-2 transition-colors"
+                  >
+                    <td className="p-0">
+                      <Link
+                        href={`/client/bookings/${b.id}`}
+                        className="flex items-center gap-3 px-4 py-3 min-w-0"
+                      >
+                        <Avatar name={unitNames || b.guest_name} size={28} rounded="lg" />
+                        <span className="min-w-0">
+                          <span className="block text-ink-primary truncate">{unitNames || "—"}</span>
+                          <span className="block text-xs text-ink-secondary truncate">
+                            {b.guest_name ?? "Guest"}
+                          </span>
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-ink-secondary whitespace-nowrap">
+                      {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)}
                       <span className="text-ink-muted"> ({nights}n)</span>
                     </td>
-                    <td className="px-4 py-3 text-ink-secondary">{sourceLabel(b.source) ?? b.source}</td>
+                    <td className="px-4 py-3 text-ink-secondary">
+                      <span className="flex items-center gap-1.5">
+                        <ChannelBadge source={b.source} />
+                        {sourceLabel(b.source) ?? b.source}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-right text-financial">{formatPKR(b.client_payout)}</td>
                     <td className="px-4 py-3">
                       {b.status === "tentative" ? (

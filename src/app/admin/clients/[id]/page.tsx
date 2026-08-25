@@ -9,9 +9,12 @@ import {
   setClientPassword,
 } from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { Avatar } from "@/components/shared/Avatar";
+import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { secondaryButton, errorBanner, noticeBanner, fieldLabel, fieldInput, primaryButton, primaryButtonStyle } from "@/lib/form-styles";
 import { PROPERTY_TYPES } from "@/lib/property-types";
-import { DEAL_MODELS } from "@/lib/payout";
+import { DEAL_MODELS, formatPKR, nightsBetween } from "@/lib/payout";
+import { formatDayMonth, todayISO } from "@/lib/calendar";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -24,15 +27,6 @@ function typeLabel(value: string) {
 
 function dealModelLabel(value: string) {
   return DEAL_MODELS.find((m) => m.value === value)?.label ?? value;
-}
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
 }
 
 export default async function ClientDetailPage({
@@ -63,11 +57,36 @@ export default async function ClientDetailPage({
     p_client_id: id,
   });
 
-  const { data: properties } = await supabase
-    .from("properties")
-    .select("id, name, location, city, province, type, status")
-    .eq("client_id", id)
-    .order("name");
+  const today = todayISO();
+
+  const [{ data: properties }, { data: recentBookings }, { data: openBookings }] =
+    await Promise.all([
+      supabase
+        .from("properties")
+        .select("id, name, location, city, province, type, status")
+        .eq("client_id", id)
+        .order("name"),
+      supabase
+        .from("bookings")
+        .select(
+          "id, guest_name, check_in, check_out, source, status, hostello_share, client_payout, settled, booking_properties(properties(name))"
+        )
+        .eq("client_id", id)
+        .neq("status", "cancelled")
+        .order("check_in", { ascending: false })
+        .limit(6),
+      // Only open stays — a bounded set, so the "awaiting" figure is a real total.
+      supabase
+        .from("bookings")
+        .select("hostello_share, settled")
+        .eq("client_id", id)
+        .neq("status", "cancelled")
+        .gte("check_out", today),
+    ]);
+
+  const awaiting = (openBookings ?? [])
+    .filter((b) => !b.settled)
+    .reduce((sum, b) => sum + Number(b.hostello_share ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,12 +101,7 @@ export default async function ClientDetailPage({
 
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium text-ink-primary shrink-0"
-            style={{ backgroundColor: "var(--color-hostello-purple-mid)" }}
-          >
-            {initials(clientRecord.name) || "?"}
-          </div>
+          <Avatar name={clientRecord.name} size={48} />
           <div>
             <h1 className="text-xl font-semibold">{clientRecord.name}</h1>
             <div className="flex items-center gap-3 text-ink-secondary text-sm mt-1">
@@ -293,6 +307,69 @@ export default async function ClientDetailPage({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-ink-secondary">Bookings</h2>
+          <div className="flex items-center gap-3">
+            {awaiting > 0 && (
+              <span className="text-xs text-status-pending">
+                {formatPKR(awaiting)} awaiting
+              </span>
+            )}
+            <Link
+              href={`/admin/bookings?client=${id}`}
+              className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+            >
+              All bookings →
+            </Link>
+          </div>
+        </div>
+
+        {(!recentBookings || recentBookings.length === 0) && (
+          <div className="card p-8 text-center text-sm text-ink-secondary">
+            No bookings for this client yet.
+          </div>
+        )}
+
+        {recentBookings && recentBookings.length > 0 && (
+          <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
+            {recentBookings.map((b) => {
+              const unitNames = (b.booking_properties as unknown as { properties: { name: string } | null }[])
+                ?.map((bp) => bp.properties?.name)
+                .filter(Boolean)
+                .join(", ");
+              const nights = nightsBetween(b.check_in, b.check_out);
+              return (
+                <Link
+                  key={b.id}
+                  href={`/admin/bookings/${b.id}`}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-surface-2 transition-colors"
+                >
+                  <ChannelBadge source={b.source} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-ink-primary truncate">{b.guest_name ?? "Guest"}</p>
+                    <p className="text-xs text-ink-secondary truncate mt-0.5">
+                      {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)} ({nights}n)
+                      {unitNames ? ` · ${unitNames}` : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs text-financial shrink-0">{formatPKR(b.hostello_share)}</span>
+                  <span className="text-xs shrink-0 w-16 text-right">
+                    {b.status === "tentative" ? (
+                      <span className="text-status-pending">Tentative</span>
+                    ) : b.settled ? (
+                      <span className="text-financial">Received</span>
+                    ) : (
+                      <span className="text-ink-muted">Awaiting</span>
+                    )}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

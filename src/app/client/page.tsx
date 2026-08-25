@@ -1,16 +1,48 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, Wallet, ArrowRight, Plus, Lock } from "lucide-react";
+import { Home, BarChart3, CircleDollarSign, CalendarDays, Wallet, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
-import { todayISO, addDaysISO } from "@/lib/calendar";
+import {
+  getMonthGrid,
+  formatMonthLabel,
+  parseMonthParam,
+  addMonths,
+  todayISO,
+  addDaysISO,
+} from "@/lib/calendar";
+import {
+  BookingActivity,
+  type ActivityBooking,
+} from "@/components/admin/BookingActivity";
+import { RevenueChart } from "@/components/admin/RevenueChart";
+import { Kpi, Delta, OccupancyDonut } from "@/components/shared/Kpi";
 
 const QUICK_ACTIONS = [
-  { href: "/client/bookings/new", label: "New Booking", icon: Plus },
-  { href: "/client/calendar", label: "Check Availability", icon: CalendarDays },
-  { href: "/client/calendar/block", label: "Block Dates", icon: Lock },
-  { href: "/client/bookings", label: "Bookings & Payouts", icon: Wallet },
+  { href: "/client/bookings/new", label: "New booking", icon: Plus },
+  { href: "/client/calendar", label: "Check availability", icon: CalendarDays },
+  { href: "/client/calendar/block", label: "Block dates", icon: Lock },
+  { href: "/client/bookings", label: "Bookings & payouts", icon: Wallet },
 ];
+
+type BookingRow = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  source: string;
+  status: string;
+  sale_price: number | null;
+  client_payout: number | null;
+  booking_properties: unknown;
+};
+
+function unitNames(row: { booking_properties: unknown }): string {
+  return ((row.booking_properties as { properties: { name: string } | null }[] | null) ?? [])
+    .map((bp) => bp.properties?.name)
+    .filter(Boolean)
+    .join(", ");
+}
 
 export default async function ClientDashboard() {
   const supabase = await createClient();
@@ -28,119 +60,316 @@ export default async function ClientDashboard() {
 
   if (!clientRecord) redirect("/client");
 
-  const { count: propertyCount } = await supabase
-    .from("properties")
-    .select("*", { count: "exact", head: true })
-    .eq("client_id", clientRecord.id);
-
   const today = todayISO();
-  const in14 = addDaysISO(today, 14);
+  const in7 = addDaysISO(today, 7);
+  const in30 = addDaysISO(today, 30);
 
-  const { data: upcoming } = await supabase
-    .from("bookings")
-    .select("id, guest_name, check_in, check_out, status, booking_properties(properties(name))")
-    .eq("client_id", clientRecord.id)
-    .neq("status", "cancelled")
-    .gte("check_in", today)
-    .lte("check_in", in14)
-    .order("check_in")
-    .limit(6);
+  const { year, month0 } = parseMonthParam(undefined);
+  const days = getMonthGrid(year, month0)
+    .filter((c) => c.date !== null)
+    .map((c) => c.date as string);
+  const monthStart = days[0];
+  const monthEnd = days[days.length - 1];
 
-  const monthStart = today.slice(0, 7) + "-01";
-  const { data: monthBookings } = await supabase
-    .from("bookings")
-    .select("sale_price, client_payout")
-    .eq("client_id", clientRecord.id)
-    .neq("status", "cancelled")
-    .gte("check_in", monthStart);
+  const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
+  const prevDays = getMonthGrid(prevYear, prevMonth0)
+    .filter((c) => c.date !== null)
+    .map((c) => c.date as string);
+  const prevStart = prevDays[0];
+  const prevEnd = prevDays[prevDays.length - 1];
 
-  const monthTotals = (monthBookings ?? []).reduce(
-    (acc, b) => {
-      acc.gross += Number(b.sale_price ?? 0);
-      acc.payout += Number(b.client_payout ?? 0);
-      return acc;
-    },
-    { gross: 0, payout: 0 }
-  );
+  const bookingFields =
+    "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, settled, booking_properties(property_id, properties(name))";
+
+  const [
+    { data: properties },
+    { data: monthBookings },
+    { data: prevBookings },
+    { data: activityRows },
+    { data: blocks },
+  ] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("id, created_at")
+      .eq("client_id", clientRecord.id)
+      .eq("status", "active"),
+    supabase
+      .from("bookings")
+      .select(bookingFields)
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .lte("check_in", monthEnd)
+      .gte("check_out", monthStart),
+    supabase
+      .from("bookings")
+      .select("sale_price, client_payout")
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .lte("check_in", prevEnd)
+      .gte("check_out", prevStart),
+    supabase
+      .from("bookings")
+      .select(bookingFields)
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .gte("check_out", today)
+      .lte("check_in", in30)
+      .order("check_in"),
+    supabase
+      .from("calendar_blocks")
+      .select("property_id, start_date, end_date, block_type")
+      .lte("start_date", monthEnd)
+      .gte("end_date", monthStart),
+  ]);
+
+  // ── Money ──────────────────────────────────────────────────────────────────
+  // Same overlap window the Bookings & Payouts page uses, so the two never disagree.
+  const rows = (monthBookings ?? []) as unknown as BookingRow[];
+  const grossThisMonth = rows.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const payoutThisMonth = rows.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
+  const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const payoutLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
+  const awaiting = ((monthBookings ?? []) as unknown as { client_payout: number | null; settled: boolean }[])
+    .reduce((s, b) => s + (b.settled ? 0 : Number(b.client_payout ?? 0)), 0);
+
+  // Cumulative daily series: each booking lands on its check-in day (clamped into
+  // the month), so the last point equals the month total on the KPI card.
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const payoutPerDay = new Array(days.length).fill(0);
+  const grossPerDay = new Array(days.length).fill(0);
+  for (const b of rows) {
+    const i = dayIndex.get(b.check_in > monthStart ? b.check_in : monthStart) ?? 0;
+    payoutPerDay[i] += Number(b.client_payout ?? 0);
+    grossPerDay[i] += Number(b.sale_price ?? 0);
+  }
+  const cumulate = (arr: number[]) => arr.map(((sum) => (v: number) => (sum += v))(0));
+  const payoutSeries = cumulate(payoutPerDay);
+  const grossSeries = cumulate(grossPerDay);
+
+  // ── Occupancy ──────────────────────────────────────────────────────────────
+  // Booking check_out is exclusive; calendar_blocks.end_date is inclusive.
+  const activeIds = new Set((properties ?? []).map((p) => p.id));
+  const occupiedCells = new Set<string>();
+  const blockedCells = new Set<string>();
+
+  for (const b of rows) {
+    const ids = ((b.booking_properties as { property_id: string }[] | null) ?? [])
+      .map((bp) => bp.property_id)
+      .filter((id) => activeIds.has(id));
+    if (ids.length === 0) continue;
+    for (
+      let d = b.check_in > monthStart ? b.check_in : monthStart;
+      d < b.check_out && d <= monthEnd;
+      d = addDaysISO(d, 1)
+    ) {
+      for (const id of ids) occupiedCells.add(`${id}|${d}`);
+    }
+  }
+
+  for (const bl of blocks ?? []) {
+    if (!activeIds.has(bl.property_id)) continue;
+    const target = bl.block_type === "booked" ? occupiedCells : blockedCells;
+    for (
+      let d = bl.start_date > monthStart ? bl.start_date : monthStart;
+      d <= bl.end_date && d <= monthEnd;
+      d = addDaysISO(d, 1)
+    ) {
+      target.add(`${bl.property_id}|${d}`);
+    }
+  }
+
+  const activeCount = activeIds.size;
+  const totalNights = activeCount * days.length;
+  const occupancyByDay = days.map((d) => {
+    let sold = 0;
+    for (const id of activeIds) if (occupiedCells.has(`${id}|${d}`)) sold++;
+    return activeCount > 0 ? (sold / activeCount) * 100 : 0;
+  });
+  const nightsSold = occupiedCells.size;
+  const nightsBlocked = [...blockedCells].filter((k) => !occupiedCells.has(k)).length;
+  const nightsAvailable = totalNights - nightsSold - nightsBlocked;
+  const pctOf = (n: number) => (totalNights > 0 ? Math.round((n / totalNights) * 100) : 0);
+  const occupancyPct = pctOf(nightsSold);
+
+  const propertyCreatedAt = (properties ?? []).map((p) => String(p.created_at).slice(0, 10)).sort();
+  const propertySeries = days.map((d) => propertyCreatedAt.filter((c) => c <= d).length);
+
+  // ── Activity ───────────────────────────────────────────────────────────────
+  const activity: ActivityBooking[] = ((activityRows ?? []) as unknown as BookingRow[]).map((b) => ({
+    id: b.id,
+    guestName: b.guest_name,
+    clientName: clientRecord.name,
+    units: unitNames(b),
+    checkIn: b.check_in,
+    checkOut: b.check_out,
+    source: b.source,
+    status: b.status,
+  }));
+  const upcoming = activity.filter((b) => b.checkIn >= today);
+  const checkins = activity.filter((b) => b.checkIn >= today && b.checkIn <= in7);
+  const checkouts = activity.filter((b) => b.checkOut >= today && b.checkOut <= in7);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <p className="text-ink-muted text-xs tracking-wide">OVERVIEW</p>
-        <h1 className="text-2xl font-semibold mt-1">Welcome, {clientRecord.name}</h1>
+    <div className="flex flex-col gap-4 animate-in">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold">{clientRecord.name}</h1>
+          <p className="text-sm text-ink-secondary mt-1.5">
+            Your properties in {formatMonthLabel(year, month0)}.
+          </p>
+        </div>
+        <Link
+          href="/client/bookings/new"
+          className="rounded-lg py-2 px-4 text-sm font-medium text-white flex items-center gap-1.5 gradient-brand transition-transform hover:scale-[1.02]"
+        >
+          <Plus size={15} strokeWidth={2.5} />
+          Add booking
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">Properties</p>
-          <p className="text-2xl md:text-3xl font-semibold mt-2">{propertyCount ?? 0}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+        <Kpi
+          label="Active properties"
+          value={String(activeCount)}
+          icon={Home}
+          tint="var(--color-hostello-purple-glow)"
+          series={propertySeries}
+          sparkId="c-props"
+          href="/client/calendar"
+        />
+        <Kpi
+          label="Occupancy this month"
+          value={`${occupancyPct}%`}
+          icon={BarChart3}
+          tint="var(--color-channel-booking)"
+          series={occupancyByDay}
+          sparkId="c-occ"
+        >
+          <p className="text-[11px] text-ink-muted mt-1">
+            {nightsSold} of {totalNights} nights
+          </p>
+        </Kpi>
+        <Kpi
+          label="Revenue this month"
+          value={formatPKR(grossThisMonth)}
+          icon={CircleDollarSign}
+          tint="var(--color-channel-hostello)"
+          series={grossSeries}
+          sparkId="c-gross"
+          href="/client/bookings"
+        >
+          <Delta current={grossThisMonth} previous={grossLastMonth} />
+        </Kpi>
+        <Kpi
+          label="Your payout this month"
+          value={formatPKR(payoutThisMonth)}
+          icon={Wallet}
+          tint="var(--color-hostello-gold)"
+          iconInk="text-surface-0"
+          series={payoutSeries}
+          sparkId="c-payout"
+          href="/client/bookings"
+        >
+          <Delta current={payoutThisMonth} previous={payoutLastMonth} />
+        </Kpi>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="card p-5 lg:col-span-2 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">Payout, month to date</h2>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Cumulative — {formatMonthLabel(year, month0)}
+              </p>
+            </div>
+            {awaiting > 0 && (
+              <span className="text-xs text-status-pending">{formatPKR(awaiting)} awaiting</span>
+            )}
+          </div>
+          {payoutThisMonth > 0 ? (
+            <RevenueChart dates={days} series={payoutSeries} />
+          ) : (
+            <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
+              No payouts recorded this month yet.
+            </p>
+          )}
         </div>
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">This month&apos;s revenue</p>
-          <p className="text-xl md:text-2xl font-semibold mt-2 text-ink-primary">{formatPKR(monthTotals.gross)}</p>
-        </div>
-        <div className="card p-4 md:p-6 border border-hostello-gold/30">
-          <p className="text-ink-muted text-xs">Your payout this month</p>
-          <p className="text-xl md:text-2xl font-semibold mt-2 text-financial">{formatPKR(monthTotals.payout)}</p>
+
+        <div className="card p-5 flex flex-col gap-3">
+          <h2 className="text-sm font-medium">Nights this month</h2>
+          {totalNights === 0 ? (
+            <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
+              No active properties yet.
+            </p>
+          ) : (
+            <div className="flex items-center gap-4">
+              <OccupancyDonut
+                occupied={pctOf(nightsSold)}
+                blocked={pctOf(nightsBlocked)}
+                available={pctOf(nightsAvailable)}
+              />
+              <ul className="text-xs flex flex-col gap-2">
+                <li className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm"
+                    style={{ backgroundColor: "var(--color-hostello-purple-glow)" }}
+                  />
+                  <span className="text-ink-secondary">Booked</span>
+                  <span className="text-ink-primary ml-auto">{nightsSold}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm"
+                    style={{ backgroundColor: "var(--color-status-blocked)" }}
+                  />
+                  <span className="text-ink-secondary">Blocked</span>
+                  <span className="text-ink-primary ml-auto">{nightsBlocked}</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm"
+                    style={{ backgroundColor: "var(--color-positive)" }}
+                  />
+                  <span className="text-ink-secondary">Available</span>
+                  <span className="text-ink-primary ml-auto">{nightsAvailable}</span>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="card p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-sm font-medium">Booking activity</h2>
+          <Link
+            href="/client/bookings"
+            className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+          >
+            All bookings →
+          </Link>
+        </div>
+        <BookingActivity upcoming={upcoming} checkins={checkins} checkouts={checkouts} />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {QUICK_ACTIONS.map((a) => (
           <Link
             key={a.href}
             href={a.href}
             className="card p-4 flex items-center gap-3 hover:border-border-strong border border-transparent transition-colors"
           >
-            <div
+            <span
               className="w-9 h-9 rounded-md flex items-center justify-center shrink-0"
               style={{ backgroundColor: "var(--color-hostello-gold)" }}
             >
               <a.icon size={16} className="text-surface-0" strokeWidth={2.5} />
-            </div>
+            </span>
             <span className="text-sm font-medium text-ink-primary">{a.label}</span>
           </Link>
         ))}
       </div>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-ink-secondary">Upcoming check-ins (next 14 days)</h2>
-          <Link href="/client/bookings" className="text-xs text-hostello-gold hover:underline flex items-center gap-1">
-            <Wallet size={12} /> View all bookings
-          </Link>
-        </div>
-
-        {(!upcoming || upcoming.length === 0) && (
-          <div className="card p-8 text-center text-sm text-ink-secondary">
-            Nothing checking in over the next two weeks.
-          </div>
-        )}
-
-        {upcoming && upcoming.length > 0 && (
-          <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
-            {upcoming.map((b) => {
-              const unitNames = (b.booking_properties as unknown as { properties: { name: string } | null }[])
-                ?.map((bp) => bp.properties?.name)
-                .filter(Boolean)
-                .join(", ");
-              return (
-                <div key={b.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                  <div className="min-w-0">
-                    <p className="text-sm text-ink-primary truncate">{unitNames || "—"}</p>
-                    <p className="text-xs text-ink-secondary mt-0.5">
-                      {b.guest_name ?? "Guest"} · {b.check_in} → {b.check_out}
-                    </p>
-                  </div>
-                  {b.status === "tentative" && (
-                    <span className="text-xs text-status-pending shrink-0">Tentative</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

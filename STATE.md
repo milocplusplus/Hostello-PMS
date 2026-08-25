@@ -74,6 +74,53 @@
     enum migration), property thumbnails and "4BR · Max 10 guests" (no columns),
     Timeline view (deferred).
 
+- **Phase 4 (Management pages + client portal parity)** — built 2026-08-25,
+  **not yet deployed**. `npm run build` and `npm run lint` both clean (the 2
+  old unused-import warnings are gone — those files were rewritten).
+  - `src/app/admin/bookings/page.tsx` — rows now link to `/admin/bookings/[id]`
+    (the leading Guest cell is the anchor; Mark received / Cancel stay as forms
+    in the last cell, so no nested-form-in-link). New `BookingFilters.tsx`
+    (client) puts guest search + client / channel / status / settlement into the
+    URL; the server filters. Status now includes "Cancelled only" — cancelled
+    bookings had been invisible everywhere. A guest search drops the month window
+    and looks across all dates (newest first), otherwise the month nav applies
+    and carries the other filters. KPI totals reflect the filtered set and skip
+    cancelled rows.
+  - `src/app/admin/clients/page.tsx` — plain GET `<form>` search over name /
+    email / phone (no client JS; commas and parens are stripped because
+    PostgREST splits `or()` on them), `Avatar` instead of the local `initials()`,
+    deal-model label, and per-client open-booking count + awaiting payout from
+    one bounded query (`check_out >= today`).
+  - `src/app/admin/clients/[id]/page.tsx` — `Avatar`, plus a Bookings section
+    (6 most recent, linking to the booking detail) with the client's awaiting
+    total and an "All bookings →" link to `/admin/bookings?client=<id>`.
+  - `src/app/client/page.tsx` — rebuilt to Phase 2 standard: 4 `Kpi` cards with
+    sparklines (properties / occupancy / revenue / your payout, the last two with
+    `Delta`), cumulative payout `RevenueChart`, nights donut, `BookingActivity`
+    tabs, quick actions. Occupancy uses the same property-nights math as the
+    admin dashboard, scoped to the owner's active properties.
+  - `Kpi`, `Delta`, `OccupancyDonut` moved out of `admin/page.tsx` into
+    `src/components/shared/Kpi.tsx` — both dashboards import them now.
+  - `src/app/client/calendar/page.tsx` — rebuilt on the shared `CalendarBoard`
+    (the local `SOURCE_COLOR` map is gone). Month view only, no filters: one
+    owner, few properties. Bars show the **client payout**, never Hostello's
+    share, and link to the new `/client/bookings/[id]`.
+  - `CalendarBoard` no longer imports the admin action. It takes
+    `createAction` (typed `InlineCreate`) so each portal passes its own write,
+    plus `groupHeaders` (false on the client side — one client, no point
+    collapsing its own name).
+  - `client/bookings/actions.ts` split the same way Phase 3 split the admin one:
+    `saveClientBooking()` returns a result, `createClientBooking` redirects,
+    `createClientBookingInline` feeds the calendar modal. One write path, and the
+    ownership checks now cover the quick-add too.
+  - `src/app/client/bookings/[id]/page.tsx` — new owner-facing booking detail
+    (stay, units, payout breakdown without `hostello_share`, notes, cancel).
+    Scoped by `client_id` on top of RLS. The bookings list rows link to it.
+  - Checked: `bookings.settled` is `NOT NULL DEFAULT false`, so the settlement
+    filter can use `.eq()`; and the `bookings` RLS policy is `ALL` scoped to
+    `owner_user_id`, so `cancelClientBooking` can't touch another client's row
+    even though it takes a bare id.
+
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
@@ -111,13 +158,9 @@ went out two-thirds complete and failed to build
 reassign the alias, so nothing broke.
 
 ## Next
-1. Verify the deployed calendar and dashboard against real data once signed in.
-2. Client portal (`src/app/client/page.tsx`, `src/app/client/calendar/page.tsx`)
-   has had neither the Phase 2 nor the Phase 3 treatment. The client calendar is
-   still the old `w-6 h-6` cell grid with its own local `SOURCE_COLOR` map — decide
-   whether it gets a mirrored `CalendarBoard`.
-3. `src/app/admin/bookings/page.tsx` rows still aren't clickable even though
-   `/admin/bookings/[id]` now exists — one anchor away.
+1. Verify Phase 4 against real data once signed in (both portals), then deploy.
+2. `/client/notifications` is the last page still on its original design.
+3. Admin-facing notifications still need a role-aware query (see debt below).
 
 ## Open questions / debt
 - **Client password reset is undeliverable with fake emails.** `requestPasswordReset`

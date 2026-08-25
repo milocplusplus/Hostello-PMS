@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel } from "@/lib/payout";
+import { createBookingInline } from "@/app/admin/bookings/actions";
 import {
   CalendarBoard,
   type CalendarGroup,
@@ -422,6 +423,7 @@ export default async function CalendarPage({
         cellMin={view === "week" ? 130 : 34}
         bookingProperties={bookingProperties}
         bookingClients={bookingClients}
+        createAction={createBookingInline}
       />
 
       <p className="text-xs text-ink-muted">

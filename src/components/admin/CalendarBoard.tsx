@@ -7,7 +7,6 @@ import { ChevronDown, ChevronRight, Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingForm } from "@/components/admin/BookingForm";
-import { createBookingInline } from "@/app/admin/bookings/actions";
 
 type BookingFormProps = ComponentProps<typeof BookingForm>;
 
@@ -45,6 +44,9 @@ export type CalendarGroup = {
 
 const LANE_HEIGHT = 38;
 
+/** The quick-add write. Admin and client portals each pass their own. */
+export type InlineCreate = (formData: FormData) => Promise<{ error: string | null }>;
+
 export function CalendarBoard({
   days,
   today,
@@ -52,6 +54,8 @@ export function CalendarBoard({
   cellMin,
   bookingProperties,
   bookingClients,
+  createAction,
+  groupHeaders = true,
 }: {
   days: string[];
   today: string;
@@ -59,6 +63,8 @@ export function CalendarBoard({
   cellMin: number;
   bookingProperties: BookingFormProps["properties"];
   bookingClients: BookingFormProps["clients"];
+  createAction: InlineCreate;
+  groupHeaders?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
@@ -108,22 +114,24 @@ export function CalendarBoard({
         </div>
 
         {groups.map((group) => {
-          const isCollapsed = collapsed[group.clientId] ?? false;
+          const isCollapsed = groupHeaders ? collapsed[group.clientId] ?? false : false;
           return (
             <div key={group.clientId} className="border-b border-border-hairline last:border-0">
-              <div className="bg-surface-2/40">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCollapsed((c) => ({ ...c, [group.clientId]: !isCollapsed }))
-                  }
-                  className="sticky left-0 flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink-primary transition-colors"
-                >
-                  {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                  {group.clientName}
-                  <span className="text-ink-muted font-normal">({group.rows.length})</span>
-                </button>
-              </div>
+              {groupHeaders && (
+                <div className="bg-surface-2/40">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsed((c) => ({ ...c, [group.clientId]: !isCollapsed }))
+                    }
+                    className="sticky left-0 flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink-primary transition-colors"
+                  >
+                    {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                    {group.clientName}
+                    <span className="text-ink-muted font-normal">({group.rows.length})</span>
+                  </button>
+                </div>
+              )}
 
               {!isCollapsed &&
                 group.rows.map((row) => (
@@ -182,6 +190,7 @@ export function CalendarBoard({
         draft={draft}
         properties={bookingProperties}
         clients={bookingClients}
+        createAction={createAction}
         onClose={() => setDraft(null)}
       />
     )}
@@ -197,11 +206,13 @@ function QuickAddBooking({
   draft,
   properties,
   clients,
+  createAction,
   onClose,
 }: {
   draft: { propertyId: string; propertyName: string; date: string };
   properties: BookingFormProps["properties"];
   clients: BookingFormProps["clients"];
+  createAction: InlineCreate;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -216,7 +227,7 @@ function QuickAddBooking({
   }, [onClose]);
 
   async function submit(formData: FormData) {
-    const result = await createBookingInline(formData);
+    const result = await createAction(formData);
     if (result.error) {
       setError(result.error);
       return;

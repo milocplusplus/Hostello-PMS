@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Fragment } from "react";
 import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { sourceColor } from "@/lib/block-sources";
+import { propertyTypeLabel } from "@/lib/property-types";
+import { formatPKR, type DealModel } from "@/lib/payout";
+import { createClientBookingInline } from "@/app/client/bookings/actions";
+import {
+  CalendarBoard,
+  type CalendarGroup,
+  type CalendarRow,
+  type CalendarSegment,
+} from "@/components/admin/CalendarBoard";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -10,16 +19,9 @@ import {
   formatMonthParam,
   addMonths,
   todayISO,
+  addDaysISO,
+  formatDayMonth,
 } from "@/lib/calendar";
-
-const SOURCE_COLOR: Record<string, string> = {
-  airbnb: "bg-[#e85d8a]",
-  booking_com: "bg-[#3b82f6]",
-  hostello: "bg-hostello-purple-mid",
-  client: "bg-status-blocked",
-};
-
-type CellStatus = { kind: "available" } | { kind: "blocked"; label: string } | { kind: "booked"; source: string; label: string };
 
 export default async function ClientCalendarPage({
   searchParams,
@@ -36,17 +38,20 @@ export default async function ClientCalendarPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id")
+    .select("id, name, deal_model, share_percent, deduct_percent")
     .eq("owner_user_id", user.id)
     .single();
   if (!clientRecord) redirect("/client");
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, name")
+    .select("id, name, type, city, stack_rate")
     .eq("client_id", clientRecord.id)
     .eq("status", "active")
     .order("name");
+
+  const { year, month0 } = parseMonthParam(monthParam);
+  const monthStr = formatMonthParam(year, month0);
 
   if (!properties || properties.length === 0) {
     return (
@@ -62,12 +67,13 @@ export default async function ClientCalendarPage({
     );
   }
 
-  const { year, month0 } = parseMonthParam(monthParam);
-  const monthStr = formatMonthParam(year, month0);
-  const grid = getMonthGrid(year, month0);
-  const days = grid.filter((c) => c.date !== null).map((c) => c.date as string);
-  const monthStart = days[0];
-  const monthEnd = days[days.length - 1];
+  const days = getMonthGrid(year, month0)
+    .filter((c) => c.date !== null)
+    .map((c) => c.date as string);
+  const windowStart = days[0];
+  const windowEnd = days[days.length - 1];
+  const dayIdx = new Map(days.map((d, i) => [d, i]));
+  const today = todayISO();
 
   const propertyIds = properties.map((p) => p.id);
 
@@ -76,7 +82,7 @@ export default async function ClientCalendarPage({
     .select("booking_id, property_id")
     .in("property_id", propertyIds);
 
-  const relevantBookingIds = [...new Set((bookingLinks ?? []).map((l) => l.booking_id))];
+  const bookingIds = [...new Set((bookingLinks ?? []).map((l) => l.booking_id))];
 
   let bookings: {
     id: string;
@@ -85,18 +91,26 @@ export default async function ClientCalendarPage({
     source: string;
     status: string;
     guest_name: string | null;
+    client_payout: number | null;
   }[] = [];
 
-  if (relevantBookingIds.length > 0) {
+  if (bookingIds.length > 0) {
     const { data } = await supabase
       .from("bookings")
-      .select("id, check_in, check_out, source, status, guest_name")
-      .in("id", relevantBookingIds)
+      .select("id, check_in, check_out, source, status, guest_name, client_payout")
+      .in("id", bookingIds)
       .neq("status", "cancelled")
-      .lte("check_in", monthEnd)
-      .gte("check_out", monthStart);
+      .lte("check_in", windowEnd)
+      .gt("check_out", windowStart);
     bookings = data ?? [];
   }
+
+  const { data: blocks } = await supabase
+    .from("calendar_blocks")
+    .select("id, property_id, start_date, end_date, block_type, notes")
+    .in("property_id", propertyIds)
+    .lte("start_date", windowEnd)
+    .gte("end_date", windowStart);
 
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
   const bookingsByProperty = new Map<string, typeof bookings>();
@@ -108,45 +122,138 @@ export default async function ClientCalendarPage({
     bookingsByProperty.set(link.property_id, list);
   }
 
-  const { data: blocks } = await supabase
-    .from("calendar_blocks")
-    .select("property_id, start_date, end_date, notes")
-    .in("property_id", propertyIds)
-    .lte("start_date", monthEnd)
-    .gte("end_date", monthStart);
-
-  const blocksByProperty = new Map<string, typeof blocks>();
+  const blocksByProperty = new Map<string, NonNullable<typeof blocks>>();
   for (const b of blocks ?? []) {
     const list = blocksByProperty.get(b.property_id) ?? [];
     list.push(b);
     blocksByProperty.set(b.property_id, list);
   }
 
-  function statusFor(propertyId: string, date: string): CellStatus {
-    const propBookings = bookingsByProperty.get(propertyId) ?? [];
-    const booking = propBookings.find((b) => date >= b.check_in && date < b.check_out);
-    if (booking) {
-      return {
-        kind: "booked",
-        source: booking.source,
-        label: `${booking.guest_name ?? "Guest"} · ${booking.status}`,
-      };
-    }
-    const propBlocks = blocksByProperty.get(propertyId) ?? [];
-    const block = propBlocks.find((b) => date >= b.start_date && date <= b.end_date);
-    if (block) {
-      return { kind: "blocked", label: block.notes ?? "Blocked" };
-    }
-    return { kind: "available" };
+  /** Clips an inclusive date range to the visible month. */
+  function place(startDate: string, lastDate: string) {
+    if (lastDate < windowStart || startDate > windowEnd) return null;
+    const from = startDate < windowStart ? windowStart : startDate;
+    const to = lastDate > windowEnd ? windowEnd : lastDate;
+    const startIdx = dayIdx.get(from)!;
+    const endIdx = dayIdx.get(to)!;
+    return {
+      startIdx,
+      span: endIdx - startIdx + 1,
+      clippedStart: startDate < windowStart,
+      clippedEnd: lastDate > windowEnd,
+    };
   }
+
+  function buildRow(p: NonNullable<typeof properties>[number]): CalendarRow {
+    const segments: CalendarSegment[] = [];
+
+    for (const b of bookingsByProperty.get(p.id) ?? []) {
+      // check_out is exclusive — the last occupied night is the day before.
+      const pos = place(b.check_in, addDaysISO(b.check_out, -1));
+      if (!pos) continue;
+      segments.push({
+        key: `b-${b.id}`,
+        kind: "booking",
+        ...pos,
+        lane: 0,
+        color: sourceColor(b.source),
+        source: b.source,
+        title: b.guest_name ?? "Guest",
+        dateRange: `${formatDayMonth(b.check_in)} – ${formatDayMonth(b.check_out)}`,
+        // Owners see their own payout, never Hostello's share.
+        amount: b.client_payout ? formatPKR(b.client_payout) : null,
+        tentative: b.status === "tentative",
+        href: `/client/bookings/${b.id}`,
+      });
+    }
+
+    for (const bl of blocksByProperty.get(p.id) ?? []) {
+      // calendar_blocks.end_date is inclusive.
+      const pos = place(bl.start_date, bl.end_date);
+      if (!pos) continue;
+      const booked = bl.block_type === "booked";
+      segments.push({
+        key: `k-${bl.id}`,
+        kind: "block",
+        ...pos,
+        lane: 0,
+        color: booked ? "var(--color-status-booked)" : "var(--color-status-blocked)",
+        source: null,
+        title: bl.notes ?? (booked ? "Booked" : "Blocked"),
+        dateRange: `${formatDayMonth(bl.start_date)} – ${formatDayMonth(bl.end_date)}`,
+        amount: null,
+        tentative: false,
+        href: `/client/calendar/block?month=${monthStr}`,
+      });
+    }
+
+    // Stack overlapping bars into lanes instead of drawing them on top of each other.
+    segments.sort((a, b) => a.startIdx - b.startIdx || b.span - a.span);
+    const laneEnds: number[] = [];
+    for (const seg of segments) {
+      let lane = laneEnds.findIndex((end) => end < seg.startIdx);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(-1);
+      }
+      laneEnds[lane] = seg.startIdx + seg.span - 1;
+      seg.lane = lane;
+    }
+
+    const covered = new Array(days.length).fill(false);
+    for (const seg of segments) {
+      for (let i = seg.startIdx; i < seg.startIdx + seg.span; i++) covered[i] = true;
+    }
+
+    return {
+      id: p.id,
+      name: p.name,
+      subtext: [propertyTypeLabel(p.type), p.city].filter(Boolean).join(" · "),
+      lanes: Math.max(1, laneEnds.length),
+      covered,
+      segments,
+    };
+  }
+
+  const groups: CalendarGroup[] = [
+    {
+      clientId: clientRecord.id,
+      clientName: clientRecord.name,
+      rows: properties.map(buildRow),
+    },
+  ];
+
+  const bookingProperties = properties.map((p) => ({
+    id: p.id,
+    name: p.name,
+    stack_rate: Number(p.stack_rate ?? 0),
+    client_id: clientRecord.id,
+    client_name: clientRecord.name,
+  }));
+
+  const bookingClients = [
+    {
+      id: clientRecord.id,
+      deal_model: clientRecord.deal_model as DealModel,
+      share_percent: Number(clientRecord.share_percent),
+      deduct_percent: Number(clientRecord.deduct_percent),
+    },
+  ];
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
-  const today = todayISO();
+
+  const legend: { label: string; color: string }[] = [
+    { label: "Airbnb", color: sourceColor("airbnb") },
+    { label: "Booking.com", color: sourceColor("booking_com") },
+    { label: "Hostello Direct", color: sourceColor("hostello") },
+    { label: "Your own booking", color: sourceColor("client") },
+    { label: "Blocked", color: "var(--color-status-blocked)" },
+  ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="flex flex-col gap-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-ink-muted text-xs tracking-wide">AVAILABILITY</p>
           <h1 className="text-2xl font-semibold mt-1">Calendar</h1>
@@ -170,118 +277,56 @@ export default async function ClientCalendarPage({
         </div>
       </div>
 
-      <div className="card p-4 flex items-center justify-between">
+      <div className="flex items-center gap-1">
         <Link
           href={`/client/calendar?month=${formatMonthParam(prevYear, prevMonth0)}`}
+          aria-label="Previous month"
           className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
         >
           <ChevronLeft size={16} />
         </Link>
-        <p className="text-sm font-medium">{formatMonthLabel(year, month0)}</p>
+        <p className="text-sm font-medium min-w-[150px] text-center">
+          {formatMonthLabel(year, month0)}
+        </p>
         <Link
           href={`/client/calendar?month=${formatMonthParam(nextYear, nextMonth0)}`}
+          aria-label="Next month"
           className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
         >
           <ChevronRight size={16} />
         </Link>
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-ink-secondary flex-wrap">
+      <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
+        {legend.map((l) => (
+          <span key={l.label} className="flex items-center gap-1.5">
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-sm"
+              style={{ backgroundColor: l.color }}
+            />
+            {l.label}
+          </span>
+        ))}
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-status-available/25" />
-          Available
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#e85d8a]" />
-          Airbnb
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#3b82f6]" />
-          Booking.com
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-hostello-purple-mid" />
-          Hostello
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-status-blocked" />
-          Blocked
+          <span className="inline-block w-2.5 h-2.5 rounded-sm border border-border-strong" />
+          Available — click to book
         </span>
       </div>
 
-      <div className="card p-3 overflow-x-auto">
-        <table className="border-separate" style={{ borderSpacing: "2px" }}>
-          <thead>
-            <tr>
-              <th className="sticky left-0 bg-surface-1 z-10 text-left text-[10px] text-ink-muted font-normal px-2 pb-2 min-w-[140px]">
-                Property
-              </th>
-              {days.map((d) => (
-                <th
-                  key={d}
-                  className={`text-[9px] font-normal pb-2 w-6 ${
-                    d === today ? "text-hostello-gold" : "text-ink-muted"
-                  }`}
-                >
-                  {Number(d.slice(8, 10))}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <Fragment>
-              {properties.map((p) => (
-                <tr key={p.id}>
-                  <td className="sticky left-0 bg-surface-1 z-10 text-xs text-ink-primary pr-3 whitespace-nowrap">
-                    {p.name}
-                  </td>
-                  {days.map((d) => {
-                    const status = statusFor(p.id, d);
-                    let cellClass = "w-6 h-6 rounded-sm ";
-                    if (status.kind === "booked") {
-                      cellClass += SOURCE_COLOR[status.source] ?? "bg-status-booked";
-                    } else if (status.kind === "blocked") {
-                      cellClass += "bg-status-blocked";
-                    } else {
-                      cellClass += "bg-status-available/20 hover:bg-status-available/35";
-                    }
+      <CalendarBoard
+        days={days}
+        today={today}
+        groups={groups}
+        cellMin={34}
+        bookingProperties={bookingProperties}
+        bookingClients={bookingClients}
+        createAction={createClientBookingInline}
+        groupHeaders={false}
+      />
 
-                    if (status.kind === "available") {
-                      return (
-                        <td key={d} className="p-0">
-                          <Link
-                            href={`/client/bookings/new?property=${p.id}&date=${d}`}
-                            title="Add booking"
-                            className={`${cellClass} block transition-colors`}
-                          />
-                        </td>
-                      );
-                    }
-
-                    if (status.kind === "blocked") {
-                      return (
-                        <td key={d} className="p-0">
-                          <Link
-                            href={`/client/calendar/block?month=${monthStr}`}
-                            title={`${status.label} — tap to unblock`}
-                            className={`${cellClass} block transition-colors`}
-                          />
-                        </td>
-                      );
-                    }
-
-                    return (
-                      <td key={d} className="p-0">
-                        <div title={status.label} className={cellClass} />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </Fragment>
-          </tbody>
-        </table>
-      </div>
+      <p className="text-xs text-ink-muted">
+        {properties.length} {properties.length === 1 ? "property" : "properties"}
+      </p>
     </div>
   );
 }
