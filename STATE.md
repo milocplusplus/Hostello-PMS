@@ -142,7 +142,8 @@
     picked, and as the "terms as of booking" line on `/admin/bookings/[id]`.
   - `npm run build` and `npm run lint` clean. Payout branches spot-checked at
     runtime (OTA none / percent / stack, tentative, self-sourced, non-OTA).
-  - **Not deployed** — committing and pushing is still to do.
+  - Deployed 2026-08-25 as `dpl_4j9uo1PSPn9Bubh76czhM5stgVSw` (READY, production,
+    commit `2ebdf04`).
 
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
