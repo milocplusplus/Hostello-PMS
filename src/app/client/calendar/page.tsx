@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { formatPKR, type DealModel } from "@/lib/payout";
+import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createClientBookingInline } from "@/app/client/bookings/actions";
 import {
   CalendarBoard,
@@ -38,7 +38,7 @@ export default async function ClientCalendarPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id, name, deal_model, share_percent, deduct_percent")
+    .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .eq("owner_user_id", user.id)
     .single();
   if (!clientRecord) redirect("/client");
@@ -237,6 +237,8 @@ export default async function ClientCalendarPage({
       deal_model: clientRecord.deal_model as DealModel,
       share_percent: Number(clientRecord.share_percent),
       deduct_percent: Number(clientRecord.deduct_percent),
+      ota_model: clientRecord.ota_model as OtaModel,
+      ota_share_percent: Number(clientRecord.ota_share_percent),
     },
   ];
 

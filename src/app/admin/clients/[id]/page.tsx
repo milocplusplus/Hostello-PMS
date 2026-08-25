@@ -47,7 +47,7 @@ export default async function ClientDetailPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent")
+    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent")
     .eq("id", id)
     .single();
 
@@ -162,6 +162,16 @@ export default async function ClientDetailPage({
             </span>
           </span>
         )}
+        <span className="text-ink-secondary">
+          Airbnb / Booking.com:{" "}
+          <span className="text-ink-primary">
+            {clientRecord.ota_model === "none"
+              ? "Hostello earns nothing"
+              : clientRecord.ota_model === "percent"
+                ? `${clientRecord.ota_share_percent}% share`
+                : "Stack rate"}
+          </span>
+        </span>
         {Number(clientRecord.deduct_percent) > 0 && (
           <span className="text-ink-secondary">
             Deduction: <span className="text-ink-primary">{clientRecord.deduct_percent}%</span>

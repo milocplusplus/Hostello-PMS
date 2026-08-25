@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { calculatePayout, type DealModel } from "@/lib/payout";
+import { calculatePayout, isOtaSource, type DealModel, type OtaModel } from "@/lib/payout";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import {
   fieldLabel,
@@ -25,6 +25,8 @@ type ClientTerms = {
   deal_model: DealModel;
   share_percent: number;
   deduct_percent: number;
+  ota_model: OtaModel;
+  ota_share_percent: number;
 };
 
 export function BookingForm({
@@ -84,6 +86,8 @@ export function BookingForm({
       dealModel: client.deal_model,
       sharePercent: client.share_percent,
       deductPercent: client.deduct_percent,
+      otaModel: client.ota_model,
+      otaSharePercent: client.ota_share_percent,
       stackRate: stackRateTotal,
       source,
       status,
@@ -291,6 +295,15 @@ export function BookingForm({
             Hostello earns:{" "}
             <span className="text-financial font-medium">Rs {preview.hostelloShare.toLocaleString("en-PK")}</span>
           </p>
+          {client && isOtaSource(source) && (
+            <p className="text-[11px] text-ink-muted">
+              {client.ota_model === "none"
+                ? "This client's Airbnb / Booking.com terms: Hostello earns nothing on these."
+                : client.ota_model === "percent"
+                  ? `This client's Airbnb / Booking.com terms: ${client.ota_share_percent}% of the net.`
+                  : "This client's Airbnb / Booking.com terms: whatever clears the stack rate."}
+            </p>
+          )}
           <p className="text-ink-secondary">
             Client payout:{" "}
             <span className="text-ink-primary font-medium">Rs {preview.clientPayout.toLocaleString("en-PK")}</span>

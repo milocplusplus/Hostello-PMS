@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
-import type { DealModel } from "@/lib/payout";
+import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function NewBookingPage({
   searchParams,
@@ -15,7 +15,7 @@ export default async function NewBookingPage({
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, name, deal_model, share_percent, deduct_percent")
+    .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .order("name");
 
   const { data: properties } = await supabase
@@ -39,6 +39,8 @@ export default async function NewBookingPage({
       deal_model: c.deal_model as DealModel,
       share_percent: Number(c.share_percent),
       deduct_percent: Number(c.deduct_percent),
+      ota_model: c.ota_model as OtaModel,
+      ota_share_percent: Number(c.ota_share_percent),
     })) ?? [];
 
   const initialPropertyId =

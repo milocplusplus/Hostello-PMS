@@ -14,6 +14,8 @@ export async function createClientRecord(formData: FormData) {
   const monthly_fee = Number(formData.get("monthly_fee")) || 0;
   const share_percent = Number(formData.get("share_percent")) || 0;
   const deduct_percent = Number(formData.get("deduct_percent")) || 0;
+  const ota_model = (formData.get("ota_model") as string) || "percent";
+  const ota_share_percent = Number(formData.get("ota_share_percent")) || 0;
   const login_email = (formData.get("login_email") as string)?.trim() || null;
   const login_password = (formData.get("login_password") as string) || null;
 
@@ -40,6 +42,8 @@ export async function createClientRecord(formData: FormData) {
       monthly_fee,
       share_percent,
       deduct_percent,
+      ota_model,
+      ota_share_percent,
     })
     .select("id")
     .single();
@@ -81,6 +85,8 @@ export async function updateClientRecord(formData: FormData) {
   const monthly_fee = Number(formData.get("monthly_fee")) || 0;
   const share_percent = Number(formData.get("share_percent")) || 0;
   const deduct_percent = Number(formData.get("deduct_percent")) || 0;
+  const ota_model = (formData.get("ota_model") as string) || "percent";
+  const ota_share_percent = Number(formData.get("ota_share_percent")) || 0;
 
   if (!name) {
     redirect(
@@ -99,6 +105,8 @@ export async function updateClientRecord(formData: FormData) {
       monthly_fee,
       share_percent,
       deduct_percent,
+      ota_model,
+      ota_share_percent,
     })
     .eq("id", id);
 

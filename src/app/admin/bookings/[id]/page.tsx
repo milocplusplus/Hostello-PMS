@@ -4,7 +4,7 @@ import { CalendarDays, Phone, Users, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { DEAL_MODELS, formatPKR, nightsBetween } from "@/lib/payout";
+import { DEAL_MODELS, formatPKR, isOtaSource, nightsBetween } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
@@ -37,7 +37,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -55,10 +55,17 @@ export default async function BookingDetailPage({
   const gross = Number(booking.sale_price ?? 0);
   const deductPct = Number(booking.deduct_percent_snapshot ?? 0);
   const deduction = gross - Number(booking.net_sale ?? gross);
-  const dealLabel =
-    DEAL_MODELS.find((d) => d.value === booking.deal_model_snapshot)?.label ??
-    booking.deal_model_snapshot ??
-    "—";
+  // OTA bookings settle on their own per-client terms, not the deal model.
+  const otaSnapshot = isOtaSource(booking.source) ? booking.ota_model_snapshot : null;
+  const dealLabel = otaSnapshot
+    ? otaSnapshot === "none"
+      ? "Airbnb / Booking.com — Hostello earns nothing"
+      : otaSnapshot === "percent"
+        ? `Airbnb / Booking.com — ${booking.ota_share_percent_snapshot}% share`
+        : "Airbnb / Booking.com — stack rate"
+    : (DEAL_MODELS.find((d) => d.value === booking.deal_model_snapshot)?.label ??
+      booking.deal_model_snapshot ??
+      "—");
 
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">

@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { formatPKR, type DealModel } from "@/lib/payout";
+import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createBookingInline } from "@/app/admin/bookings/actions";
 import {
   CalendarBoard,
@@ -58,7 +58,7 @@ export default async function CalendarPage({
   // Deal terms + stack rates for the quick-add modal's live payout preview.
   const { data: clientTerms } = await supabase
     .from("clients")
-    .select("id, deal_model, share_percent, deduct_percent")
+    .select("id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .order("name");
 
   function href(overrides: Partial<Record<keyof Params, string | undefined>>) {
@@ -309,6 +309,8 @@ export default async function CalendarPage({
     deal_model: c.deal_model as DealModel,
     share_percent: Number(c.share_percent),
     deduct_percent: Number(c.deduct_percent),
+    ota_model: c.ota_model as OtaModel,
+    ota_share_percent: Number(c.ota_share_percent),
   }));
 
   const legend: { label: string; color: string }[] = [

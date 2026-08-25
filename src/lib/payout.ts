@@ -9,6 +9,25 @@ export const DEAL_MODELS: { value: DealModel; label: string }[] = [
 ];
 
 /**
+ * Bookings that come in through an OTA settle on their own per-client terms,
+ * not the base deal model: on some clients Hostello earns nothing on them at
+ * all, on others a percentage or the stack-rate spread.
+ */
+export type OtaModel = "none" | "percent" | "stack";
+
+export const OTA_MODELS: { value: OtaModel; label: string }[] = [
+  { value: "percent", label: "Percentage of each booking" },
+  { value: "stack", label: "Stack rate (per-night floor)" },
+  { value: "none", label: "Nothing — the full net goes to the owner" },
+];
+
+const OTA_SOURCES = ["airbnb", "booking_com"];
+
+export function isOtaSource(source: string): boolean {
+  return OTA_SOURCES.includes(source);
+}
+
+/**
  * Nights are always derived from dates, never typed in.
  * Check-out day does not count (5th to 8th is 3 nights).
  */
@@ -26,7 +45,9 @@ export type PayoutInput = {
   dealModel: DealModel;
   sharePercent: number; // used by percent, fixed_percent
   deductPercent: number; // applied first, off gross
-  stackRate: number; // per night, used by ads, fixed_stack
+  stackRate: number; // per night, used by ads, fixed_stack and the 'stack' OTA model
+  otaModel: OtaModel; // stands in for the deal model on airbnb / booking_com bookings
+  otaSharePercent: number; // used when otaModel is 'percent'
   source: string; // 'client' means self-sourced by the owner — Hostello earns nothing on it
   status: "confirmed" | "tentative" | "cancelled";
 };
@@ -52,7 +73,19 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
 
   let hostelloShare = 0;
 
-  if (!selfSourcedOrTentative) {
+  if (!selfSourcedOrTentative && isOtaSource(input.source)) {
+    switch (input.otaModel) {
+      case "percent":
+        hostelloShare = (netSale * input.otaSharePercent) / 100;
+        break;
+      case "stack":
+        hostelloShare = Math.max(0, netSale - input.stackRate * nights);
+        break;
+      case "none":
+        hostelloShare = 0;
+        break;
+    }
+  } else if (!selfSourcedOrTentative) {
     switch (input.dealModel) {
       case "percent":
       case "fixed_percent":

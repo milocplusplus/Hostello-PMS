@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DEAL_MODELS, type DealModel } from "@/lib/payout";
+import { DEAL_MODELS, OTA_MODELS, type DealModel, type OtaModel } from "@/lib/payout";
 import {
   fieldLabel,
   fieldInput,
@@ -21,6 +21,8 @@ type ClientFormProps = {
     monthly_fee?: number | null;
     share_percent?: number | null;
     deduct_percent?: number | null;
+    ota_model?: OtaModel;
+    ota_share_percent?: number | null;
   };
   error?: string;
   submitLabel: string;
@@ -28,6 +30,7 @@ type ClientFormProps = {
 
 export function ClientForm({ action, clientId, defaultValues, error, submitLabel }: ClientFormProps) {
   const [model, setModel] = useState<DealModel>(defaultValues?.deal_model ?? "percent");
+  const [otaModel, setOtaModel] = useState<OtaModel>(defaultValues?.ota_model ?? "percent");
 
   const showMonthlyFee = model === "fixed" || model === "fixed_stack" || model === "fixed_percent";
   const showSharePercent = model === "percent" || model === "fixed_percent";
@@ -143,7 +146,55 @@ export function ClientForm({ action, clientId, defaultValues, error, submitLabel
           </p>
         )}
 
-        <div className="flex flex-col gap-1.5">
+        <div className="border-t border-border-hairline pt-4 flex flex-col gap-1.5">
+          <label htmlFor="ota_model" className={fieldLabel}>
+            On Airbnb / Booking.com bookings, Hostello earns
+          </label>
+          <select
+            id="ota_model"
+            name="ota_model"
+            value={otaModel}
+            onChange={(e) => setOtaModel(e.target.value as OtaModel)}
+            className={fieldInput}
+          >
+            {OTA_MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-ink-muted">
+            Bookings from those two channels use this instead of the deal model above.
+            Everything else — Hostello, offline, reference — still follows the deal model.
+          </p>
+        </div>
+
+        {otaModel === "percent" && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="ota_share_percent" className={fieldLabel}>
+              Hostello&apos;s share of each Airbnb / Booking.com booking (%)
+            </label>
+            <input
+              id="ota_share_percent"
+              name="ota_share_percent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              defaultValue={defaultValues?.ota_share_percent ?? 20}
+              className={fieldInput}
+            />
+          </div>
+        )}
+
+        {otaModel === "stack" && (
+          <p className="text-xs text-ink-muted">
+            Hostello keeps whatever the booking makes above the property&apos;s stack rate ×
+            nights — set that rate on the property itself.
+          </p>
+        )}
+
+        <div className="border-t border-border-hairline pt-4 flex flex-col gap-1.5">
           <label htmlFor="deduct_percent" className={fieldLabel}>
             Deduction taken off gross before any split (%)
           </label>
@@ -166,6 +217,7 @@ export function ClientForm({ action, clientId, defaultValues, error, submitLabel
 
       {!showMonthlyFee && <input type="hidden" name="monthly_fee" value={0} />}
       {!showSharePercent && <input type="hidden" name="share_percent" value={0} />}
+      {otaModel !== "percent" && <input type="hidden" name="ota_share_percent" value={0} />}
 
       {!clientId && (
         <div className="border-t border-border-hairline pt-4 flex flex-col gap-4">

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { calculatePayout, type DealModel } from "@/lib/payout";
+import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
 import {
   notifyBookingCreated,
   notifyBookingCancelled,
@@ -47,7 +47,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   // from the client's current deal terms and the selected properties' stack rates.
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("deal_model, share_percent, deduct_percent")
+    .select("deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .eq("id", client_id)
     .single();
 
@@ -94,6 +94,8 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     dealModel: clientRecord.deal_model as DealModel,
     sharePercent: Number(clientRecord.share_percent),
     deductPercent: Number(clientRecord.deduct_percent),
+    otaModel: clientRecord.ota_model as OtaModel,
+    otaSharePercent: Number(clientRecord.ota_share_percent),
     stackRate: stackRateTotal,
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
@@ -114,6 +116,8 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       deal_model_snapshot: clientRecord.deal_model,
       share_percent_snapshot: clientRecord.share_percent,
       deduct_percent_snapshot: clientRecord.deduct_percent,
+      ota_model_snapshot: clientRecord.ota_model,
+      ota_share_percent_snapshot: clientRecord.ota_share_percent,
       stack_rate_snapshot: stackRateTotal,
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,

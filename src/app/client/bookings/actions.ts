@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { calculatePayout, type DealModel } from "@/lib/payout";
+import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -39,7 +39,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   // Verify this is really the caller's own client account.
   const { data: ownClient } = await supabase
     .from("clients")
-    .select("id, deal_model, share_percent, deduct_percent")
+    .select("id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .eq("owner_user_id", user?.id ?? "")
     .single();
 
@@ -86,6 +86,8 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
     dealModel: ownClient.deal_model as DealModel,
     sharePercent: Number(ownClient.share_percent),
     deductPercent: Number(ownClient.deduct_percent),
+    otaModel: ownClient.ota_model as OtaModel,
+    otaSharePercent: Number(ownClient.ota_share_percent),
     stackRate: stackRateTotal,
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
@@ -106,6 +108,8 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
       deal_model_snapshot: ownClient.deal_model,
       share_percent_snapshot: ownClient.share_percent,
       deduct_percent_snapshot: ownClient.deduct_percent,
+      ota_model_snapshot: ownClient.ota_model,
+      ota_share_percent_snapshot: ownClient.ota_share_percent,
       stack_rate_snapshot: stackRateTotal,
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,

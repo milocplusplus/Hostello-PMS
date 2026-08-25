@@ -122,6 +122,28 @@
     `owner_user_id`, so `cancelClientBooking` can't touch another client's row
     even though it takes a bare id.
 
+- **Per-client OTA terms** (2026-08-25). Airbnb / Booking.com bookings now settle
+  on their own per-client rule instead of the base deal model: `none` (Hostello
+  earns nothing, the whole net goes to the owner), `percent` (its own
+  `ota_share_percent`), or `stack` (whatever clears the property's stack rate).
+  Everything else — Hostello, offline, reference, client — still follows
+  `deal_model`, and self-sourced / tentative still earn zero first.
+  - Migration `20260825210000_add_client_ota_terms.sql`, **applied to the live DB**:
+    `client_ota_model` enum, `clients.ota_model` / `ota_share_percent`, and
+    nullable `bookings.ota_model_snapshot` / `ota_share_percent_snapshot`.
+    Existing clients were backfilled from their deal model (percent / fixed_percent
+    → percent at the same %, ads / fixed_stack → stack, fixed → none), so nobody's
+    numbers moved. Pre-migration bookings have a null OTA snapshot by design.
+  - `payout.ts` stays the only revenue math: new `OtaModel`, `OTA_MODELS`,
+    `isOtaSource()`, and two required `PayoutInput` fields, so every call site has
+    to pass the terms.
+  - Set on `ClientForm` (new *and* edit, so existing clients too); shown on
+    `/admin/clients/[id]`, in the `BookingForm` live preview once an OTA channel is
+    picked, and as the "terms as of booking" line on `/admin/bookings/[id]`.
+  - `npm run build` and `npm run lint` clean. Payout branches spot-checked at
+    runtime (OTA none / percent / stack, tentative, self-sourced, non-OTA).
+  - **Not deployed** — committing and pushing is still to do.
+
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
