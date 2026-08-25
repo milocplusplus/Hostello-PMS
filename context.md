@@ -101,8 +101,9 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   storage_path, amount, uploaded_by, created_at. The screenshot proving the advance
   token moved. Bytes live in the **private** `booking-receipts` storage bucket at
   `<booking_id>/<uuid>.<ext>` — that first path segment is what the storage RLS
-  policies key on. Admins upload/delete; clients read their own and can attach one
-  when creating a booking.
+  policies key on. **Hostello uploads, the client only reads.** Clients have no
+  insert policy on either the table or the bucket, and `BookingForm` takes
+  `allowReceipt={false}` in the client portal so no dead control is shown.
 
 ## Key flows
 1. **Booking create** — `components/admin/BookingForm.tsx` → `app/{admin,client}/bookings/actions.ts`

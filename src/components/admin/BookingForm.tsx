@@ -37,6 +37,7 @@ export function BookingForm({
   initialPropertyId,
   initialDate,
   initialCheckOut,
+  allowReceipt = true,
   error,
 }: {
   action: (formData: FormData) => void;
@@ -45,6 +46,8 @@ export function BookingForm({
   initialPropertyId?: string;
   initialDate?: string;
   initialCheckOut?: string;
+  /** Token receipts are Hostello's to upload — off in the client portal. */
+  allowReceipt?: boolean;
   error?: string;
 }) {
   const sortedProperties = useMemo(
@@ -261,6 +264,7 @@ export function BookingForm({
             </div>
           </div>
 
+          {allowReceipt && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="receipt" className={fieldLabel}>
@@ -287,6 +291,7 @@ export function BookingForm({
               </select>
             </div>
           </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="status" className={fieldLabel}>

@@ -230,6 +230,25 @@
     API → signed-URL render) needs a signed-in session, and there are no
     credentials on this machine. Worth doing on first login.
 
+- **Token receipts are Hostello's to upload** (2026-08-25, after the above went
+  out). The first cut let a client attach one to their own booking; the intended
+  flow is staff-uploads / client-reads, so the write path is gone on the client
+  side. `npm run build` and `npm run lint` clean.
+  - Migration `restrict_booking_receipt_uploads_to_admins`, **applied to the live
+    DB**: drops `booking_receipts: client attaches to own bookings` and
+    `booking receipts: client uploads to own booking`. Each side is now one
+    admin-all policy plus one client-select policy.
+  - `BookingForm` takes `allowReceipt` (default true); the client portal's
+    `bookings/new` and `CalendarBoard` (which threads it to the quick-add modal)
+    pass `false`, so the field isn't shown where it wouldn't work.
+  - `saveClientBooking` no longer touches receipts at all.
+  - `notifyBookingCreated` gained an optional `advanceReceived` and appends
+    "Token received: Rs X" to the body when there is one — so the booking
+    notification itself tells the client the token landed, and the receipt is on
+    the booking it links to.
+  - Re-probed per role: admin upload OK; the client sees the row and the file
+    (1 each) but is DENIED on both the table insert and the storage insert.
+
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to

@@ -56,6 +56,7 @@ export function CalendarBoard({
   bookingClients,
   createAction,
   groupHeaders = true,
+  allowReceipt = true,
 }: {
   days: string[];
   today: string;
@@ -65,6 +66,7 @@ export function CalendarBoard({
   bookingClients: BookingFormProps["clients"];
   createAction: InlineCreate;
   groupHeaders?: boolean;
+  allowReceipt?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
@@ -191,6 +193,7 @@ export function CalendarBoard({
         properties={bookingProperties}
         clients={bookingClients}
         createAction={createAction}
+        allowReceipt={allowReceipt}
         onClose={() => setDraft(null)}
       />
     )}
@@ -207,12 +210,14 @@ function QuickAddBooking({
   properties,
   clients,
   createAction,
+  allowReceipt,
   onClose,
 }: {
   draft: { propertyId: string; propertyName: string; date: string };
   properties: BookingFormProps["properties"];
   clients: BookingFormProps["clients"];
   createAction: InlineCreate;
+  allowReceipt: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -275,6 +280,7 @@ function QuickAddBooking({
           initialPropertyId={draft.propertyId}
           initialDate={draft.date}
           initialCheckOut={checkOut}
+          allowReceipt={allowReceipt}
           error={error}
         />
       </div>

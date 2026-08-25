@@ -72,6 +72,7 @@ export default async function ClientNewBookingPage({
           clients={clientTerms}
           initialPropertyId={property}
           initialDate={date}
+          allowReceipt={false}
           error={error}
         />
       )}

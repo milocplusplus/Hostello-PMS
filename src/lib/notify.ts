@@ -44,16 +44,25 @@ export async function notifyBookingCreated(
     checkOut: string;
     clientPayout: number;
     isTentative: boolean;
+    advanceReceived?: number;
   }
 ) {
   const units = args.unitNames.filter(Boolean).join(", ") || "your property";
+  const parts = [
+    dateRange(args.checkIn, args.checkOut),
+    `Your payout: ${formatPKR(args.clientPayout)}`,
+  ];
+  // The token is what confirms the booking, so the client sees it landed.
+  if (args.advanceReceived && args.advanceReceived > 0) {
+    parts.push(`Token received: ${formatPKR(args.advanceReceived)}`);
+  }
   await insert(supabase, {
     client_id: args.clientId,
     kind: "booking_created",
     title: args.isTentative
       ? `Tentative booking held for ${units}`
       : `New booking for ${units}`,
-    body: `${dateRange(args.checkIn, args.checkOut)} · Your payout: ${formatPKR(args.clientPayout)}`,
+    body: parts.join(" · "),
     booking_id: args.bookingId,
   });
 }

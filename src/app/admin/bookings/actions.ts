@@ -171,6 +171,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     checkOut: check_out,
     clientPayout: payout.clientPayout,
     isTentative: status === "tentative",
+    advanceReceived: advance_received,
   });
 
   revalidatePath("/admin/bookings");

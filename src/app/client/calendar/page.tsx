@@ -324,6 +324,7 @@ export default async function ClientCalendarPage({
         bookingClients={bookingClients}
         createAction={createClientBookingInline}
         groupHeaders={false}
+        allowReceipt={false}
       />
 
       <p className="text-xs text-ink-muted">
