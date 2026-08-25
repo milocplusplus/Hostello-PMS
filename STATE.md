@@ -38,6 +38,38 @@
     This also changes the dashboard's channel dots.
   - `markBookingSettled` / `cancelBooking` / `createBooking` now also
     `revalidatePath("/admin/bookings/[id]", "page")`.
+- **Phase 3 refinements** (2026-08-25, after review). `npm run build` + `npm run lint`
+  clean (same 2 pre-existing warnings).
+  - Calendar pagination removed — every client and property renders in one board.
+    Client group headers still collapse; the footer now reads "N properties across
+    M clients". The `page` search param is gone.
+  - Clicking an empty day no longer navigates: `CalendarBoard` opens a
+    `QuickAddBooking` modal (same file) holding the shared `BookingForm`, prefilled
+    with that property, check-in = the clicked day, check-out = the next day (one
+    night). Esc or backdrop closes; success closes + `router.refresh()`.
+  - `createBooking` was split: `saveBooking()` holds all validation/insert/notify
+    logic and returns a result; `createBooking` redirects as before,
+    `createBookingInline` returns `{ error }` for the modal. One write path.
+  - `BookingForm` gained `initialCheckOut` and a `useFormStatus` submit button
+    (disabled + "Saving…"), so the modal can't be double-submitted.
+- **Admin-set client passwords** (2026-08-25). `set_client_password(client_id,
+  password)` — SECURITY DEFINER, admin-only, bcrypts straight into `auth.users`
+  and deletes that user's `auth.sessions` so the old password can't ride a live
+  session; `revoke execute … from anon` like the other admin RPCs. Server Action
+  `setClientPassword` in `admin/clients/actions.ts`; the Portal login card on
+  `/admin/clients/[id]` now shows the email plus a "Set password" field.
+  No service-role key involved — this follows the existing `create_client_login`
+  RPC pattern instead. **Applied to the live DB** (migrations
+  `add_set_client_password` + `restrict_set_client_password_to_authenticated`;
+  the repo file folds both together). Verified: admin + client-without-login →
+  "This client has no login yet", admin + 7-char password → refused, no session
+  → "Only admins can set client passwords", and `anon` has no EXECUTE.
+  - **Also fixes `create_client_login`, which was broken**: pgcrypto lives in the
+    `extensions` schema, but the function pinned `search_path` to `public, auth`,
+    so `crypt()`/`gen_salt()` could not resolve — every "Create login" would have
+    failed with `function gen_salt(unknown) does not exist`. (Verified against the
+    live DB with a throwaway probe function.) The migration adds `extensions` to
+    its search_path. The 4 existing client logins predate this and are fine.
   - Deliberately NOT built: Maintenance bar type (needs a `calendar_block_type`
     enum migration), property thumbnails and "4BR · Max 10 guests" (no columns),
     Timeline view (deferred).
@@ -88,6 +120,18 @@ reassign the alias, so nothing broke.
    `/admin/bookings/[id]` now exists — one anchor away.
 
 ## Open questions / debt
+- **Client password reset is undeliverable with fake emails.** `requestPasswordReset`
+  hands the address to Supabase, which mails the recovery link (landing on
+  `/auth/reset-password`). Client logins are `<slug>@hostello-clients.pk`
+  placeholders, so the mail bounces — nobody gets the link, and the form still
+  says "sent" by design (no enumeration). Answer for now: the admin sets the
+  password (see `set_client_password` below) and hands it over. Real emails +
+  custom SMTP are still needed before self-service reset can work at all —
+  Supabase's built-in SMTP is test-grade (a couple of mails/hour).
+- Note for future RPCs: `revoke execute … from anon` does **not** close the door
+  on its own — a fresh function keeps its default PUBLIC grant, which anon
+  inherits. Revoke `public, anon` and grant `authenticated` explicitly, then
+  check with `has_function_privilege('anon', oid, 'EXECUTE')`.
 - `supabase/migrations/0001_init_core_schema.sql` covers only profiles / clients /
   properties / payout_rules. `bookings`, `booking_properties`, `calendar_blocks`,
   `notifications` and the extra `properties` columns were applied straight to the

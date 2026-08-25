@@ -2,9 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { deleteClientRecord, deletePropertyRecord, createLoginForClient } from "../actions";
+import {
+  deleteClientRecord,
+  deletePropertyRecord,
+  createLoginForClient,
+  setClientPassword,
+} from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { secondaryButton, errorBanner, fieldLabel, fieldInput, primaryButton, primaryButtonStyle } from "@/lib/form-styles";
+import { secondaryButton, errorBanner, noticeBanner, fieldLabel, fieldInput, primaryButton, primaryButtonStyle } from "@/lib/form-styles";
 import { PROPERTY_TYPES } from "@/lib/property-types";
 import { DEAL_MODELS } from "@/lib/payout";
 
@@ -35,10 +40,10 @@ export default async function ClientDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -73,6 +78,7 @@ export default async function ClientDetailPage({
       </div>
 
       {error && <p className={errorBanner}>{error}</p>}
+      {notice && <p className={noticeBanner}>{notice}</p>}
 
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-4">
@@ -155,7 +161,35 @@ export default async function ClientDetailPage({
           Portal login
         </div>
         {loginEmail ? (
-          <p className="text-sm text-ink-primary">{loginEmail}</p>
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm text-ink-primary">{loginEmail}</p>
+              <p className="text-[11px] text-ink-muted mt-1">
+                Placeholder addresses receive no mail, so &ldquo;Forgot password&rdquo; can&apos;t
+                reach this owner. Set one here and pass it on.
+              </p>
+            </div>
+            <form action={setClientPassword} className="flex items-end gap-2">
+              <input type="hidden" name="client_id" value={id} />
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="new_password" className={fieldLabel}>
+                  New password
+                </label>
+                <input
+                  id="new_password"
+                  name="new_password"
+                  type="text"
+                  required
+                  minLength={8}
+                  placeholder="At least 8 characters"
+                  className={`${fieldInput} w-48`}
+                />
+              </div>
+              <button type="submit" className={`${secondaryButton} py-2`}>
+                Set password
+              </button>
+            </form>
+          </div>
         ) : (
           <form action={createLoginForClient} className="flex items-end gap-2 flex-wrap mt-2">
             <input type="hidden" name="client_id" value={id} />

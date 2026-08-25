@@ -161,6 +161,43 @@ export async function createLoginForClient(formData: FormData) {
   redirect(`/admin/clients/${client_id}`);
 }
 
+/**
+ * Client logins use placeholder addresses that receive no mail, so Supabase's
+ * recovery email can never reach the owner. This is how they get back in: an
+ * admin sets the password and passes it on. The RPC also drops the client's
+ * live sessions.
+ */
+export async function setClientPassword(formData: FormData) {
+  const client_id = formData.get("client_id") as string;
+  const new_password = (formData.get("new_password") as string) || "";
+
+  if (new_password.length < 8) {
+    redirect(
+      `/admin/clients/${client_id}?error=${encodeURIComponent(
+        "Password must be at least 8 characters."
+      )}`
+    );
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("set_client_password", {
+    p_client_id: client_id,
+    p_password: new_password,
+  });
+
+  if (error) {
+    redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath(`/admin/clients/${client_id}`);
+  redirect(
+    `/admin/clients/${client_id}?notice=${encodeURIComponent(
+      "Password updated. Give it to the owner — they'll need to sign in again."
+    )}`
+  );
+}
+
 // ── Properties ───────────────────────────────────────────
 
 export async function createProperty(formData: FormData) {

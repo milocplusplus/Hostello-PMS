@@ -13,3 +13,6 @@ export const secondaryButton =
 
 export const errorBanner =
   "text-xs text-status-booked bg-status-booked/10 border border-status-booked/30 rounded-md px-3 py-2";
+
+export const noticeBanner =
+  "text-xs text-status-available bg-status-available/10 border border-status-available/30 rounded-md px-3 py-2";
