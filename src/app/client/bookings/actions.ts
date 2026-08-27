@@ -139,9 +139,8 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
     unitNames: (properties ?? []).map((p) => p.name),
     checkIn: check_in,
     checkOut: check_out,
-    clientPayout: payout.clientPayout,
+    source,
     isTentative: status === "tentative",
-    advanceReceived: advance_received,
   });
 
   revalidatePath("/client/bookings");
@@ -175,7 +174,7 @@ export async function cancelClientBooking(formData: FormData) {
   // Read details before cancelling so the notification can describe what changed.
   const { data: booking } = await supabase
     .from("bookings")
-    .select("client_id, check_in, check_out, booking_properties(properties(name))")
+    .select("client_id, check_in, check_out, source, booking_properties(properties(name))")
     .eq("id", id)
     .single();
 
@@ -192,6 +191,7 @@ export async function cancelClientBooking(formData: FormData) {
             .filter(Boolean) ?? [],
         checkIn: booking.check_in,
         checkOut: booking.check_out,
+        source: booking.source,
       });
     }
 

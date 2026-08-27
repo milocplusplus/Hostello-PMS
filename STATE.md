@@ -723,6 +723,29 @@ reassign the alias, so nothing broke.
     int, Notification, String)`, `shouldLaunchImmediately()`) — and the icon
     pixels. The banner, the sound and the lock screen need a phone.
 
+
+- **Booking notifications say who, what, when, where** (2026-08-27). The banner
+  used to read "New booki…" plus raw ISO dates and a payout figure, which said
+  nothing useful on a phone. `npm run build` and `npm run lint` clean.
+  - **A booking event is now two rows, one per audience.** The client's reads
+    `property · dates · channel`; the admin's puts the client's name in front,
+    because an admin is reading across the whole portfolio and an owner is not.
+    Both portals already read the feed through `notification_recipients`, so
+    each side sees only its own row — no filtering was needed anywhere else.
+  - `emitBookingEvent` in `notify.ts` composes both and is the only place the
+    wording lives; `notifyBookingCreated` / `notifyBookingCancelled` just name
+    the kind and the title. Titles are short now ("New booking", "Tentative
+    booking held", "Booking cancelled") because an OS banner truncates them.
+  - `dateRange` switched from raw ISO to `formatDayMonth` — "Aug 27 → Aug 28".
+    That is shared, so blocked/unblocked/conflict notifications read properly too.
+  - The client name is looked up inside `notify.ts` rather than threaded through
+    four call sites; `source` had to come from the call sites, so both cancel
+    paths now select it.
+  - **Payout and "Token received" are gone from the banner** — that was the
+    stated spec. Both are still on the booking detail page.
+  - Event keys are `<kind>:<audience>:<bookingId>`, so the two rows do not
+    collide and old rows are unaffected.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

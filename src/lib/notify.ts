@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatPKR } from "./payout";
+import { formatDayMonth } from "./calendar";
+import { sourceLabel } from "./block-sources";
 import { deliverPush } from "./push";
 import type { NotificationCategory } from "./notifications";
 
@@ -60,14 +62,61 @@ async function emit(supabase: SupabaseClient, args: EmitArgs): Promise<void> {
 }
 
 function dateRange(from: string, to: string) {
-  return from === to ? from : `${from} → ${to}`;
+  const start = formatDayMonth(from);
+  return from === to ? start : `${start} → ${formatDayMonth(to)}`;
 }
 
 function unitLabel(unitNames: string[]) {
   return unitNames.filter(Boolean).join(", ") || "the property";
 }
 
+async function clientName(supabase: SupabaseClient, clientId: string): Promise<string | null> {
+  const { data } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+  return (data?.name as string | undefined) ?? null;
+}
+
 // ── Bookings ────────────────────────────────────────────────────────────────
+
+type BookingEvent = {
+  kind: string;
+  title: string;
+  clientId: string;
+  bookingId: string;
+  unitNames: string[];
+  checkIn: string;
+  checkOut: string;
+  source: string | null;
+};
+
+/**
+ * A booking event says the same thing to both sides, but not in the same words:
+ * an admin is reading across every client's portfolio and needs whose it is in
+ * front, an owner already knows. So it is two rows, one per audience, and each
+ * side's feed and push banner carry their own wording. The title stays short
+ * because an OS banner truncates it — the detail belongs in the body.
+ */
+async function emitBookingEvent(supabase: SupabaseClient, args: BookingEvent) {
+  const details = [
+    unitLabel(args.unitNames),
+    dateRange(args.checkIn, args.checkOut),
+    sourceLabel(args.source) ?? "Other",
+  ].join(" · ");
+
+  const who = await clientName(supabase, args.clientId);
+
+  for (const audience of ["client", "admin"] as const) {
+    await emit(supabase, {
+      kind: args.kind,
+      category: "booking",
+      audience,
+      title: args.title,
+      body: audience === "admin" && who ? `${who} · ${details}` : details,
+      clientId: args.clientId,
+      bookingId: args.bookingId,
+      eventKey: `${args.kind}:${audience}:${args.bookingId}`,
+    });
+  }
+}
 
 export async function notifyBookingCreated(
   supabase: SupabaseClient,
@@ -77,26 +126,14 @@ export async function notifyBookingCreated(
     unitNames: string[];
     checkIn: string;
     checkOut: string;
-    clientPayout: number;
+    source: string | null;
     isTentative: boolean;
-    advanceReceived?: number;
   }
 ) {
-  const units = unitLabel(args.unitNames);
-  const parts = [dateRange(args.checkIn, args.checkOut), `Payout: ${formatPKR(args.clientPayout)}`];
-  // The token is what confirms the booking, so everyone sees it landed.
-  if (args.advanceReceived && args.advanceReceived > 0) {
-    parts.push(`Token received: ${formatPKR(args.advanceReceived)}`);
-  }
-  await emit(supabase, {
+  await emitBookingEvent(supabase, {
     kind: "booking_created",
-    category: "booking",
-    audience: "both",
-    title: args.isTentative ? `Tentative booking held for ${units}` : `New booking for ${units}`,
-    body: parts.join(" · "),
-    clientId: args.clientId,
-    bookingId: args.bookingId,
-    eventKey: `booking_created:${args.bookingId}`,
+    title: args.isTentative ? "Tentative booking held" : "New booking",
+    ...args,
   });
 }
 
@@ -108,17 +145,13 @@ export async function notifyBookingCancelled(
     unitNames: string[];
     checkIn: string;
     checkOut: string;
+    source: string | null;
   }
 ) {
-  await emit(supabase, {
+  await emitBookingEvent(supabase, {
     kind: "booking_cancelled",
-    category: "booking",
-    audience: "both",
-    title: `Booking cancelled for ${unitLabel(args.unitNames)}`,
-    body: `${dateRange(args.checkIn, args.checkOut)} · These dates are available again.`,
-    clientId: args.clientId,
-    bookingId: args.bookingId,
-    eventKey: `booking_cancelled:${args.bookingId}`,
+    title: "Booking cancelled",
+    ...args,
   });
 }
 

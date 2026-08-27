@@ -97,6 +97,8 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/lib/calendar.ts` — `getMonthGrid`, `formatMonthLabel`, `parseMonthParam`,
   `formatMonthParam`, `addMonths`, `todayISO`, `addDaysISO`, `formatDayMonth`
 - `src/lib/notify.ts` — `notifyBookingCreated/Cancelled/DatesBlocked/PayoutSettled`
+  A booking event writes **two rows**, one per audience (`emitBookingEvent`):
+  the admin's body leads with the client's name, the owner's does not.
 - `src/lib/receipts.ts` — token-receipt upload/list helpers (`attachReceipt`,
   `listReceipts`, `validateReceipt`, `RECEIPT_KINDS`). The only code that touches
   the `booking-receipts` storage bucket. `src/components/shared/BookingReceipts.tsx`
