@@ -112,7 +112,10 @@ export async function deliverPush(notificationId: string): Promise<void> {
               keys: { p256dh: sub.p256dh ?? "", auth: sub.auth ?? "" },
             },
             JSON.stringify(payload),
-            { TTL: 60 * 60 * 12 }
+            // Urgency "high" is what gets a push past Android's Doze. The default,
+            // "normal", lets the phone sit on it until it next wakes for its own
+            // reasons — which is why these only landed when the app was opened.
+            { TTL: 60 * 60 * 12, urgency: "high" }
           );
         } catch (err) {
           // 404/410 mean the browser threw the subscription away — stop trying.
