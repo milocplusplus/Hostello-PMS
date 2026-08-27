@@ -45,6 +45,32 @@ if (typeof window !== "undefined") {
   });
 }
 
+/**
+ * Which "install it yourself" instruction to show when the browser gives us no
+ * prompt to fire — which is most desktop browsers, most of the time. Sniffing
+ * the user agent is imprecise, but the cost of getting it wrong is one slightly
+ * off sentence, and the cost of showing nothing is a feature nobody can find.
+ */
+export type InstallHint =
+  | "ios"
+  | "android"
+  | "chromium-desktop"
+  | "safari-desktop"
+  | "firefox"
+  | "other";
+
+export function readInstallHint(): InstallHint {
+  if (typeof window === "undefined") return "other";
+  const ua = window.navigator.userAgent;
+
+  if (isIos()) return "ios";
+  if (/android/i.test(ua)) return "android";
+  if (/firefox|fxios/i.test(ua)) return "firefox";
+  if (/edg|chrome|chromium/i.test(ua)) return "chromium-desktop";
+  if (/safari/i.test(ua)) return "safari-desktop";
+  return "other";
+}
+
 function isStandalone(): boolean {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -54,7 +80,12 @@ function isStandalone(): boolean {
 }
 
 function isIos(): boolean {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const ua = window.navigator.userAgent;
+  // An iPad on iPadOS 13+ reports itself as a Mac; the touch points give it away.
+  return (
+    /iphone|ipad|ipod/i.test(ua) ||
+    (/macintosh/i.test(ua) && window.navigator.maxTouchPoints > 1)
+  );
 }
 
 export function subscribeInstall(listener: () => void): () => void {

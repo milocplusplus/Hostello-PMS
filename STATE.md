@@ -591,6 +591,15 @@ reassign the alias, so nothing broke.
     silently never offer to install. The listener now registers at *module* scope,
     as the bundle loads, and both the banner and the sidebar button read that one
     store through `useSyncExternalStore` instead of racing for the same event.
+  - **The button hid itself from most people, and was fixed the same day.** It
+    only rendered when the browser had handed over a one-tap install prompt —
+    which Chrome does not always do, and Safari and Firefox never do — so on a
+    normal desktop it showed nothing at all. It now always renders (except when
+    already installed) and opens the instruction for that browser: address-bar
+    install icon on Chromium, File → Add to Dock on Safari, Share → Add to Home
+    Screen on iOS, ⋮ → Add to Home screen on Android, "pin the tab" on Firefox.
+    Verified in a browser at both widths: 231px button above Sign out in the
+    desktop sidebar, and the same button inside the phone drawer.
   - **Sound changed from the first-pass tones to "Glass"**, chosen from five
     candidates auditioned on a published artifact (Ripple / Glass / Marimba /
     Pulse / Halo). Glass is a struck bell: the timbre is in the *inharmonic*
