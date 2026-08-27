@@ -1,0 +1,92 @@
+/**
+ * Installing Hostello to a home screen / desktop.
+ *
+ * `beforeinstallprompt` fires once, early — often before React has hydrated —
+ * and the event is the only way to trigger an install later. So the listener is
+ * registered at *module* scope rather than in an effect: by the time a component
+ * mounts and asks, the answer is already here. Two components need it (the
+ * banner and the sidebar button), so both read this one store instead of racing
+ * for the same event.
+ */
+
+export type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+export type InstallState =
+  /** Already running as an installed app — nothing to offer. */
+  | "installed"
+  /** Safari: no install event exists; the user has to use Share → Add to Home Screen. */
+  | "ios"
+  /** The browser has offered an install prompt and we are holding it. */
+  | "ready"
+  /** Installable in principle, but this browser has not offered a prompt. */
+  | "unavailable";
+
+let deferred: InstallPromptEvent | null = null;
+let installed = false;
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferred = event as InstallPromptEvent;
+    emit();
+  });
+  window.addEventListener("appinstalled", () => {
+    deferred = null;
+    installed = true;
+    emit();
+  });
+}
+
+function isStandalone(): boolean {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // iOS Safari doesn't report display-mode; it sets this instead.
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
+function isIos(): boolean {
+  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+}
+
+export function subscribeInstall(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function readInstallState(): InstallState {
+  if (typeof window === "undefined") return "unavailable";
+  if (installed || isStandalone()) return "installed";
+  if (deferred) return "ready";
+  return isIos() ? "ios" : "unavailable";
+}
+
+/** The server has no window, so it always renders the "nothing to offer" case. */
+export function serverInstallState(): InstallState {
+  return "unavailable";
+}
+
+/** Returns true when the user actually accepted. The event is single-use. */
+export async function promptInstall(): Promise<boolean> {
+  if (!deferred) return false;
+  const event = deferred;
+  deferred = null;
+  emit();
+  try {
+    await event.prompt();
+    const { outcome } = await event.userChoice;
+    return outcome === "accepted";
+  } catch {
+    return false;
+  }
+}

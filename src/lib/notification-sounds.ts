@@ -1,48 +1,62 @@
 import type { NotificationCategory } from "./notifications";
 
 /**
- * The Hostello alert tones.
+ * The Hostello alert tones — "Glass": a struck glass bell.
  *
- * Synthesised with the Web Audio API rather than shipped as files: they are a
- * few hundred bytes of code instead of five downloads, they work offline and on
- * the first paint, and retuning one is editing a number here. Each category gets
- * a motif you can tell apart without looking at the screen — money rises, a
- * clash nags.
+ * Synthesised with the Web Audio API rather than shipped as files: a few hundred
+ * bytes of code instead of five downloads, working offline and on the first
+ * paint, and retuning one is editing a number here.
+ *
+ * The bell comes from the partials, not the fundamental. A real struck bell is
+ * inharmonic — its overtones are not whole multiples — so 2.76× and 5.4× are
+ * what stop this sounding like a beep. Each category gets its own motif on that
+ * same timbre, so you can tell what happened without looking: money climbs three
+ * notes, a booking is two, a clash nags in pairs.
  */
 
 type Note = {
   /** Hz. */
-  freq: number;
+  f: number;
   /** Seconds from the start of the motif. */
-  at: number;
+  t: number;
   /** Seconds. */
-  dur: number;
-  gain?: number;
-  type?: OscillatorType;
+  d: number;
+  /** Relative loudness; 1 is the reference. */
+  g?: number;
 };
 
+/** [frequency ratio, relative gain] — the inharmonic overtones of a struck bell. */
+const PARTIALS: [number, number][] = [
+  [1, 1],
+  [2.76, 0.22],
+  [5.4, 0.08],
+];
+
+const ATTACK = 0.004;
+const PEAK = 0.17;
+
 const MOTIFS: Record<NotificationCategory, Note[]> = {
-  // Two warm notes stepping up — something good landed.
+  // Two strikes, a fifth apart — something landed.
   booking: [
-    { freq: 1046.5, at: 0, dur: 0.16 },
-    { freq: 1318.5, at: 0.12, dur: 0.26 },
+    { f: 1046, t: 0, d: 0.6 },
+    { f: 1568, t: 0.11, d: 0.9 },
   ],
-  // Three ascending — the money chime.
+  // Three, climbing.
   payment: [
-    { freq: 784.0, at: 0, dur: 0.12 },
-    { freq: 1046.5, at: 0.09, dur: 0.12 },
-    { freq: 1567.9, at: 0.18, dur: 0.32 },
+    { f: 784, t: 0, d: 0.4, g: 0.85 },
+    { f: 1046, t: 0.1, d: 0.45, g: 0.9 },
+    { f: 1568, t: 0.2, d: 1.0 },
   ],
-  // One soft mid note — a date moved, look when you can.
-  calendar: [{ freq: 880.0, at: 0, dur: 0.22 }],
+  // One, softer — a date moved, look when you can.
+  calendar: [{ f: 880, t: 0, d: 0.55, g: 0.7 }],
   // Quieter still — account housekeeping.
-  system: [{ freq: 698.5, at: 0, dur: 0.2, gain: 0.5 }],
-  // Two hard pairs, lower and louder — this one wants you now.
+  system: [{ f: 698, t: 0, d: 0.5, g: 0.55 }],
+  // Two pairs, lower and louder — this one wants you now.
   critical: [
-    { freq: 659.3, at: 0, dur: 0.11, type: "square", gain: 0.5 },
-    { freq: 880.0, at: 0.11, dur: 0.14, type: "square", gain: 0.55 },
-    { freq: 659.3, at: 0.34, dur: 0.11, type: "square", gain: 0.5 },
-    { freq: 880.0, at: 0.45, dur: 0.2, type: "square", gain: 0.55 },
+    { f: 659, t: 0, d: 0.3, g: 1.2 },
+    { f: 880, t: 0.14, d: 0.34, g: 1.2 },
+    { f: 659, t: 0.4, d: 0.3, g: 1.2 },
+    { f: 880, t: 0.54, d: 0.5, g: 1.25 },
   ],
 };
 
@@ -69,23 +83,26 @@ export function playNotificationSound(category: NotificationCategory): void {
   if (!ctx) return;
 
   const start = () => {
-    const now = ctx.currentTime;
+    const now = ctx.currentTime + 0.02;
     for (const note of MOTIFS[category] ?? MOTIFS.system) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = note.type ?? "triangle";
-      osc.frequency.value = note.freq;
+      for (const [ratio, partialGain] of PARTIALS) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = note.f * ratio;
 
-      // A hard start or stop on a sine is an audible click; ramp both ends.
-      const peak = 0.16 * (note.gain ?? 1);
-      const at = now + note.at;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(peak, at + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + note.dur);
+        // A hard start or stop is an audible click, and the decay has to be
+        // exponential or the bell sounds like it was switched off.
+        const peak = PEAK * (note.g ?? 1) * partialGain;
+        const at = now + note.t;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(peak, at + ATTACK);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + note.d);
 
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(at);
-      osc.stop(at + note.dur + 0.02);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + note.d + 0.03);
+      }
     }
   };
 

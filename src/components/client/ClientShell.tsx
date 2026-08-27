@@ -6,6 +6,7 @@ import { useState } from "react";
 import { LayoutDashboard, CalendarDays, Wallet, Bell, Sun, Menu, X, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
+import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { UserMenu } from "@/components/shared/UserMenu";
@@ -84,22 +85,27 @@ function SidebarFooter({
   logoutAction: () => Promise<void>;
 }) {
   return (
-    <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
-          {userName.slice(0, 1).toUpperCase()}
+    <>
+      {/* Above the account row, so it is the last thing before "Sign out" in
+          both the desktop sidebar and the phone drawer. */}
+      <InstallAppButton />
+      <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
+            {userName.slice(0, 1).toUpperCase()}
+          </div>
+          <span className="text-xs text-ink-secondary truncate">{userName}</span>
         </div>
-        <span className="text-xs text-ink-secondary truncate">{userName}</span>
+        <form action={logoutAction}>
+          <button
+            type="submit"
+            className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
-      <form action={logoutAction}>
-        <button
-          type="submit"
-          className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
-        >
-          Sign out
-        </button>
-      </form>
-    </div>
+    </>
   );
 }
 

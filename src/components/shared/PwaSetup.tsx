@@ -2,54 +2,44 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Download, Share, X } from "lucide-react";
-
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
+import {
+  promptInstall,
+  readInstallState,
+  serverInstallState,
+  subscribeInstall,
+} from "@/lib/pwa-install";
 
 const DISMISSED_KEY = "hostello-install-dismissed";
 
-function isStandalone() {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    // iOS Safari doesn't report display-mode; it sets this instead
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIos() {
-  return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-}
-
 const noSubscribe = () => () => {};
 
-/**
- * Whether to offer installing, and how. Read through `useSyncExternalStore` so
- * the server renders nothing and the browser's answer arrives after hydration —
- * `window` can't be touched during render, and neither can an effect set state.
- */
-function useInstallMode(): "hidden" | "ios" | "prompt" {
+/** Read once on mount — a dismissal only has to survive a reload, not a render. */
+function useDismissed(): boolean {
   return useSyncExternalStore(
     noSubscribe,
     () => {
-      if (isStandalone() || localStorage.getItem(DISMISSED_KEY) === "1") return "hidden";
-      return isIos() ? "ios" : "prompt";
+      try {
+        return localStorage.getItem(DISMISSED_KEY) === "1";
+      } catch {
+        // Private mode, or site data blocked. Showing the banner is the safe miss.
+        return false;
+      }
     },
-    () => "hidden" as const
+    () => true
   );
 }
 
 /**
- * Registers the service worker and offers "Install app".
+ * Registers the service worker and offers "Install app" as a one-time banner.
  *
- * Android/Chrome fires `beforeinstallprompt`, so we can install in one tap.
- * iOS has no such event — Safari only installs via Share → Add to Home Screen,
- * so there we show that instruction instead of a button that couldn't work.
+ * Whether an install is possible — and the event that performs it — comes from
+ * `lib/pwa-install`, which starts listening as the bundle loads; `beforeinstallprompt`
+ * often fires before React hydrates, and an effect-registered listener can miss
+ * it outright. The sidebar's "Get the app" button reads the same store.
  */
 export function PwaSetup() {
-  const mode = useInstallMode();
-  const [deferred, setDeferred] = useState<InstallPromptEvent | null>(null);
+  const state = useSyncExternalStore(subscribeInstall, readInstallState, serverInstallState);
+  const alreadyDismissed = useDismissed();
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -62,30 +52,19 @@ export function PwaSetup() {
     }
   }, []);
 
-  useEffect(() => {
-    if (mode !== "prompt") return;
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as InstallPromptEvent);
-    };
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onPrompt);
-  }, [mode]);
-
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    try {
+      localStorage.setItem(DISMISSED_KEY, "1");
+    } catch {
+      // Not being able to remember the dismissal is not worth an error.
+    }
     setDismissed(true);
   }
 
-  async function install() {
-    if (!deferred) return;
-    await deferred.prompt();
-    await deferred.userChoice;
-    setDeferred(null);
-  }
+  if (dismissed || alreadyDismissed) return null;
+  if (state === "installed" || state === "unavailable") return null;
 
-  const showIosHint = mode === "ios";
-  if (dismissed || (!showIosHint && !deferred)) return null;
+  const showIosHint = state === "ios";
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-none">
@@ -108,10 +87,10 @@ export function PwaSetup() {
           )}
         </div>
 
-        {deferred && (
+        {state === "ready" && (
           <button
             type="button"
-            onClick={install}
+            onClick={() => promptInstall()}
             className="rounded-md py-1.5 px-3 text-xs font-medium text-white flex items-center gap-1.5 shrink-0 gradient-brand"
           >
             <Download size={13} />

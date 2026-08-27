@@ -578,6 +578,32 @@ reassign the alias, so nothing broke.
     the handover message) and `SUPABASE_SERVICE_ROLE_KEY`. `.env.local.example`
     still needs those three lines — this session had no write access to it.
 
+- **"Get the app" button, and the Glass alert tone** (2026-08-27). `npm run build`
+  and `npm run lint` clean.
+  - **Install button in both sidebars**, above the account row, so it is on every
+    page rather than only in the banner that gets dismissed once. Gold button on
+    Android/Chrome/desktop; on iPhone it opens the Share → Add to Home Screen
+    instruction, since Safari has no install API; **renders nothing once installed**
+    — an install control inside the installed app is a dead control.
+  - **`src/lib/pwa-install.ts` is new, and fixes a real bug.**
+    `beforeinstallprompt` fires once and early — routinely before React hydrates —
+    so `PwaSetup`'s effect-registered listener could miss it outright and then
+    silently never offer to install. The listener now registers at *module* scope,
+    as the bundle loads, and both the banner and the sidebar button read that one
+    store through `useSyncExternalStore` instead of racing for the same event.
+  - **Sound changed from the first-pass tones to "Glass"**, chosen from five
+    candidates auditioned on a published artifact (Ripple / Glass / Marimba /
+    Pulse / Halo). Glass is a struck bell: the timbre is in the *inharmonic*
+    partials (2.76× and 5.4×), which is what stops it sounding like a beep.
+    Same motif-per-category idea as before — money climbs three notes, a booking
+    is two, a clash nags in pairs.
+  - Verified by instrumenting `AudioContext.createOscillator` in the browser and
+    clicking "Hear it": 6 voices, two strikes at 1046 and 1568 Hz each carrying
+    both partials (2887/5648 and 4328/8467 Hz). The tone that shipped is the tone
+    that was picked.
+  - Push notifications keep the **OS** sound, not this one. A web push banner's
+    sound is a system setting no app can override; these tones play in-app only.
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
