@@ -32,24 +32,27 @@ const HINTS: Record<InstallHint, { lead: React.ReactNode; note?: string }> = {
         then <span className="text-ink-primary">Add to Home Screen</span>.
       </>
     ),
-    note: "On iPhone, alerts only work from the home-screen version.",
+    note: "It opens fullscreen with its own icon — no Safari bar. That is the iPhone install; Apple allows no other kind.",
   },
   android: {
     lead: (
       <>
-        Open Chrome&apos;s <span className="text-ink-primary">⋮</span> menu, then{" "}
-        <span className="text-ink-primary">Add to Home screen</span>.
+        Open Chrome&apos;s <span className="text-ink-primary">⋮</span> menu and choose{" "}
+        <span className="text-ink-primary">Install app</span>.
       </>
     ),
+    // The distinction people trip over: one makes an app, the other a bookmark.
+    note: "Not “Add to Home screen” — that only saves a link. Install app gives you the real thing, in your app drawer.",
   },
   "chromium-desktop": {
     lead: (
       <>
-        Click the install icon at the right of the address bar. If it isn&apos;t there, open the{" "}
-        <span className="text-ink-primary">⋮</span> menu and look for{" "}
-        <span className="text-ink-primary">Install</span>.
+        Click the install icon at the right of the address bar, or open the{" "}
+        <span className="text-ink-primary">⋮</span> menu and choose{" "}
+        <span className="text-ink-primary">Install Hostello</span>.
       </>
     ),
+    note: "It opens in its own window, with no address bar.",
   },
   "safari-desktop": {
     lead: (

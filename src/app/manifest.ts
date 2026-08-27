@@ -7,6 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Property management for Hostello's co-hosting portfolio",
     // "/" reads the session and sends admins to /admin, owners to /client,
     // so the installed app lands on the right home screen for whoever signed in.
+    // A stable identity for the installed app, independent of the launch URL.
+    id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",
