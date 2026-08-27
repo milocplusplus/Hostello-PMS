@@ -25,15 +25,29 @@ import {
  * instruction for that browser rather than a missing button. Hiding it in those
  * cases made the feature invisible to most people looking for it.
  *
- * It renders in every state, including inside the installed app — someone who
- * goes looking for "get the app" is usually installing it somewhere else, or
- * pulling a fresh APK. Running installed only changes what the panel says.
+ * The APK download is offered unconditionally, on every platform and in every
+ * state. Platform detection is a guess — an Android phone set to "Request
+ * desktop site" is indistinguishable from a laptop — and when it guessed wrong
+ * the file was never offered at all, which is the one thing this button exists
+ * to do. Detection now only picks the wording underneath it.
  */
 
 /** Built by Bubblewrap from the PWA manifest; the rebuild is in STATE.md. */
 const APK_URL = "/app/hostello.apk";
 
-const HINTS: Record<InstallHint | "installed", { lead: React.ReactNode; note?: string }> = {
+const HINTS: Record<
+  InstallHint | "installed" | "apkElsewhere",
+  { lead: React.ReactNode; note?: string }
+> = {
+  apkElsewhere: {
+    lead: (
+      <>
+        That file is the <span className="text-ink-primary">Android</span> app. Move it to an
+        Android phone and open it there — it won&apos;t run on this device.
+      </>
+    ),
+    note: "Android asks once whether to allow installs from your browser. Hostello isn't on the Play Store, so that prompt is expected.",
+  },
   installed: {
     lead: <>You&apos;re using the installed app right now.</>,
     note: "Open Hostello in a browser on another device to install it there too.",
@@ -91,59 +105,50 @@ const HINTS: Record<InstallHint | "installed", { lead: React.ReactNode; note?: s
 export function InstallAppButton() {
   const state = useSyncExternalStore(subscribeInstall, readInstallState, serverInstallState);
   const hintKind = useSyncExternalStore(subscribeInstall, readInstallHint, () => "other" as const);
-  const [showHint, setShowHint] = useState(false);
+  const [panel, setPanel] = useState<null | "apk" | "platform">(null);
+  const android = hintKind === "android";
 
-  // Android is the one platform with a file to hand over, so it is checked
-  // before the web-install prompt: on a phone, "get the app" means an entry in
-  // the app drawer, and the APK is the only thing that gives one.
-  if (hintKind === "android") {
-    return (
-      <div className="px-3 pb-2">
-        <a
-          href={APK_URL}
-          download
-          onClick={() => setShowHint(true)}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform hover:scale-[1.02] gradient-brand"
-        >
-          <Download size={16} strokeWidth={2} />
-          <span className="flex-1 text-left">Get the app</span>
-        </a>
-        {showHint && <HintPanel hint={HINTS.android} onClose={() => setShowHint(false)} />}
-      </div>
-    );
-  }
-
-  // The one-tap path: the browser handed us a prompt and we still hold it.
-  if (state === "ready") {
-    return (
-      <div className="px-3 pb-2">
-        <button
-          type="button"
-          onClick={() => promptInstall()}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform hover:scale-[1.02] gradient-brand"
-        >
-          <Download size={16} strokeWidth={2} />
-          <span className="flex-1 text-left">Get the app</span>
-        </button>
-      </div>
-    );
-  }
-
-  const hint = state === "installed" ? HINTS.installed : HINTS[hintKind];
+  const platformHint = state === "installed" ? HINTS.installed : HINTS[hintKind];
 
   return (
     <div className="px-3 pb-2">
-      <button
-        type="button"
-        onClick={() => setShowHint((v) => !v)}
-        aria-expanded={showHint}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+      {/* The download is never conditional. Detection can be wrong — an Android
+          phone on "Request desktop site" reports itself as a laptop — and being
+          wrong used to mean the APK was never offered at all, which is the whole
+          point of the button. Anyone can take the file; the label says who it
+          is for, and the panel says what to do with it. */}
+      <a
+        href={APK_URL}
+        download
+        onClick={() => setPanel("apk")}
+        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform hover:scale-[1.02] gradient-brand"
       >
         <Download size={16} strokeWidth={2} />
         <span className="flex-1 text-left">Get the app</span>
+        <span className="text-[10px] font-normal text-white/70">Android</span>
+      </a>
+
+      <button
+        type="button"
+        onClick={() => {
+          // Chromium still hands out a one-tap install; fire it rather than
+          // describe it. Everywhere else the panel is all there is.
+          if (!android && state === "ready") {
+            void promptInstall();
+            return;
+          }
+          setPanel((p) => (p === "platform" ? null : "platform"));
+        }}
+        aria-expanded={panel === "platform"}
+        className="w-full mt-1 px-3 py-1.5 rounded-md text-[11px] text-left text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
+      >
+        {android ? "Trouble installing?" : "Not on Android?"}
       </button>
 
-      {showHint && <HintPanel hint={hint} onClose={() => setShowHint(false)} />}
+      {panel === "apk" && (
+        <HintPanel hint={android ? HINTS.android : HINTS.apkElsewhere} onClose={() => setPanel(null)} />
+      )}
+      {panel === "platform" && <HintPanel hint={platformHint} onClose={() => setPanel(null)} />}
     </div>
   );
 }

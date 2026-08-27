@@ -64,7 +64,7 @@ export function readInstallHint(): InstallHint {
   const ua = window.navigator.userAgent;
 
   if (isIos()) return "ios";
-  if (/android/i.test(ua)) return "android";
+  if (isAndroid()) return "android";
   if (/firefox|fxios/i.test(ua)) return "firefox";
   if (/edg|chrome|chromium/i.test(ua)) return "chromium-desktop";
   if (/safari/i.test(ua)) return "safari-desktop";
@@ -77,6 +77,19 @@ function isStandalone(): boolean {
     // iOS Safari doesn't report display-mode; it sets this instead.
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true
   );
+}
+
+/**
+ * "Request desktop site" rewrites the whole user-agent string, so an Android
+ * phone in that mode looks exactly like Chrome on a laptop. Client hints are
+ * the one signal it does not rewrite, so they are asked first.
+ */
+function isAndroid(): boolean {
+  const data = (window.navigator as Navigator & {
+    userAgentData?: { platform?: string; mobile?: boolean };
+  }).userAgentData;
+  if (data?.platform === "Android") return true;
+  return /android/i.test(window.navigator.userAgent);
 }
 
 function isIos(): boolean {
