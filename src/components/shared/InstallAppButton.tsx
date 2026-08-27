@@ -14,17 +14,30 @@ import {
 /**
  * "Get the app" in the sidebar of both portals.
  *
- * Only one browser situation gives a one-tap install: Chrome-family, on a site
- * it has decided is installable, before the user has installed it. Every other
- * combination — Safari, Firefox, and Chrome whenever it simply hasn't offered —
- * gets the instruction for that browser instead of a missing button. Hiding it
- * in those cases made the feature invisible to most people looking for it.
+ * Android gets a real download: APK_URL is a signed Android app (a Trusted Web
+ * Activity wrapping this same site), so the phone installs Hostello the way it
+ * installs anything else — its own icon, its own entry in the app drawer, no
+ * browser chrome. That beats the one-tap web install, which Chrome offers only
+ * when it feels like it.
  *
- * The one case that still renders nothing is Hostello already running installed,
- * where an install control would be dead.
+ * Everywhere else there is no file to hand over. Chrome-family desktop may give
+ * a one-tap prompt; Safari, Firefox and iOS never do, so they get the
+ * instruction for that browser rather than a missing button. Hiding it in those
+ * cases made the feature invisible to most people looking for it.
+ *
+ * It renders in every state, including inside the installed app — someone who
+ * goes looking for "get the app" is usually installing it somewhere else, or
+ * pulling a fresh APK. Running installed only changes what the panel says.
  */
 
-const HINTS: Record<InstallHint, { lead: React.ReactNode; note?: string }> = {
+/** Built by Bubblewrap from the PWA manifest; the rebuild is in STATE.md. */
+const APK_URL = "/app/hostello.apk";
+
+const HINTS: Record<InstallHint | "installed", { lead: React.ReactNode; note?: string }> = {
+  installed: {
+    lead: <>You&apos;re using the installed app right now.</>,
+    note: "Open Hostello in a browser on another device to install it there too.",
+  },
   ios: {
     lead: (
       <>
@@ -37,12 +50,12 @@ const HINTS: Record<InstallHint, { lead: React.ReactNode; note?: string }> = {
   android: {
     lead: (
       <>
-        Open Chrome&apos;s <span className="text-ink-primary">⋮</span> menu and choose{" "}
-        <span className="text-ink-primary">Install app</span>.
+        Downloading Hostello. Open it from your notifications and tap{" "}
+        <span className="text-ink-primary">Install</span>.
       </>
     ),
-    // The distinction people trip over: one makes an app, the other a bookmark.
-    note: "Not “Add to Home screen” — that only saves a link. Install app gives you the real thing, in your app drawer.",
+    // Sideloading always trips people the first time; say it before Android does.
+    note: "Android asks once whether to allow installs from your browser — say yes. That prompt is because Hostello isn't on the Play Store, not because anything is wrong.",
   },
   "chromium-desktop": {
     lead: (
@@ -80,7 +93,25 @@ export function InstallAppButton() {
   const hintKind = useSyncExternalStore(subscribeInstall, readInstallHint, () => "other" as const);
   const [showHint, setShowHint] = useState(false);
 
-  if (state === "installed") return null;
+  // Android is the one platform with a file to hand over, so it is checked
+  // before the web-install prompt: on a phone, "get the app" means an entry in
+  // the app drawer, and the APK is the only thing that gives one.
+  if (hintKind === "android") {
+    return (
+      <div className="px-3 pb-2">
+        <a
+          href={APK_URL}
+          download
+          onClick={() => setShowHint(true)}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-white transition-transform hover:scale-[1.02] gradient-brand"
+        >
+          <Download size={16} strokeWidth={2} />
+          <span className="flex-1 text-left">Get the app</span>
+        </a>
+        {showHint && <HintPanel hint={HINTS.android} onClose={() => setShowHint(false)} />}
+      </div>
+    );
+  }
 
   // The one-tap path: the browser handed us a prompt and we still hold it.
   if (state === "ready") {
@@ -98,7 +129,7 @@ export function InstallAppButton() {
     );
   }
 
-  const hint = HINTS[hintKind];
+  const hint = state === "installed" ? HINTS.installed : HINTS[hintKind];
 
   return (
     <div className="px-3 pb-2">
@@ -112,22 +143,30 @@ export function InstallAppButton() {
         <span className="flex-1 text-left">Get the app</span>
       </button>
 
-      {showHint && (
-        <div className="mt-1 rounded-md bg-surface-2 p-3 relative">
-          <button
-            type="button"
-            onClick={() => setShowHint(false)}
-            aria-label="Close"
-            className="absolute top-2 right-2 text-ink-muted hover:text-ink-primary transition-colors"
-          >
-            <X size={13} />
-          </button>
-          <p className="text-[11px] text-ink-secondary leading-relaxed pr-4">{hint.lead}</p>
-          {hint.note && (
-            <p className="text-[11px] text-ink-muted mt-1.5 leading-relaxed">{hint.note}</p>
-          )}
-        </div>
-      )}
+      {showHint && <HintPanel hint={hint} onClose={() => setShowHint(false)} />}
+    </div>
+  );
+}
+
+function HintPanel({
+  hint,
+  onClose,
+}: {
+  hint: { lead: React.ReactNode; note?: string };
+  onClose: () => void;
+}) {
+  return (
+    <div className="mt-1 rounded-md bg-surface-2 p-3 relative">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-2 right-2 text-ink-muted hover:text-ink-primary transition-colors"
+      >
+        <X size={13} />
+      </button>
+      <p className="text-[11px] text-ink-secondary leading-relaxed pr-4">{hint.lead}</p>
+      {hint.note && <p className="text-[11px] text-ink-muted mt-1.5 leading-relaxed">{hint.note}</p>}
     </div>
   );
 }
