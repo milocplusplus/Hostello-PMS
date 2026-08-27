@@ -613,7 +613,59 @@ reassign the alias, so nothing broke.
   - Push notifications keep the **OS** sound, not this one. A web push banner's
     sound is a system setting no app can override; these tones play in-app only.
 
+- **The Android app is a real APK** (2026-08-27, deployed as
+  `dpl_8e4NQm4wF7unW8LK1QdcwzM43YbN`, READY, production). `npm run build` and
+  `npm run lint` clean.
+  - **"Get the app" on Android now downloads `/app/hostello.apk`** instead of
+    explaining Chrome's ⋮ menu. Same icon as the PWA — Bubblewrap generated the
+    launcher and adaptive icons from `icon-512.png` / `icon-maskable-512.png`
+    in the live manifest, so there is one icon, not a second lookalike.
+  - **What the APK is:** a Trusted Web Activity — an Android shell that opens
+    hostello-pms.vercel.app fullscreen through Chrome's engine. It holds no copy
+    of the site, so **shipping to Vercel ships to the app**; rebuild only when
+    the icon, name or version change. `pk.hostello.pms`, versionName 1.0.0,
+    versionCode 1, minSdk 21, notification delegation on (POST_NOTIFICATIONS),
+    so the existing web push arrives as app notifications.
+  - **`public/.well-known/assetlinks.json`** carries the signing certificate's
+    SHA-256 (`DF:0C:29:…:AF:28`). Chrome checks it on launch: match and the app
+    has no address bar, mismatch and it looks like a browser in a costume. It is
+    public — the middleware matcher is an allow-list and never sees that path.
+  - **`next.config.ts` sets two headers**: the APK as
+    `application/vnd.android.package-archive` (Android won't offer to install an
+    octet-stream) and assetlinks as `application/json`.
+  - **Rebuild:** `HOSTELLO_KEYSTORE_PASSWORD=… node android/build-apk.mjs` —
+    gradle, then zipalign -c, then apksigner, output straight to
+    `public/app/hostello.apk`. Needs only the JDK 17 + Android SDK paths in
+    `~/.bubblewrap/config.json` (both installed on this machine, build-tools
+    36.1.0); Bubblewrap itself is not needed again unless twa-manifest.json is
+    regenerated. Two Windows quirks are handled in the script and worth knowing:
+    a shell can leave both `PATH` and `Path` in the environment and the child
+    gets the wrong one, and Node will not spawn a `.bat` without a shell.
+  - **`android/android.keystore` is gitignored and must be backed up.** Lose it
+    and no future APK can update an installed one — users would have to uninstall
+    first. The password is not in the repo either; it was handed over in the
+    session message.
+  - **Verified:** apksigner reports one signer whose SHA-256 matches
+    assetlinks.json; aapt2 confirms package, labels ("Hostello" in the launcher)
+    and the notification permission; the generated launcher icon is the Hostello
+    mark; both new paths serve locally with the right Content-Type; and on an
+    Android user agent the sidebar renders a 232×36 gold anchor to the APK that
+    reveals the install instruction on tap, while a desktop agent still gets the
+    address-bar instruction. **Not verified: installing it on a phone.** No
+    Android device here. Both paths are live now and verified in production:
+    the APK serves 1,274,310 bytes as `application/vnd.android.package-archive`
+    and assetlinks.json as `application/json`.
+  - **"Get the app" no longer hides once installed.** It used to render nothing
+    when Hostello was already running standalone — which is when someone looks
+    for it to install on a second device or pull a fresh APK. It renders in
+    every state now; running installed only changes the panel text, so nobody
+    is told to click an install icon in an address bar they do not have.
+
 ## Next
+0. **Deploy, then install the APK on a real Android phone.** Nothing about the
+   app can be trusted until that round trip works: the download, the "allow from
+   this source" prompt, and — the one that silently fails — whether the app opens
+   with no address bar, which only proves out once assetlinks.json is live.
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
 2. Open the new calendar once signed in with real clients. Two things only real
