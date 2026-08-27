@@ -661,6 +661,52 @@ reassign the alias, so nothing broke.
     every state now; running installed only changes the panel text, so nobody
     is told to click an install icon in an address bar they do not have.
 
+- **Push notifications now behave like app notifications** (2026-08-27).
+  They already arrived; they arrived *as Chrome*, silently, in the shade. Three
+  separate causes, all in the Android app — the web push path itself was fine.
+  `npm run lint` clean. **APK rebuilt and re-signed**: versionCode 2, versionName
+  1.1.0, POST_NOTIFICATIONS present, and the signer SHA-256 is still
+  `DF:0C:29:…:AF:28` — the certificate assetlinks.json already carries, so it
+  installs over v1 and still verifies as a TWA.
+  - **Chrome's icon instead of Hostello's** — `LauncherActivity` now asks for
+    `POST_NOTIFICATIONS` on Android 13+. Chrome only prompts for the Android
+    permission when the *site* asks for its own, and by then the site was
+    usually granted permission in the browser already, so the app was never
+    asked. Without that permission `DelegationService` reports notifications as
+    disabled and **Chrome silently shows the banner itself** — its icon, its
+    name. The launch is held back (`shouldLaunchImmediately()` → false) so the
+    dialog gets a screen to itself, and `launchTwa()` runs from
+    `onRequestPermissionsResult` whichever way it is answered. Verified against
+    the library bytecode that `shouldLaunchImmediately` is called from inside
+    `super.onCreate()`, so the flag is set before it is read.
+    **Existing installs can also just switch notifications on for Hostello in
+    Android settings** — same effect, no new APK.
+  - **No pop-up, no sound, no lit screen** — `TrustedWebActivityService` creates
+    its channel at `IMPORTANCE_DEFAULT`, which posts straight into the shade with
+    no banner. `DelegationService.onNotifyNotificationWithChannel` is overridden
+    to post on our own `hostello_alerts_v1` channel at `IMPORTANCE_HIGH`, vibration
+    and lights on, `VISIBILITY_PUBLIC` so the text survives the lock screen. That
+    is what makes it peek like an Instagram DM and wake the screen. **Importance
+    is frozen when a channel is first created and belongs to the user after that
+    — changing this default again means a new CHANNEL_ID**, not an edit.
+  - **The status-bar icon was a white blob** — `ic_notification_icon.png` was the
+    full-colour app icon at all five densities (95% opaque, 70% coloured). Android
+    masks a small icon down to its alpha, so an opaque square renders as a solid
+    white square. Redrawn as a transparent white silhouette of the Hostello mark
+    (24/36/48/72/96 px, ~27% opaque, 0% coloured), from the same polygon table in
+    `HostelloMark.tsx` that the PWA icons come from. The generator is in the
+    session scratchpad, not the repo — the polygon table is the source of truth.
+  - `public/sw.js` adds `vibrate: [200, 100, 200]`. The high-importance channel
+    already vibrates on Android 8+; this is what covers everything else.
+  - versionCode 1 → **2**, versionName 1.0.0 → **1.1.0**, in `app/build.gradle`
+    and `twa-manifest.json` both, so an installed v1 upgrades rather than
+    refusing to install.
+  - **Not verifiable here:** there is still no Android device on this machine.
+    What was checked is the bytecode — both overrides compile with the exact
+    signatures the library declares (`onNotifyNotificationWithChannel(String,
+    int, Notification, String)`, `shouldLaunchImmediately()`) — and the icon
+    pixels. The banner, the sound and the lock screen need a phone.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

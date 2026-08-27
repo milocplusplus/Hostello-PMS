@@ -88,6 +88,9 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   — the Android app. A Trusted Web Activity (`pk.hostello.pms`) wrapping this
   same site, so it carries no copy of the app and a Vercel deploy updates it.
   `android/build-apk.mjs` rebuilds and re-signs it; the keystore is not in git.
+  Its `DelegationService` is what turns a web push into an app notification —
+  the high-importance channel and `ic_notification_icon` (a transparent white
+  silhouette, never the colour icon) live there, not in `sw.js`.
   "Get the app" hands Android this file and everyone else an instruction.
 - `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `DEAL_MODELS`, `formatPKR`.
   **The only correct revenue math.** Currency is PKR.

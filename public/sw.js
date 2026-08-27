@@ -107,6 +107,9 @@ self.addEventListener("push", (event) => {
       // Same tag replaces the earlier banner instead of stacking a duplicate.
       tag,
       renotify: true,
+      // The Android app posts these on a high-importance channel, which already
+      // vibrates; this is what makes the rest (older Android, desktop) buzz too.
+      vibrate: [200, 100, 200],
       requireInteraction: payload.category === "critical",
       data: { url: payload.url || "/" },
     })
