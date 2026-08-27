@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# android (TWA)
+# The signing key never goes in git: whoever holds it can ship an update that
+# replaces the installed app. Keep a backup of it somewhere safe instead.
+android/android.keystore
+android/.gradle/
+android/build/
+android/app/build/
+android/app-release-*.apk

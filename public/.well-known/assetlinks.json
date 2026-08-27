@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "pk.hostello.pms",
+      "sha256_cert_fingerprints": [
+        "DF:0C:29:39:ED:7B:03:2B:21:29:1D:76:AB:A6:AB:BA:62:5F:FB:AC:10:91:9F:3F:1A:C3:B8:CB:D8:E7:AF:28"
+      ]
+    }
+  }
+]

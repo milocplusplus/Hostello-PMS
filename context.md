@@ -84,6 +84,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   network-only with `/offline` as the fallback, because every page is per-user
   HTML. `PwaSetup` sits in the root layout, registers the SW in production only,
   and offers the install banner.
+- `android/` + `public/app/hostello.apk` + `public/.well-known/assetlinks.json`
+  — the Android app. A Trusted Web Activity (`pk.hostello.pms`) wrapping this
+  same site, so it carries no copy of the app and a Vercel deploy updates it.
+  `android/build-apk.mjs` rebuilds and re-signs it; the keystore is not in git.
+  "Get the app" hands Android this file and everyone else an instruction.
 - `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `DEAL_MODELS`, `formatPKR`.
   **The only correct revenue math.** Currency is PKR.
 - `src/lib/calendar.ts` — `getMonthGrid`, `formatMonthLabel`, `parseMonthParam`,
