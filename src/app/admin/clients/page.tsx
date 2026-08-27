@@ -100,7 +100,7 @@ export default async function ClientsListPage({
       </form>
 
       {(!clients || clients.length === 0) && (
-        <div className="card p-10 text-center flex flex-col items-center gap-2">
+        <div className="card p-8 md:p-10 text-center flex flex-col items-center gap-2">
           {term ? (
             <>
               <p className="text-sm text-ink-secondary">No clients match “{term}”.</p>

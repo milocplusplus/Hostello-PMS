@@ -8,10 +8,13 @@
  *   - page navigations                           -> network-only, /offline on failure
  *   - everything else (Server Actions, RSC payloads, Supabase) -> untouched
  *
+ * It also receives Web Push: the payload carries only what the OS banner shows
+ * plus the URL to open, never anything the recipient could not already read.
+ *
  * Bump CACHE_VERSION to evict old caches on the next deploy.
  */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `hostello-static-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 
@@ -77,6 +80,58 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       });
+    })
+  );
+});
+
+/* ── Push ──────────────────────────────────────────────────────────────────── */
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload = { title: "Hostello", body: event.data.text() };
+    }
+  }
+
+  const title = payload.title || "Hostello";
+  const tag = payload.tag || "hostello";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || "",
+      icon: "/icons/icon-192.png?v=2",
+      badge: "/icons/icon-192.png?v=2",
+      // Same tag replaces the earlier banner instead of stacking a duplicate.
+      tag,
+      renotify: true,
+      requireInteraction: payload.category === "critical",
+      data: { url: payload.url || "/" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // Reuse a tab that is already on the target, then any open tab, and only
+      // open a new window when Hostello is not running at all.
+      for (const client of clientList) {
+        if (client.url.endsWith(url) && "focus" in client) return client.focus();
+      }
+      const open = clientList.find((client) => "focus" in client);
+      if (open) {
+        return open.focus().then((focused) => {
+          if ("navigate" in focused) return focused.navigate(url);
+          return focused;
+        });
+      }
+      return self.clients.openWindow(url);
     })
   );
 });

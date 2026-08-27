@@ -60,7 +60,7 @@ export default async function ClientCalendarPage({
           <p className="text-ink-muted text-xs tracking-wide">AVAILABILITY</p>
           <h1 className="text-2xl font-semibold mt-1">Calendar</h1>
         </div>
-        <div className="card p-10 text-center text-sm text-ink-secondary">
+        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
           No active properties yet.
         </div>
       </div>
@@ -78,6 +78,10 @@ export default async function ClientCalendarPage({
   // ---- Window -------------------------------------------------------------
   const today = todayISO();
   const view = sp.view === "week" || sp.view === "agenda" ? sp.view : "month";
+  // A month of 34px cells is ~1180px wide — it does not fit a phone at all. With
+  // no view asked for, the phone gets the agenda and the desktop gets the board;
+  // picking "month" explicitly still gets the board (scrollable) on both.
+  const autoAgenda = view === "month" && !sp.view;
 
   let days: string[];
   let rangeLabel: string;
@@ -343,9 +347,15 @@ export default async function ClientCalendarPage({
               key={v}
               href={href({ view: v === "month" ? undefined : v, start: undefined })}
               className={`px-3 py-1 rounded text-xs capitalize transition-colors ${
+                // With autoAgenda the phone is really on agenda and the desktop
+                // on month, so the highlight has to say so at each width.
                 view === v
-                  ? "bg-hostello-purple-glow text-white"
-                  : "text-ink-secondary hover:text-ink-primary"
+                  ? autoAgenda && v === "month"
+                    ? "text-ink-secondary md:bg-hostello-purple-glow md:text-white"
+                    : "bg-hostello-purple-glow text-white"
+                  : autoAgenda && v === "agenda"
+                    ? "bg-hostello-purple-glow text-white md:bg-transparent md:text-ink-secondary"
+                    : "text-ink-secondary hover:text-ink-primary"
               }`}
             >
               {v}
@@ -355,7 +365,9 @@ export default async function ClientCalendarPage({
       </div>
 
       {view !== "agenda" && (
-        <div className="flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
+        <div
+          className={`${autoAgenda ? "hidden md:flex" : "flex"} items-center gap-4 text-[11px] text-ink-secondary flex-wrap`}
+        >
           {legend.map((l) => (
             <span key={l.label} className="flex items-center gap-1.5">
               <span
@@ -372,19 +384,24 @@ export default async function ClientCalendarPage({
         </div>
       )}
 
-      {view === "agenda" ? (
-        <CalendarAgenda days={days} today={today} rows={rows} />
-      ) : (
-        <CalendarBoard
-          days={days}
-          today={today}
-          rows={rows}
-          cellMin={view === "week" ? 130 : 34}
-          bookingProperties={bookingProperties}
-          bookingClients={bookingClients}
-          createAction={createClientBookingInline}
-          allowReceipt={false}
-        />
+      {(view === "agenda" || autoAgenda) && (
+        <div className={autoAgenda ? "md:hidden" : undefined}>
+          <CalendarAgenda days={days} today={today} rows={rows} />
+        </div>
+      )}
+      {view !== "agenda" && (
+        <div className={autoAgenda ? "hidden md:block" : undefined}>
+          <CalendarBoard
+            days={days}
+            today={today}
+            rows={rows}
+            cellMin={view === "week" ? 130 : 34}
+            bookingProperties={bookingProperties}
+            bookingClients={bookingClients}
+            createAction={createClientBookingInline}
+            allowReceipt={false}
+          />
+        </div>
       )}
 
       <p className="text-xs text-ink-muted">

@@ -549,15 +549,17 @@ export default async function AdminDashboard({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm table-fixed md:table-auto md:min-w-[720px]">
               <thead>
                 <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
                   <th className="pb-3 pr-4 font-normal">Guest</th>
-                  <th className="pb-3 pr-4 font-normal">Property</th>
-                  <th className="pb-3 pr-4 font-normal">Dates</th>
-                  <th className="pb-3 pr-4 font-normal">Source</th>
-                  <th className="pb-3 pr-4 font-normal">Total</th>
-                  <th className="pb-3 font-normal">Status</th>
+                  <th className="pb-3 pr-4 font-normal hidden md:table-cell">Property</th>
+                  <th className="pb-3 pr-4 font-normal hidden md:table-cell">Dates</th>
+                  <th className="pb-3 pr-4 font-normal hidden md:table-cell">Source</th>
+                  <th className="pb-3 pr-4 font-normal hidden md:table-cell">Total</th>
+                  {/* Fixed layout on a phone: this width is what leaves the guest
+                      column the rest of the card instead of overflowing it. */}
+                  <th className="pb-3 font-normal w-[92px] md:w-auto">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border-hairline)]">
@@ -566,22 +568,39 @@ export default async function AdminDashboard({
                     <td className="py-3 pr-4">
                       <span className="flex items-center gap-2.5 min-w-0">
                         <Avatar name={b.guest_name} size={28} />
-                        <span className="text-ink-primary truncate">{b.guest_name ?? "Guest"}</span>
+                        <span className="min-w-0">
+                          <span className="block text-ink-primary truncate">
+                            {b.guest_name ?? "Guest"}
+                          </span>
+                          {/* The columns that get hidden on a phone, folded into the row itself */}
+                          <span className="md:hidden block text-xs text-ink-secondary truncate mt-0.5">
+                            {unitNames(b) || clientName(b) || "—"}
+                          </span>
+                          <span className="md:hidden flex items-center gap-1.5 flex-wrap text-xs mt-1">
+                            <ChannelBadge source={b.source} />
+                            <span className="text-ink-secondary">
+                              {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
+                            </span>
+                            <span className="text-ink-primary">
+                              {formatPKR(Number(b.sale_price ?? 0))}
+                            </span>
+                          </span>
+                        </span>
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-ink-secondary">
+                    <td className="py-3 pr-4 text-ink-secondary hidden md:table-cell">
                       {unitNames(b) || clientName(b) || "—"}
                     </td>
-                    <td className="py-3 pr-4 text-ink-secondary whitespace-nowrap">
+                    <td className="py-3 pr-4 text-ink-secondary whitespace-nowrap hidden md:table-cell">
                       {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
                     </td>
-                    <td className="py-3 pr-4 text-ink-secondary">
+                    <td className="py-3 pr-4 text-ink-secondary hidden md:table-cell">
                       <span className="flex items-center gap-1.5">
                         <ChannelBadge source={b.source} />
                         {sourceLabel(b.source) ?? b.source}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-ink-primary whitespace-nowrap">
+                    <td className="py-3 pr-4 text-ink-primary whitespace-nowrap hidden md:table-cell">
                       {formatPKR(Number(b.sale_price ?? 0))}
                     </td>
                     <td className="py-3">

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
+import { notifyBookingCancelled, notifyBookingCreated } from "@/lib/notify";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -49,7 +50,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, stack_rate, client_id")
+    .select("id, name, stack_rate, client_id")
     .in("id", property_ids);
 
   if ((properties ?? []).some((p) => p.client_id !== client_id)) {
@@ -130,6 +131,19 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   }));
   await supabase.from("booking_properties").insert(linkRows);
 
+  // The owner entered this one, so the fan-out sends it to the admins and not
+  // back to them.
+  await notifyBookingCreated(supabase, {
+    clientId: client_id,
+    bookingId: newBooking.id,
+    unitNames: (properties ?? []).map((p) => p.name),
+    checkIn: check_in,
+    checkOut: check_out,
+    clientPayout: payout.clientPayout,
+    isTentative: status === "tentative",
+    advanceReceived: advance_received,
+  });
+
   revalidatePath("/client/bookings");
   revalidatePath("/client/bookings/[id]", "page");
   revalidatePath("/client/calendar");
@@ -157,11 +171,34 @@ export async function cancelClientBooking(formData: FormData) {
   const id = formData.get("id") as string;
 
   const supabase = await createClient();
+
+  // Read details before cancelling so the notification can describe what changed.
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("client_id, check_in, check_out, booking_properties(properties(name))")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", id);
 
   if (!error) {
+    if (booking) {
+      await notifyBookingCancelled(supabase, {
+        clientId: booking.client_id,
+        bookingId: id,
+        unitNames:
+          (booking.booking_properties as unknown as { properties: { name: string } | null }[])
+            ?.map((bp) => bp.properties?.name ?? "")
+            .filter(Boolean) ?? [],
+        checkIn: booking.check_in,
+        checkOut: booking.check_out,
+      });
+    }
+
     revalidatePath("/client/bookings");
     revalidatePath("/client/bookings/[id]", "page");
     revalidatePath("/client/calendar");
+    // The admins' bell and activity feed are what this is for.
+    revalidatePath("/admin", "layout");
   }
 }

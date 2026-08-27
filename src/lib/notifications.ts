@@ -2,16 +2,64 @@ import {
   Bell,
   CalendarDays,
   CalendarX2,
+  Home,
   Lock,
   LockOpen,
+  LogIn,
+  LogOut,
+  Percent,
+  Receipt,
+  TriangleAlert,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+
+/**
+ * The vocabulary of the notification system.
+ *
+ * `kind` says exactly what happened and picks the icon; `category` groups kinds
+ * for the filters, the mute switches and the sound. Both are plain strings in
+ * the database (`kind` used to be an enum, which meant a migration for every new
+ * event), so adding an event is: one entry here, one emitter in `notify.ts`.
+ */
+export type NotificationCategory = "booking" | "payment" | "calendar" | "system" | "critical";
+
+export const CATEGORIES: { key: NotificationCategory; label: string }[] = [
+  { key: "booking", label: "Bookings" },
+  { key: "payment", label: "Payments" },
+  { key: "calendar", label: "Calendar" },
+  { key: "critical", label: "Critical" },
+  { key: "system", label: "Account" },
+];
+
+export function isCategory(value: string | undefined): value is NotificationCategory {
+  return CATEGORIES.some((c) => c.key === value);
+}
+
+const KIND_ICON: Record<string, LucideIcon> = {
+  booking_created: CalendarDays,
+  booking_cancelled: CalendarX2,
+  booking_checkin_today: LogIn,
+  booking_checkout_today: LogOut,
+  payment_received: Receipt,
+  payout_settled: Wallet,
+  dates_blocked: Lock,
+  dates_unblocked: LockOpen,
+  calendar_conflict: TriangleAlert,
+  property_added: Home,
+  property_removed: Home,
+  client_terms_updated: Percent,
+};
+
+export function notificationIcon(kind: string): LucideIcon {
+  return KIND_ICON[kind] ?? Bell;
+}
 
 /** One row of the feed, already shaped for display. */
 export type NotificationItem = {
   id: string;
   kind: string;
+  category: NotificationCategory;
   title: string;
   body: string | null;
   /** Pre-formatted on the server — a client component computing "2h ago" would
@@ -22,18 +70,6 @@ export type NotificationItem = {
   /** Which client the row is about. Admin feed only; the client portal knows. */
   who?: string | null;
 };
-
-const KIND_ICON: Record<string, LucideIcon> = {
-  booking_created: CalendarDays,
-  booking_cancelled: CalendarX2,
-  dates_blocked: Lock,
-  dates_unblocked: LockOpen,
-  payout_settled: Wallet,
-};
-
-export function notificationIcon(kind: string): LucideIcon {
-  return KIND_ICON[kind] ?? Bell;
-}
 
 export function notificationHref(
   row: { booking_id?: string | null; property_id?: string | null },
@@ -64,3 +100,16 @@ export function formatNotificationTime(iso: string): string {
     timeZone: "Asia/Karachi",
   });
 }
+
+/** What the browser stores per user; the server hands it to the live listener. */
+export type NotificationPreferences = {
+  pushEnabled: boolean;
+  soundEnabled: boolean;
+  mutedCategories: NotificationCategory[];
+};
+
+export const DEFAULT_PREFERENCES: NotificationPreferences = {
+  pushEnabled: true,
+  soundEnabled: true,
+  mutedCategories: [],
+};

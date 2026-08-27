@@ -93,19 +93,19 @@ export default async function ClientBookingsPage({
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-        <div className="card p-6">
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
+        <div className="card p-4 md:p-6">
           <p className="text-ink-muted text-xs">Gross revenue</p>
-          <p className="text-xl font-semibold mt-2 text-ink-primary">{formatPKR(totals.gross)}</p>
+          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-ink-primary">{formatPKR(totals.gross)}</p>
         </div>
-        <div className="card p-6 border border-hostello-gold/30">
+        <div className="card p-4 md:p-6 border border-hostello-gold/30">
           <p className="text-ink-muted text-xs">Your payout</p>
-          <p className="text-xl font-semibold mt-2 text-financial">{formatPKR(totals.payout)}</p>
+          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-financial">{formatPKR(totals.payout)}</p>
         </div>
       </div>
 
       {(!bookings || bookings.length === 0) && (
-        <div className="card p-10 text-center text-sm text-ink-secondary">
+        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
           No bookings recorded in {formatMonthLabel(year, month0)}.
         </div>
       )}
@@ -113,15 +113,17 @@ export default async function ClientBookingsPage({
       {bookings && bookings.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
+          <table className="w-full text-sm table-fixed md:table-auto md:min-w-[640px]">
             <thead>
               <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
                 <th className="px-4 py-3 font-normal">Units</th>
-                <th className="px-4 py-3 font-normal">Dates</th>
-                <th className="px-4 py-3 font-normal">Source</th>
-                <th className="px-4 py-3 font-normal text-right">Your payout</th>
-                <th className="px-4 py-3 font-normal">Status</th>
-                <th className="px-4 py-3 font-normal"></th>
+                <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
+                <th className="px-4 py-3 font-normal hidden md:table-cell">Source</th>
+                <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Your payout</th>
+                <th className="px-4 py-3 font-normal hidden md:table-cell">Status</th>
+                {/* Fixed layout on a phone: this width is what leaves the units
+                    column the rest of the card instead of overflowing it. */}
+                <th className="px-4 py-3 font-normal w-[76px] md:w-auto"></th>
               </tr>
             </thead>
             <tbody>
@@ -131,6 +133,12 @@ export default async function ClientBookingsPage({
                   .filter(Boolean)
                   .join(", ");
                 const nights = nightsBetween(b.check_in, b.check_out);
+                const statusNode =
+                  b.status === "tentative" ? (
+                    <span className="text-xs text-status-pending">Tentative</span>
+                  ) : (
+                    <span className="text-xs text-status-available">Confirmed</span>
+                  );
                 return (
                   <tr
                     key={b.id}
@@ -147,27 +155,32 @@ export default async function ClientBookingsPage({
                           <span className="block text-xs text-ink-secondary truncate">
                             {b.guest_name ?? "Guest"}
                           </span>
+                          {/* The columns that get hidden on a phone, folded into the row itself */}
+                          <span className="md:hidden flex items-center gap-1.5 flex-wrap text-xs mt-1.5">
+                            <ChannelBadge source={b.source} />
+                            <span className="text-ink-secondary">
+                              {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)} ({nights}n)
+                            </span>
+                            <span className="text-financial">{formatPKR(b.client_payout)}</span>
+                            {statusNode}
+                          </span>
                         </span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-ink-secondary whitespace-nowrap">
+                    <td className="px-4 py-3 text-ink-secondary whitespace-nowrap hidden md:table-cell">
                       {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)}
                       <span className="text-ink-muted"> ({nights}n)</span>
                     </td>
-                    <td className="px-4 py-3 text-ink-secondary">
+                    <td className="px-4 py-3 text-ink-secondary hidden md:table-cell">
                       <span className="flex items-center gap-1.5">
                         <ChannelBadge source={b.source} />
                         {sourceLabel(b.source) ?? b.source}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-financial">{formatPKR(b.client_payout)}</td>
-                    <td className="px-4 py-3">
-                      {b.status === "tentative" ? (
-                        <span className="text-xs text-status-pending">Tentative</span>
-                      ) : (
-                        <span className="text-xs text-status-available">Confirmed</span>
-                      )}
+                    <td className="px-4 py-3 text-right text-financial hidden md:table-cell">
+                      {formatPKR(b.client_payout)}
                     </td>
+                    <td className="px-4 py-3 hidden md:table-cell">{statusNode}</td>
                     <td className="px-4 py-3 text-right">
                       <form action={cancelClientBooking}>
                         <input type="hidden" name="id" value={b.id} />

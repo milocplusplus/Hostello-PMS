@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { announceBlockCreated, announceBlockRemoved } from "@/lib/block-events";
 
 function backTo(month: string, extra?: string) {
   const params = new URLSearchParams({ month });
@@ -57,8 +58,17 @@ export async function createClientCalendarBlock(formData: FormData) {
     redirect(backTo(month, error.message));
   }
 
+  await announceBlockCreated(supabase, {
+    property_id,
+    start_date,
+    end_date,
+    reason,
+  });
+
   revalidatePath("/client/calendar");
   revalidatePath("/client/calendar/block");
+  // The owner blocking their own dates is news for the admins.
+  revalidatePath("/admin", "layout");
   redirect(`/client/calendar/block?month=${month}`);
 }
 
@@ -67,13 +77,24 @@ export async function deleteClientCalendarBlock(formData: FormData) {
   const month = (formData.get("month") as string) || "";
 
   const supabase = await createClient();
+
+  // Read it before it is gone — the notification has to say which dates reopened.
+  const { data: block } = await supabase
+    .from("calendar_blocks")
+    .select("id, property_id, start_date, end_date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("calendar_blocks").delete().eq("id", id);
 
   if (error) {
     redirect(backTo(month, error.message));
   }
 
+  if (block) await announceBlockRemoved(supabase, block);
+
   revalidatePath("/client/calendar");
   revalidatePath("/client/calendar/block");
+  revalidatePath("/admin", "layout");
   redirect(`/client/calendar/block?month=${month}`);
 }

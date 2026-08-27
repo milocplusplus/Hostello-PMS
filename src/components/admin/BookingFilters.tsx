@@ -46,7 +46,7 @@ export function BookingFilters({
           const value = (new FormData(e.currentTarget).get("q") as string) ?? "";
           update("q", value.trim());
         }}
-        className="relative"
+        className="relative w-full sm:w-auto"
       >
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted" />
         {/* Uncontrolled, keyed on the URL value so back/clear resets it. */}
@@ -56,7 +56,7 @@ export function BookingFilters({
           defaultValue={q}
           placeholder="Search guest name…"
           aria-label="Search bookings by guest name"
-          className="bg-surface-2 border border-border-hairline rounded-md pl-7 pr-7 py-1.5 text-xs text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors w-52"
+          className="bg-surface-2 border border-border-hairline rounded-md pl-7 pr-7 py-1.5 text-xs text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors w-full sm:w-52"
         />
         {q && (
           <button

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { notifyDatesBlocked } from "@/lib/notify";
+import { announceBlockCreated, announceBlockRemoved } from "@/lib/block-events";
 
 function backTo(month: string, extra?: string) {
   const params = new URLSearchParams({ month });
@@ -61,26 +61,16 @@ export async function createCalendarBlock(formData: FormData) {
     redirect(backTo(month, error.message));
   }
 
-  const { data: property } = await supabase
-    .from("properties")
-    .select("id, name, client_id")
-    .eq("id", property_id)
-    .single();
-
-  if (property) {
-    await notifyDatesBlocked(supabase, {
-      clientId: property.client_id,
-      propertyId: property.id,
-      propertyName: property.name,
-      startDate: start_date,
-      endDate: end_date,
-      reason,
-    });
-  }
+  await announceBlockCreated(supabase, {
+    property_id,
+    start_date,
+    end_date,
+    reason,
+  });
 
   revalidatePath("/admin/calendar");
   revalidatePath("/admin/calendar/block");
-  revalidatePath("/client/calendar");
+  revalidatePath("/client", "layout");
   redirect(`/admin/calendar/block?month=${month}`);
 }
 
@@ -89,13 +79,24 @@ export async function deleteCalendarBlock(formData: FormData) {
   const month = (formData.get("month") as string) || "";
 
   const supabase = await createClient();
+
+  // Read it before it is gone — the notification has to say which dates reopened.
+  const { data: block } = await supabase
+    .from("calendar_blocks")
+    .select("id, property_id, start_date, end_date")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("calendar_blocks").delete().eq("id", id);
 
   if (error) {
     redirect(backTo(month, error.message));
   }
 
+  if (block) await announceBlockRemoved(supabase, block);
+
   revalidatePath("/admin/calendar");
   revalidatePath("/admin/calendar/block");
+  revalidatePath("/client", "layout");
   redirect(`/admin/calendar/block?month=${month}`);
 }

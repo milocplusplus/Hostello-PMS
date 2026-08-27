@@ -1,4 +1,4 @@
-# State — updated 2026-08-25
+# State — updated 2026-08-27
 
 ## Done
 - Phase 0 audit of the whole codebase (architecture, schema, reusable pieces, risks)
@@ -468,15 +468,131 @@ reassign the alias, so nothing broke.
     for. Also left: the two "unused index" lint hits, which mean nothing on a
     database with no traffic yet.
 
+- **Phone layout pass** (2026-08-27). The screens that still did not fit a phone
+  now fit one. `npm run build` and `npm run lint` clean. **Not yet deployed.**
+  - **The three tables were the whole complaint.** `/admin/bookings`,
+    `/client/bookings` and the dashboard's Recent bookings each sat in a
+    `min-w-[720px]` (640 for the client one) box inside a ~343px card, so a phone
+    got a sideways-scrolling strip. They now drop their secondary columns under
+    `md:` (`hidden md:table-cell`) and fold that content — channel dot, dates +
+    nights, amount, status — into a wrapped line under the guest/unit name.
+  - **`table-fixed md:table-auto` is the part that actually makes them fit.**
+    Hiding the columns alone was not enough: `truncate` sets `white-space: nowrap`,
+    and in an auto-layout table the cell's min-content width is then the whole
+    untruncated string, so the row still overflowed (measured: 454px in a 342px
+    box). Fixed layout ignores content min-widths, and the last column carries an
+    explicit `w-[104px]`/`w-[76px]`/`w-[92px]` (`md:w-auto`) so the name column
+    gets the rest. Verified at 375px: table 342px, no overflow, name ellipsised;
+    at 1280px the layout is byte-for-byte the old desktop one.
+  - **The calendar picks its own view on a phone.** A month of 34px cells is
+    ~1180px wide. With no `?view=` in the URL, `autoAgenda` renders the agenda
+    inside `md:hidden` and the board inside `hidden md:block` — phone gets the
+    agenda, desktop the month board, no client JS and no viewport sniffing.
+    Asking for `?view=month` explicitly still gets the (scrollable) board on both.
+    The Month/Week/Agenda pills highlight per width to match, and the board legend
+    is hidden on the phone when the board is. Both portals.
+  - Smaller: KPI cards `p-4 md:p-6` with the figure `text-lg md:text-xl truncate`,
+    empty states `p-8 md:p-10`, the bookings search box full-width below `sm:`,
+    and the two portal-login forms on `/admin/clients/[id]` stack instead of
+    running a 192px input and a button off the card edge.
+  - **Verified by measuring, not by signing in** — still no credentials on this
+    machine. The exact post-fix class strings were rendered at 375px and 1280px in
+    a browser and measured (`scrollWidth` vs `clientWidth` on the card, cell
+    widths, ellipsis state, computed `table-layout`). `/login` has no overflowing
+    element at 375px.
+
+- **Notification system, rebuilt around recipients** (2026-08-27). `npm run build`
+  and `npm run lint` clean. Migrations **applied to the live DB** and committed.
+  **Not yet deployed.**
+  - **The model changed.** `notifications` was one row per client-event with two
+    read marks bolted on (`read_at`, `admin_read_at`) — which meant one admin
+    marking something read marked it read for every admin, and there was nowhere
+    to hang a per-user preference or device. Now: `notifications` is one row per
+    **event**, `notification_recipients` is one row per **person**, and the
+    recipient row is simultaneously the permission (RLS: `user_id = auth.uid()`),
+    the read state and the realtime channel. Both old columns are gone, backfilled
+    into recipient rows first. `kind` is text now, not an enum — a new event type
+    was a migration before.
+  - **Routing lives in the database.** `audience` (`admin|client|both`) plus
+    `client_id` go in; an `after insert` trigger fans out to every admin and to
+    the owning client's portal user, and **never to `actor_user_id`** — you are
+    not told about your own action. Anything that can insert a row gets this for
+    free, which is what lets the cron job and (later) a mobile backend reuse it.
+  - **`emit_notification` is the only door.** Clients have no INSERT policy on
+    `notifications` and must not get one, but a client session still has to be
+    able to tell the admins it just booked something. The RPC is SECURITY DEFINER
+    and checks `is_admin() or owns(p_client_id)`. Verified by impersonating real
+    users in SQL: a client emitting for their own client → 1 recipient, the admin,
+    and not themselves; the same client naming *another* client → refused, 0 rows;
+    an admin emitting for a client → the owner only; a second client sees none of
+    it. Execute is granted to `authenticated` and revoked from `public, anon`.
+  - **Duplicates die on `event_key`.** Every emitter names its event
+    (`booking_created:<id>`, `checkin:<id>:<date>`, `client_terms_updated:<id>:<day>`)
+    behind a partial unique index, and `on conflict do nothing` returns null, which
+    also skips the push. Verified: the second insert of a key wrote nothing.
+  - **Events wired, all from things that actually happen here:** booking created
+    (both portals — the client-entered one notified nobody before), booking
+    cancelled (ditto), payout settled, **token/payout receipt uploaded**, dates
+    blocked, **dates unblocked** (the `dates_unblocked` kind existed and nothing
+    ever emitted it), **block written over an existing booking** (critical — the
+    app rejects block-on-block overlaps but never checked bookings, so this was
+    silent), property added/removed, payout terms changed (only when the numbers
+    really changed, at most once a day), and **today's arrivals/departures** from
+    pg_cron at 07:00 Karachi.
+  - **No notifications were invented for modules that do not exist.** Guest
+    messaging, housekeeping, maintenance, staff assignment and OTA sync have no
+    tables, no UI and no data — so they have no events. That was a deliberate
+    call, not an oversight.
+  - **Realtime** is a subscription to `notification_recipients` filtered by
+    `user_id`; the handler calls `router.refresh()` so the server-rendered bell
+    and counts stay the single source of truth, then plays the tone and shows a
+    toast. `notification_recipients` is in the `supabase_realtime` publication.
+  - **Push** is `web-push` from the Server Action that caused the event, reading
+    subscriptions with the service-role key (no session may read another user's
+    devices). Missing keys = push silently off, everything else unaffected. Dead
+    endpoints (404/410) are marked `failed_at` and skipped. `sw.js` gained `push`
+    and `notificationclick` (focus an existing tab, else open one); CACHE_VERSION
+    is `v3`.
+  - **Sounds are synthesised** (`notification-sounds.ts`), not files: a rising
+    two-note for bookings, a three-note climb for money, one soft note for the
+    calendar, a nagging pair for critical. Silent rather than throwing when the
+    browser has not had a user gesture yet.
+  - **Preferences** (`notification_preferences`) are per user, not per client:
+    push on/off, sound on/off, and per-category mutes. Muting silences the sound
+    and the push — the row still lands in the feed, so a preference can never lose
+    a notification.
+  - Both notification pages now share `NotificationFeed` (All / Unread + category
+    filters, per-row and bulk mark-read) and `NotificationSettings`. The client
+    portal's page was the last one on its original design; it isn't now.
+  - **Verified without signing in** — still no credentials on this machine. The
+    authorisation, fan-out, actor-exclusion, dedupe and read-isolation claims above
+    were each tested against the live database by setting `request.jwt.claims` to a
+    real user and running as `authenticated`; all probe rows were deleted (back to
+    7 notifications / 14 recipient rows). The new UI was rendered with sample data
+    on a throwaway route: filters, rows, mute round-trip (`category_system=false`
+    for a muted category), no console errors, no sideways scroll at 375px or 1280px.
+    What could *not* be tested here: an actual Realtime message and an actual push
+    arriving, both of which need a signed-in browser and the env vars below.
+  - **Before push works, three env vars are needed in Vercel and `.env.local`:**
+    `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (generated 2026-08-27, in
+    the handover message) and `SUPABASE_SERVICE_ROLE_KEY`. `.env.local.example`
+    still needs those three lines — this session had no write access to it.
+
 ## Next
 1. Verify Phase 4 against real data once signed in (both portals), then deploy.
    Same login: attach a real screenshot to a booking and confirm it renders back.
 2. Open the new calendar once signed in with real clients. Two things only real
    data can answer: whether the overview needs a client search box (fine at ~6
    rows, unknown at 40), and whether the heat shading reads at a glance.
-3. `/client/notifications` is the last page still on its original design
-   (the bell and the admin activity feed are new; that page is not).
-4. Open the bell and both day sheets once signed in — like everything since
+3. **Set the three push env vars, then test push for real**: sign in on two
+   devices/browsers, turn push on in Notification preferences on both, and have
+   one make a booking — the other should get an OS banner that opens the booking.
+   Until the vars are set the toggle says push is not configured.
+4. **Watch the first `hostello-daily-stays` run** (07:00 Karachi). `select * from
+   cron.job_run_details order by start_time desc limit 5;` — and check that a day
+   with several arrivals does not feel like spam. If it does, the change is a
+   digest row per client instead of one per booking, keyed the same way.
+5. Open the bell and both day sheets once signed in — like everything since
    Phase 4 they were verified by rendering, not against real data.
 
 ## Open questions / debt

@@ -192,7 +192,7 @@ export default async function ClientDetailPage({
                 reach this owner. Set one here and pass it on.
               </p>
             </div>
-            <form action={setClientPassword} className="flex items-end gap-2">
+            <form action={setClientPassword} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
               <input type="hidden" name="client_id" value={id} />
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="new_password" className={fieldLabel}>
@@ -205,7 +205,7 @@ export default async function ClientDetailPage({
                   required
                   minLength={8}
                   placeholder="At least 8 characters"
-                  className={`${fieldInput} w-48`}
+                  className={`${fieldInput} w-full sm:w-48`}
                 />
               </div>
               <button type="submit" className={`${secondaryButton} py-2`}>
@@ -214,7 +214,7 @@ export default async function ClientDetailPage({
             </form>
           </div>
         ) : (
-          <form action={createLoginForClient} className="flex items-end gap-2 flex-wrap mt-2">
+          <form action={createLoginForClient} className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:flex-wrap mt-2">
             <input type="hidden" name="client_id" value={id} />
             <div className="flex flex-col gap-1.5">
               <label htmlFor="login_email" className={fieldLabel}>
@@ -226,7 +226,7 @@ export default async function ClientDetailPage({
                 type="email"
                 required
                 placeholder="owner@example.com"
-                className={`${fieldInput} w-56`}
+                className={`${fieldInput} w-full sm:w-56`}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -239,7 +239,7 @@ export default async function ClientDetailPage({
                 type="text"
                 required
                 placeholder="At least 8 characters"
-                className={`${fieldInput} w-48`}
+                className={`${fieldInput} w-full sm:w-48`}
               />
             </div>
             <button type="submit" className={`${primaryButton} text-xs py-2`} style={primaryButtonStyle}>

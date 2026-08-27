@@ -73,7 +73,7 @@ export async function attachReceipt(
     amount?: number | null;
     uploadedBy: string | null;
   }
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; receiptId?: string }> {
   const invalid = validateReceipt(args.file);
   if (invalid) return { error: invalid };
 
@@ -85,13 +85,19 @@ export async function attachReceipt(
 
   if (uploadError) return { error: uploadError.message };
 
-  const { error } = await supabase.from("booking_receipts").insert({
-    booking_id: args.bookingId,
-    kind: args.kind,
-    storage_path: path,
-    amount: args.amount && args.amount > 0 ? args.amount : null,
-    uploaded_by: args.uploadedBy,
-  });
+  // The id comes back so the caller can name the notification after this exact
+  // receipt, which is what stops a retried upload notifying twice.
+  const { data, error } = await supabase
+    .from("booking_receipts")
+    .insert({
+      booking_id: args.bookingId,
+      kind: args.kind,
+      storage_path: path,
+      amount: args.amount && args.amount > 0 ? args.amount : null,
+      uploaded_by: args.uploadedBy,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     // Don't leave an orphan file behind if the row didn't land.
@@ -99,7 +105,7 @@ export async function attachReceipt(
     return { error: error.message };
   }
 
-  return { error: null };
+  return { error: null, receiptId: data.id };
 }
 
 export async function listReceipts(

@@ -14,6 +14,7 @@ import {
 import {
   notifyBookingCreated,
   notifyBookingCancelled,
+  notifyPaymentReceived,
   notifyPayoutSettled,
 } from "@/lib/notify";
 
@@ -178,6 +179,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/admin/calendar");
   revalidatePath(`/admin/clients/${client_id}`);
+  revalidatePath("/client", "layout");
 
   return { clientId: client_id, bookingId: newBooking.id };
 }
@@ -211,11 +213,14 @@ export async function uploadBookingReceipt(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await attachReceipt(supabase, {
+  const kind = receiptKind(formData);
+  const amount = Number(formData.get("receipt_amount")) || null;
+
+  const { error, receiptId } = await attachReceipt(supabase, {
     bookingId,
     file,
-    kind: receiptKind(formData),
-    amount: Number(formData.get("receipt_amount")) || null,
+    kind,
+    amount,
     uploadedBy: user?.id ?? null,
   });
 
@@ -223,8 +228,29 @@ export async function uploadBookingReceipt(formData: FormData) {
     redirect(`/admin/bookings/${bookingId}?receipt_error=${encodeURIComponent(error)}`);
   }
 
+  // Proof that money moved is the one booking change the owner most wants told.
+  if (receiptId) {
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("client_id, guest_name")
+      .eq("id", bookingId)
+      .single();
+
+    if (booking) {
+      await notifyPaymentReceived(supabase, {
+        clientId: booking.client_id,
+        bookingId,
+        receiptId,
+        kind,
+        amount,
+        guestName: booking.guest_name,
+      });
+    }
+  }
+
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/client/bookings/[id]", "page");
+  revalidatePath("/client", "layout");
   redirect(`/admin/bookings/${bookingId}`);
 }
 
@@ -289,7 +315,7 @@ export async function markBookingSettled(formData: FormData) {
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/bookings/[id]", "page");
-  revalidatePath("/client/bookings");
+  revalidatePath("/client", "layout");
 }
 
 export async function cancelBooking(formData: FormData) {
@@ -325,4 +351,5 @@ export async function cancelBooking(formData: FormData) {
   revalidatePath("/admin/calendar");
   revalidatePath("/client/bookings");
   revalidatePath("/client/calendar");
+  revalidatePath("/client", "layout");
 }

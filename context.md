@@ -56,6 +56,13 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   `CalendarRow` are exported from `CalendarBoard`.
 - `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (no photo columns
   exist) and the confirmed/tentative/cancelled chip
+- **Notifications** — `src/lib/notify.ts` (the only writer), `notifications.ts`
+  (kind → icon, categories), `notification-feed.ts` (the only reader),
+  `notification-sounds.ts` (Web Audio tones), `push.ts` (Web Push sender),
+  `block-events.ts` (what a calendar block announces);
+  `src/components/shared/{NotificationBell,NotificationFeed,NotificationLive,
+  NotificationSettings}.tsx`; `src/app/notifications/actions.ts` — shared read /
+  preference / subscription actions, a folder with no `page.tsx` so it is no route
 - `src/components/shared/GlobalSearch.tsx` — top-bar search input. Takes a
   `searchAction` prop; admin passes `admin/search/actions.ts`, the client portal
   `client/search/actions.ts`. `SearchResult` lives in `src/lib/search.ts`.
@@ -123,12 +130,20 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `booking_properties` — booking_id, property_id (many-to-many; multi-unit bookings)
 - `calendar_blocks` — start_date/end_date (**inclusive**), block_type enum(`blocked|booked`);
   `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design
-- `notifications` — client_id, kind enum(`booking_created|booking_cancelled|
-  dates_blocked|dates_unblocked|payout_settled`), title, body, booking_id,
-  property_id, read_at, admin_read_at. Read by **both** roles: `read_at` is the
-  owner's mark (RLS scoped to owner_user_id), `admin_read_at` is Hostello's, and
-  a `before update` trigger stops a client from touching the admin one. Admins
-  read every row through `notifications: admin full access`.
+- `notifications` — **one row per event**: kind (text), category
+  (`booking|payment|calendar|system|critical`), audience (`admin|client|both`),
+  title, body, client_id (nullable), booking_id, property_id, actor_user_id,
+  event_key, created_at. Nothing inserts here directly — see `emit_notification`.
+- `notification_recipients` — **one row per person per event**: notification_id,
+  user_id, read_at, pushed_at, created_at. This is both the permission (RLS is
+  `user_id = auth.uid()`) and the read state, so every admin has their own. The
+  `notifications_fan_out` trigger writes these from `audience` + `client_id`, and
+  never to `actor_user_id` — nobody is notified of their own action.
+- `push_subscriptions` — user_id, platform(`web|android|ios`), endpoint (unique),
+  p256dh, auth, user_agent, failed_at. A web row holds the push endpoint and its
+  two keys; a native row would hold an FCM/APNs token in `endpoint`.
+- `notification_preferences` — user_id, push_enabled, sound_enabled,
+  muted_categories. Absent row = defaults (everything on).
 - `booking_receipts` — booking_id, kind enum(`guest_to_hostello|hostello_to_client`),
   storage_path, amount, uploaded_by, created_at. The screenshot proving the advance
   token moved. Bytes live in the **private** `booking-receipts` storage bucket at
@@ -141,6 +156,16 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 1. **Booking create** — `components/admin/BookingForm.tsx` → `app/{admin,client}/bookings/actions.ts`
    → `calculatePayout()` snapshots deal terms onto the row → insert `bookings` +
    `booking_properties` → `notify.ts` writes a `notifications` row.
+1b. **Notifications** — a Server Action calls a `notify*()` helper in
+   `src/lib/notify.ts` → the `emit_notification` RPC (SECURITY DEFINER: it is how
+   a *client* session is allowed to tell the admins something, and it checks the
+   caller owns the client it names) → one `notifications` row → the fan-out
+   trigger writes `notification_recipients` → Supabase Realtime pushes the
+   recipient row to that user's browser (`NotificationLive`), which refreshes the
+   server-rendered bell and plays the category's tone → `deliverPush()` sends Web
+   Push to their other devices. `event_key` is the anti-duplicate: same key, no
+   second row. Time-based events (today's arrivals/departures) come from the
+   `notify_daily_stays()` pg_cron job, which inserts the same rows.
 2. **Availability** — a date's status per property comes from *two* independent tables:
    `bookings` via `booking_properties` (half-open: `check_in ≤ date < check_out`) and
    `calendar_blocks` (inclusive `start_date`..`end_date`). See `buildRow()` /
@@ -158,7 +183,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - Enum labels come from `block-sources.ts` / `property-types.ts` / `pakistan-locations.ts`.
   Channel color + initial also live in `block-sources.ts` (`sourceColor`, `sourceInitial`).
 - Form inputs use the class tokens in `form-styles.ts`.
-- Extend `notify.ts` with new kinds rather than replacing it.
+- Extend `notify.ts` with new kinds rather than replacing it. **Never insert into
+  `notifications` from application code** — go through a `notify*()` helper, which
+  goes through the `emit_notification` RPC. Every new event needs an `event_key`
+  or it can be delivered twice, and one line in `KIND_ICON` in `notifications.ts`.
+- Notification *routing* is `audience` + `client_id`, decided in the emitter and
+  applied by the database trigger. Do not filter recipients in a page query.
 - Reuse `BookingForm.tsx` for any "add booking" entry point — do not duplicate it.
 - Never introduce a second revenue system. `payout.ts` is authoritative.
 - Receipt files are never served publicly. Sign a short-lived URL on the server
@@ -188,7 +218,19 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   `clients` silently binds to *that* column and the policy denies everything.
   This bit the receipt policies once already.
 - Channels / Pricing / Expenses / Payouts / Reports have **zero backing tables** —
-  out of scope, no nav for them.
+  out of scope, no nav for them. Neither do guest messaging, housekeeping,
+  maintenance, staff assignment or OTA sync, so there are no notifications for
+  them either. Do not invent one; add the table first.
+- **Browser push needs three env vars** — `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (the sender has to read
+  other users' subscriptions, which no session may do). Without them `push.ts`
+  does nothing and the settings panel says push is not configured — the bell,
+  the feed and the realtime updates are unaffected. `VAPID_SUBJECT` is optional.
+- **`notify_daily_stays()` runs on pg_cron at 02:00 UTC = 07:00 Karachi**
+  (`cron.job`, name `hostello-daily-stays`). It writes today's arrival/departure
+  notifications; the `event_key` makes a re-run a no-op. It cannot send push —
+  push is sent from the Next server, and nothing external can call a Server
+  Action — so cron-born notifications reach the bell and Realtime only.
 - Vercel is git-connected to `milocplusplus/Hostello-PMS`, production branch
   `main` — **pushing to main is the deploy**. There is no Vercel CLI auth and no
   `.vercel/` link on this machine, so `git push` is the only mechanism.

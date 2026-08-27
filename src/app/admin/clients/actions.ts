@@ -3,6 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { DEAL_MODELS } from "@/lib/payout";
+import {
+  notifyClientTermsUpdated,
+  notifyPropertyAdded,
+  notifyPropertyRemoved,
+} from "@/lib/notify";
 
 // ── Clients ──────────────────────────────────────────────
 
@@ -95,6 +101,15 @@ export async function updateClientRecord(formData: FormData) {
   }
 
   const supabase = await createClient();
+
+  // Read the terms first: an owner should hear that their split changed, and
+  // should not hear anything because a phone number was corrected.
+  const { data: before } = await supabase
+    .from("clients")
+    .select("deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("clients")
     .update({
@@ -114,8 +129,34 @@ export async function updateClientRecord(formData: FormData) {
     redirect(`/admin/clients/${id}/edit?error=${encodeURIComponent(error.message)}`);
   }
 
+  const termsChanged =
+    !!before &&
+    (before.deal_model !== deal_model ||
+      Number(before.monthly_fee) !== monthly_fee ||
+      Number(before.share_percent) !== share_percent ||
+      Number(before.deduct_percent) !== deduct_percent ||
+      before.ota_model !== ota_model ||
+      Number(before.ota_share_percent) !== ota_share_percent);
+
+  if (termsChanged) {
+    const summary = [
+      DEAL_MODELS.find((m) => m.value === deal_model)?.label ?? deal_model,
+      share_percent > 0 ? `Share ${share_percent}%` : null,
+      deduct_percent > 0 ? `Deduction ${deduct_percent}%` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    await notifyClientTermsUpdated(supabase, {
+      clientId: id,
+      summary,
+      day: new Date().toISOString().slice(0, 10),
+    });
+  }
+
   revalidatePath("/admin/clients");
   revalidatePath(`/admin/clients/${id}`);
+  revalidatePath("/client", "layout");
   redirect(`/admin/clients/${id}`);
 }
 
@@ -227,24 +268,38 @@ export async function createProperty(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("properties").insert({
-    client_id,
-    name,
-    location,
-    province,
-    city,
-    type,
-    status,
-    stack_rate,
-  });
+  const { data, error } = await supabase
+    .from("properties")
+    .insert({
+      client_id,
+      name,
+      location,
+      province,
+      city,
+      type,
+      status,
+      stack_rate,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !data) {
     redirect(
-      `/admin/clients/${client_id}/properties/new?error=${encodeURIComponent(error.message)}`
+      `/admin/clients/${client_id}/properties/new?error=${encodeURIComponent(
+        error?.message ?? "Could not add the property."
+      )}`
     );
   }
 
+  await notifyPropertyAdded(supabase, {
+    clientId: client_id,
+    propertyId: data.id,
+    propertyName: name,
+    location: [location, city].filter(Boolean).join(", "),
+  });
+
   revalidatePath(`/admin/clients/${client_id}`);
+  revalidatePath("/client", "layout");
   redirect(`/admin/clients/${client_id}`);
 }
 
@@ -290,12 +345,29 @@ export async function deletePropertyRecord(formData: FormData) {
   const client_id = formData.get("client_id") as string;
 
   const supabase = await createClient();
+
+  // The name has to be read before the row goes.
+  const { data: property } = await supabase
+    .from("properties")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
     redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(error.message)}`);
   }
 
+  if (property) {
+    await notifyPropertyRemoved(supabase, {
+      clientId: client_id,
+      propertyId: id,
+      propertyName: property.name,
+    });
+  }
+
   revalidatePath(`/admin/clients/${client_id}`);
+  revalidatePath("/client", "layout");
   redirect(`/admin/clients/${client_id}`);
 }

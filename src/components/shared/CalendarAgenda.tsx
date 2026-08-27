@@ -43,7 +43,7 @@ export function CalendarAgenda({
 
   if (shown.length === 0) {
     return (
-      <div className="card p-10 text-center text-sm text-ink-secondary">
+      <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
         Nothing scheduled this month. Switch to Month to book a night.
       </div>
     );
