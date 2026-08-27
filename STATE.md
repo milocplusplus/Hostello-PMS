@@ -701,6 +701,22 @@ reassign the alias, so nothing broke.
   - versionCode 1 → **2**, versionName 1.0.0 → **1.1.0**, in `app/build.gradle`
     and `twa-manifest.json` both, so an installed v1 upgrades rather than
     refusing to install.
+  - **Verified on a real Android phone (2026-08-27) — it works.** Notifications
+    now arrive as Hostello, with the mark as the small icon, and land while the
+    app is closed. Two things had to be true on the device and neither is
+    something a deploy can set:
+    - **The Android app's own notification permission must be on.** The site
+      permission (granted in Chrome) only makes the push arrive; posting it to
+      the screen is a per-app right, and the app is what posts it. With it off,
+      delegation fails silently and Chrome shows the banner under its own name —
+      which is exactly what the symptom looked like.
+    - **The app has to be opened once after installing**, which is when Chrome
+      hands the site's notification permission across to it.
+  - **Pushes now go out at `urgency: "high"`** (`src/lib/push.ts`). At the default
+    ("normal") Android's Doze sat on them until the phone woke for its own
+    reasons, so they only appeared when the app was opened. Aggressive OEM
+    battery managers (this was a Xiaomi-style ROM) need Chrome set to
+    Unrestricted on top of that — urgency alone does not beat them.
   - **Not verifiable here:** there is still no Android device on this machine.
     What was checked is the bytecode — both overrides compile with the exact
     signatures the library declares (`onNotifyNotificationWithChannel(String,
