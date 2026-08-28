@@ -840,6 +840,36 @@ reassign the alias, so nothing broke.
     announces the day's arrivals. Worth revisiting if owners ask to be told.
   - **Not verified against a running app** — still no `.env.local` here.
 
+
+- **Check-in notifications, and a board to manage them** (2026-08-29).
+  `npm run build` and `npm run lint` clean. No migration — this rides on the
+  two columns added earlier today.
+  - **`notifyStayProgress`** in `notify.ts`, kinds `guest_checked_in` /
+    `guest_checked_out` (both in `KIND_ICON`). Two rows like the other booking
+    events, for the same reason: the admin's body leads with the client's name,
+    the owner's does not. Body is `guest · unit` — dates and channel are left
+    out because for this event the useful facts are who and where.
+    **Only the doing is announced, never the undoing** — un-ticking is a
+    correction, the same call `markBookingSettled` makes about un-settling.
+    Event key `<kind>:<audience>:<bookingId>`, so untick-then-retick does not
+    fire a second time.
+  - **`/admin/checkins` + `/client/checkins`** — "Check-ins & check-outs".
+    Sections: arriving today, departing today, then **never marked arrived /
+    never marked departed** over the last 30 days, then arriving / departing in
+    the next 7. The middle pair is the reason the page exists: the day sheet
+    only ever shows today, so from the day after, a missed tick was invisible.
+    Empty sections past today's two don't render at all.
+  - `Section` in `TodayBoard.tsx` is now exported as `StaySection` (plus an
+    optional `note` line) and the new pages build their own set from it, so the
+    day sheet and the board share one row and one section implementation.
+  - **A gold "Manage check-ins" button** sits next to "Open day sheet" on both
+    dashboards, and the dashboard's Check-ins / Check-outs tiles now point at
+    the board rather than the day sheet — they are jobs, not just counts.
+    Also a "Check-ins" nav item under Overview in both sidebars, since a real
+    page reachable only from one button is a page people lose.
+  - **Not verified against a running app** — still no `.env.local` here. The
+    notification path in particular is unproven: it has never been fired.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

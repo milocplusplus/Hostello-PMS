@@ -11,6 +11,7 @@ import {
   BarChart3,
   Bell,
   Sun,
+  LogIn,
   Menu,
   X,
   Plus,
@@ -33,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
       { href: "/admin/today", label: "Today", icon: Sun, exact: false },
+      { href: "/admin/checkins", label: "Check-ins", icon: LogIn, exact: false },
       { href: "/admin/notifications", label: "Activity", icon: Bell, exact: false },
     ],
   },

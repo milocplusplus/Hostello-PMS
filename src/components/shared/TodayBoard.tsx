@@ -88,8 +88,14 @@ function StayRow({
   );
 }
 
-function Section({
+/**
+ * One tickable list of stays. The day sheet builds three of these; the
+ * check-in board builds its own set over a wider window, so it lives here
+ * rather than in either page.
+ */
+export function StaySection({
   title,
+  note,
   icon: Icon,
   tint,
   stays,
@@ -98,6 +104,8 @@ function Section({
   progressAction,
 }: {
   title: string;
+  /** One line under the title, where the grouping needs explaining. */
+  note?: string;
   icon: typeof LogIn;
   tint: string;
   stays: TodayStay[];
@@ -121,7 +129,10 @@ function Section({
         >
           <Icon size={14} style={{ color: tint }} />
         </span>
-        <h2 className="text-sm font-medium flex-1">{title}</h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-medium">{title}</h2>
+          {note && <p className="text-[11px] text-ink-muted mt-0.5">{note}</p>}
+        </div>
         {allDone && <span className="text-[11px] text-positive">All done</span>}
         <span className="text-xs text-ink-muted tabular-nums">
           {step && done > 0 && !allDone ? `${done} of ${stays.length}` : stays.length}
@@ -158,7 +169,7 @@ export function TodayBoard({
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Section
+      <StaySection
         title="Arriving today"
         icon={LogIn}
         tint="var(--color-positive)"
@@ -167,7 +178,7 @@ export function TodayBoard({
         step="in"
         progressAction={progressAction}
       />
-      <Section
+      <StaySection
         title="Departing today"
         icon={LogOut}
         tint="var(--color-hostello-purple-glow)"
@@ -176,7 +187,7 @@ export function TodayBoard({
         step="out"
         progressAction={progressAction}
       />
-      <Section
+      <StaySection
         title="Staying tonight"
         icon={BedDouble}
         tint="var(--color-hostello-gold)"

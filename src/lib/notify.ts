@@ -199,6 +199,47 @@ export async function notifyBookingCancelled(
   });
 }
 
+/**
+ * A guest was marked arrived or departed on the day sheet.
+ *
+ * Two rows like the other booking events, for the same reason: an admin reads
+ * across every client's portfolio and needs whose property it is in front, an
+ * owner already knows. Dates and channel are left out — for this event the
+ * useful facts are who and where, and an OS banner has room for little else.
+ *
+ * Only the *doing* is announced, never the undoing: un-ticking is a correction,
+ * the same call `markBookingSettled` makes about un-settling.
+ */
+export async function notifyStayProgress(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    bookingId: string;
+    step: "in" | "out";
+    guestName: string | null;
+    unitNames: string[];
+  }
+) {
+  const kind = args.step === "in" ? "guest_checked_in" : "guest_checked_out";
+  const detail = `${args.guestName ?? "The guest"} · ${unitLabel(args.unitNames)}`;
+  const who = await clientName(supabase, args.clientId);
+
+  for (const audience of ["client", "admin"] as const) {
+    await emit(supabase, {
+      kind,
+      category: "booking",
+      audience,
+      title: args.step === "in" ? "Guest checked in" : "Guest checked out",
+      body: audience === "admin" && who ? `${who} · ${detail}` : detail,
+      clientId: args.clientId,
+      bookingId: args.bookingId,
+      // One per booking per direction: un-ticking and re-ticking is a
+      // correction being fixed, not a second arrival.
+      eventKey: `${kind}:${audience}:${args.bookingId}`,
+    });
+  }
+}
+
 // ── Money ───────────────────────────────────────────────────────────────────
 
 export async function notifyPayoutSettled(

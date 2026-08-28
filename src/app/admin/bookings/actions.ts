@@ -16,6 +16,7 @@ import {
   notifyBookingCancelled,
   notifyBookingUpdated,
   notifyPaymentReceived,
+  notifyStayProgress,
   notifyPayoutSettled,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
@@ -468,10 +469,32 @@ export async function markStayProgress(formData: FormData) {
 
   if (error) return;
 
+  // Only the doing is news; un-ticking is a correction.
+  if (done) {
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("client_id, guest_name, booking_properties(properties(name))")
+      .eq("id", id)
+      .single();
+
+    if (booking) {
+      await notifyStayProgress(supabase, {
+        clientId: booking.client_id,
+        bookingId: id,
+        step: step === "checked_out_at" ? "out" : "in",
+        guestName: booking.guest_name,
+        unitNames:
+          (booking.booking_properties as unknown as { properties: { name: string } | null }[])
+            ?.map((bp) => bp.properties?.name ?? "")
+            .filter(Boolean) ?? [],
+      });
+    }
+  }
+
   revalidatePath("/admin/today");
+  revalidatePath("/admin/checkins");
   revalidatePath("/admin/bookings/[id]", "page");
-  revalidatePath("/client/today");
-  revalidatePath("/client/bookings/[id]", "page");
+  revalidatePath("/client", "layout");
 }
 
 export async function cancelBooking(formData: FormData) {

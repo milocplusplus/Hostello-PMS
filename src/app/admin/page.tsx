@@ -279,14 +279,15 @@ export default async function AdminDashboard({
       value: checkinsToday.length,
       icon: LogIn,
       tint: "var(--color-positive)",
-      href: "/admin/today",
+      // These two are jobs, not just counts — send them where they get ticked.
+      href: "/admin/checkins",
     },
     {
       label: "Check-outs",
       value: checkoutsToday.length,
       icon: LogOut,
       tint: "var(--color-hostello-purple-glow)",
-      href: "/admin/today",
+      href: "/admin/checkins",
     },
     {
       label: "New bookings",
@@ -463,14 +464,24 @@ export default async function AdminDashboard({
           </section>
 
           <section className="card p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-base font-medium">Today&apos;s summary</h2>
-              <Link
-                href="/admin/today"
-                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
-              >
-                Open day sheet
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/admin/checkins"
+                  className="text-xs text-surface-0 rounded-md px-2.5 py-1.5 font-medium flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "var(--color-hostello-gold)" }}
+                >
+                  <LogIn size={13} />
+                  Manage check-ins
+                </Link>
+                <Link
+                  href="/admin/today"
+                  className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+                >
+                  Open day sheet
+                </Link>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {todayTiles.map((t) => (

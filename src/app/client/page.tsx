@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Home, BarChart3, CircleDollarSign, CalendarDays, Wallet, Plus, Lock } from "lucide-react";
+import { Home, BarChart3, CircleDollarSign, CalendarDays, Wallet, Plus, Lock, LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -410,12 +410,22 @@ export default async function ClientDashboard({
       <div className="card p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-sm font-medium">Today&apos;s summary</h2>
-          <Link
-            href="/client/today"
-            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
-          >
-            Open day sheet
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/client/checkins"
+              className="text-xs text-surface-0 rounded-md px-2.5 py-1.5 font-medium flex items-center gap-1.5 transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--color-hostello-gold)" }}
+            >
+              <LogIn size={13} />
+              Manage check-ins
+            </Link>
+            <Link
+              href="/client/today"
+              className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+            >
+              Open day sheet
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">

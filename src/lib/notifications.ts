@@ -43,6 +43,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   booking_cancelled: CalendarX2,
   booking_checkin_today: LogIn,
   booking_checkout_today: LogOut,
+  guest_checked_in: LogIn,
+  guest_checked_out: LogOut,
   payment_received: Receipt,
   payout_settled: Wallet,
   dates_blocked: Lock,

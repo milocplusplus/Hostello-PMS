@@ -10,6 +10,7 @@ import {
   BarChart3,
   Bell,
   Sun,
+  LogIn,
   Menu,
   X,
   Plus,
@@ -26,6 +27,7 @@ import type { SearchResult } from "@/lib/search";
 const NAV = [
   { href: "/client", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/client/today", label: "Today", icon: Sun, exact: false },
+  { href: "/client/checkins", label: "Check-ins", icon: LogIn, exact: false },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
   { href: "/client/stats", label: "Stats", icon: BarChart3, exact: false },
