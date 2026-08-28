@@ -49,47 +49,66 @@ export function CalendarAgenda({
     );
   }
 
+  // The window starts on the 1st, so by the 26th today is a long way down the
+  // sheet. Days already gone fold into a disclosure, which puts today at the top
+  // without losing what happened earlier in the month.
+  // Only when the window holds today — a month already gone is all "past", and
+  // folding the whole sheet away would be absurd.
+  const split = days.includes(today);
+  const past = split ? shown.filter((i) => days[i] < today) : [];
+  const current = split ? shown.filter((i) => days[i] >= today) : shown;
+
+  function dayRow(i: number) {
+    const date = days[i];
+    const isToday = date === today;
+    return (
+      <div key={date} className="flex gap-3 p-3 md:p-4">
+        <div className="w-11 shrink-0 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-ink-muted">{weekdayShort(date)}</p>
+          <p
+            className={`text-lg leading-tight ${
+              isToday ? "font-semibold text-hostello-gold" : "text-ink-primary"
+            }`}
+          >
+            {Number(date.slice(8, 10))}
+          </p>
+          <p className="text-[10px] text-ink-muted">
+            {new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
+              month: "short",
+              timeZone: "UTC",
+            })}
+          </p>
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          {departures[i].map((e) => (
+            <AgendaEntry key={`out-${e.seg.key}`} entry={e} direction="out" />
+          ))}
+          {arrivals[i].map((e) => (
+            <AgendaEntry key={`in-${e.seg.key}`} entry={e} direction="in" />
+          ))}
+          <p className="text-[10px] text-ink-muted">
+            {occupied[i]} of {rows.length} {rows.length === 1 ? "unit" : "units"} occupied
+            {isToday && " · today"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card divide-y divide-border-hairline">
-      {shown.map((i) => {
-        const date = days[i];
-        const isToday = date === today;
-        return (
-          <div key={date} className="flex gap-3 p-3 md:p-4">
-            <div className="w-11 shrink-0 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-ink-muted">
-                {weekdayShort(date)}
-              </p>
-              <p
-                className={`text-lg leading-tight ${
-                  isToday ? "font-semibold text-hostello-gold" : "text-ink-primary"
-                }`}
-              >
-                {Number(date.slice(8, 10))}
-              </p>
-              <p className="text-[10px] text-ink-muted">
-                {new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
-                  month: "short",
-                  timeZone: "UTC",
-                })}
-              </p>
-            </div>
-
-            <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-              {departures[i].map((e) => (
-                <AgendaEntry key={`out-${e.seg.key}`} entry={e} direction="out" />
-              ))}
-              {arrivals[i].map((e) => (
-                <AgendaEntry key={`in-${e.seg.key}`} entry={e} direction="in" />
-              ))}
-              <p className="text-[10px] text-ink-muted">
-                {occupied[i]} of {rows.length} {rows.length === 1 ? "unit" : "units"} occupied
-                {isToday && " · today"}
-              </p>
-            </div>
+      {past.length > 0 && (
+        <details>
+          <summary className="px-4 py-2.5 text-xs text-ink-muted cursor-pointer hover:text-ink-secondary transition-colors">
+            Earlier this month ({past.length} {past.length === 1 ? "day" : "days"})
+          </summary>
+          <div className="divide-y divide-border-hairline border-t border-border-hairline">
+            {past.map(dayRow)}
           </div>
-        );
-      })}
+        </details>
+      )}
+      {current.map(dayRow)}
     </div>
   );
 }
