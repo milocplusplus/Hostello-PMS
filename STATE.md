@@ -867,6 +867,12 @@ reassign the alias, so nothing broke.
     the board rather than the day sheet — they are jobs, not just counts.
     Also a "Check-ins" nav item under Overview in both sidebars, since a real
     page reachable only from one button is a page people lose.
+  - **Day-sheet rows lead with the client's name** (fixed after seeing it
+    signed in): the row read `D-102` with no hint whose it was, because
+    `StayRow` used `units || clientName` — a fallback, not both. It is now
+    `clientName · units`, and the client portal passes `clientName: null` so an
+    owner is not shown their own name on every row. Same admin/owner split the
+    notification wording already makes.
   - **Not verified against a running app** — still no `.env.local` here. The
     notification path in particular is unproven: it has never been fired.
 

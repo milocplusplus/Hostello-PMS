@@ -55,8 +55,12 @@ function StayRow({
         >
           {stay.guestName ?? "Guest"}
         </Link>
+        {/* Owner first, then the unit: "D-102" alone says nothing to an admin
+            reading across every client's portfolio. The client portal passes a
+            null clientName, so an owner is not shown their own name on every
+            row — the same split the notification wording makes. */}
         <p className="text-xs text-ink-secondary truncate mt-0.5">
-          {stay.units || stay.clientName || "—"}
+          {[stay.clientName, stay.units].filter(Boolean).join(" · ") || "—"}
           {stay.guests ? ` · ${stay.guests} guest${stay.guests === 1 ? "" : "s"}` : ""}
         </p>
         <p className="text-[11px] text-ink-muted mt-1 flex items-center gap-1.5 flex-wrap">

@@ -68,7 +68,8 @@ export default async function ClientTodayPage() {
     id: b.id,
     guestName: b.guest_name,
     units: unitNames(b),
-    clientName: clientRecord.name,
+    // An owner does not need their own name on every row of their own portal.
+    clientName: null,
     guests: b.guests_count,
     phone: b.guest_phone,
     source: b.source,
