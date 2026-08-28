@@ -190,6 +190,12 @@ export default async function BookingDetailPage({
 
       {booking.status !== "cancelled" && (
         <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/admin/bookings/${booking.id}/edit`}
+            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+          >
+            Edit booking
+          </Link>
           <form action={markBookingSettled}>
             <input type="hidden" name="id" value={booking.id} />
             <input type="hidden" name="settled" value={(!booking.settled).toString()} />

@@ -14,9 +14,12 @@ import {
 import {
   notifyBookingCreated,
   notifyBookingCancelled,
+  notifyBookingUpdated,
   notifyPaymentReceived,
   notifyPayoutSettled,
 } from "@/lib/notify";
+import { findStayClash } from "@/lib/availability";
+import { describeBookingChanges } from "@/lib/booking-changes";
 
 type SaveResult = { error: string } | { clientId: string; bookingId: string };
 
@@ -76,30 +79,14 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
 
   const stackRateTotal = (properties ?? []).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
 
-  // Clash check: overlapping bookings on any of the same units.
-  // date >= checkIn AND date < checkOut, so same-day checkout/check-in is fine.
-  const { data: existingBookingIds } = await supabase
-    .from("booking_properties")
-    .select("booking_id")
-    .in("property_id", property_ids);
-
-  if (existingBookingIds && existingBookingIds.length > 0) {
-    const bookingIds = [...new Set(existingBookingIds.map((r) => r.booking_id))];
-    const { data: clashes } = await supabase
-      .from("bookings")
-      .select("id")
-      .in("id", bookingIds)
-      .neq("status", "cancelled")
-      .lt("check_in", check_out)
-      .gt("check_out", check_in)
-      .limit(1);
-
-    if (clashes && clashes.length > 0) {
-      return {
-        error: "Those dates clash with an existing booking on one of the selected units.",
-      };
-    }
-  }
+  // Bookings *and* blocks — see `findStayClash`. Blocked nights used to pass
+  // straight through here.
+  const clash = await findStayClash(supabase, {
+    propertyIds: property_ids,
+    checkIn: check_in,
+    checkOut: check_out,
+  });
+  if (clash) return { error: clash };
 
   const payout = calculatePayout({
     salePrice: sale_price,
@@ -197,6 +184,153 @@ export async function createBooking(formData: FormData) {
 export async function createBookingInline(formData: FormData) {
   const result = await saveBooking(formData);
   return "error" in result ? { error: result.error } : { error: null };
+}
+
+/**
+ * Edit an existing booking.
+ *
+ * The split is recomputed from the booking's **own snapshots**, not the
+ * client's current terms — correcting a phone number must never silently
+ * re-price a stay that was agreed months ago. The stack rate is the one term
+ * that does move, because it belongs to the units and the units can change.
+ */
+export async function updateBooking(id: string, formData: FormData) {
+  // Annotated on the const, not just the arrow: that is what lets TypeScript
+  // treat a `back(...)` call as terminating and narrow what follows it.
+  const back: (message: string) => never = (message) =>
+    redirect(`/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`);
+
+  const property_ids = formData.getAll("property_ids") as string[];
+  const check_in = formData.get("check_in") as string;
+  const check_out = formData.get("check_out") as string;
+  const guest_name = (formData.get("guest_name") as string)?.trim() || null;
+  const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
+  const source = (formData.get("source") as string) || "other";
+  const status = (formData.get("status") as string) || "confirmed";
+  const sale_price = Number(formData.get("sale_price")) || 0;
+  const advance_received = Number(formData.get("advance_received")) || 0;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+
+  if (property_ids.length === 0) back("Select at least one unit.");
+  if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select(
+      "client_id, check_in, check_out, sale_price, status, guest_name, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
+    )
+    .eq("id", id)
+    .single();
+
+  if (!existing) back("Booking not found.");
+  if (existing.status === "cancelled") {
+    back("This booking is cancelled. Create a new one instead of editing it.");
+  }
+
+  const clash = await findStayClash(supabase, {
+    propertyIds: property_ids,
+    checkIn: check_in,
+    checkOut: check_out,
+    excludeBookingId: id,
+  });
+  if (clash) back(clash);
+
+  const { data: properties } = await supabase
+    .from("properties")
+    .select("id, name, stack_rate, client_id")
+    .in("id", property_ids);
+
+  if ((properties ?? []).some((p) => p.client_id !== existing.client_id)) {
+    back("All units in one booking must belong to the same client.");
+  }
+
+  const stackRateTotal = (properties ?? []).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
+
+  const payout = calculatePayout({
+    salePrice: sale_price,
+    checkIn: check_in,
+    checkOut: check_out,
+    dealModel: existing.deal_model_snapshot as DealModel,
+    sharePercent: Number(existing.share_percent_snapshot ?? 0),
+    deductPercent: Number(existing.deduct_percent_snapshot ?? 0),
+    // Bookings written before the OTA migration have no snapshot by design.
+    otaModel: (existing.ota_model_snapshot ?? "none") as OtaModel,
+    otaSharePercent: Number(existing.ota_share_percent_snapshot ?? 0),
+    stackRate: stackRateTotal,
+    source,
+    status: status as "confirmed" | "tentative" | "cancelled",
+  });
+
+  const updatedAt = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("bookings")
+    .update({
+      guest_name,
+      guest_phone,
+      check_in,
+      check_out,
+      source,
+      status,
+      sale_price,
+      advance_received,
+      stack_rate_snapshot: stackRateTotal,
+      net_sale: payout.netSale,
+      hostello_share: payout.hostelloShare,
+      client_payout: payout.clientPayout,
+      notes,
+      updated_at: updatedAt,
+    })
+    .eq("id", id);
+
+  if (error) back(error.message);
+
+  const previousIds = (existing.booking_properties as unknown as { property_id: string }[]).map(
+    (bp) => bp.property_id
+  );
+
+  if (!previousIds.every((p) => property_ids.includes(p)) || previousIds.length !== property_ids.length) {
+    await supabase.from("booking_properties").delete().eq("booking_id", id);
+    await supabase
+      .from("booking_properties")
+      .insert(property_ids.map((property_id) => ({ booking_id: id, property_id })));
+  }
+
+  const changed = describeBookingChanges(
+    {
+      checkIn: existing.check_in,
+      checkOut: existing.check_out,
+      salePrice: Number(existing.sale_price ?? 0),
+      status: existing.status,
+      guestName: existing.guest_name,
+      propertyIds: previousIds,
+    },
+    { checkIn: check_in, checkOut: check_out, salePrice: sale_price, status, guestName: guest_name, propertyIds: property_ids }
+  );
+
+  // A save that moved nothing is not news.
+  if (changed) {
+    await notifyBookingUpdated(supabase, {
+      clientId: existing.client_id,
+      bookingId: id,
+      unitNames: (properties ?? []).map((p) => p.name),
+      checkIn: check_in,
+      checkOut: check_out,
+      source,
+      changed,
+      updatedAt,
+    });
+  }
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/admin/calendar");
+  revalidatePath(`/admin/clients/${existing.client_id}`);
+  revalidatePath("/client", "layout");
+
+  redirect(`/admin/bookings/${id}`);
 }
 
 export async function uploadBookingReceipt(formData: FormData) {

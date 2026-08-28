@@ -7,6 +7,7 @@ import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createBookingInline } from "@/app/admin/bookings/actions";
+import { listUnavailable } from "@/lib/availability";
 import {
   CalendarBoard,
   type CalendarRow,
@@ -340,6 +341,13 @@ export default async function CalendarPage({
     ota_share_percent: Number(c.ota_share_percent),
   }));
 
+  // The board only knows what is taken inside the month on screen; the quick-add
+  // picker lets you scroll past it, so it gets the full forward-looking set.
+  const unavailable = await listUnavailable(
+    supabase,
+    bookingProperties.map((p) => p.id)
+  );
+
   const header = (
     <div className="flex items-start justify-between gap-4 flex-wrap">
       <div>
@@ -586,6 +594,7 @@ export default async function CalendarPage({
                 bookingProperties={bookingProperties}
                 bookingClients={bookingClients}
                 createAction={createBookingInline}
+                unavailable={unavailable}
               />
             </div>
           )}

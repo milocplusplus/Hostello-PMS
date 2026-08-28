@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { createClientBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
+import { listUnavailable } from "@/lib/availability";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function ClientNewBookingPage({
@@ -36,6 +37,11 @@ export default async function ClientNewBookingPage({
       client_name: clientRecord.name,
     })) ?? [];
 
+  const unavailable = await listUnavailable(
+    supabase,
+    propertyOptions.map((p) => p.id)
+  );
+
   const clientTerms = [
     {
       id: clientRecord.id,
@@ -67,6 +73,7 @@ export default async function ClientNewBookingPage({
           clients={clientTerms}
           initialPropertyId={property}
           initialDate={date}
+          unavailable={unavailable}
           allowReceipt={false}
           error={error}
         />

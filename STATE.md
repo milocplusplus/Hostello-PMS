@@ -771,6 +771,48 @@ reassign the alias, so nothing broke.
   - **Not verified against a running app** — no `.env.local` on this machine, so
     the pages have never been rendered signed in.
 
+
+- **Bookings can be edited, and blocked nights are visible before you pick them**
+  (2026-08-29). `npm run build` and `npm run lint` clean.
+  - **`src/lib/availability.ts` is new and is now the only answer to "is this
+    night free".** `findStayClash()` checks bookings *and* `calendar_blocks`;
+    `listUnavailable()` returns the same two tables as occupied-night ranges for
+    the picker. The exclusive-`check_out` / inclusive-`end_date` conversion
+    happens once, in there.
+  - **Fixed: a booking could be written straight over blocked dates.** Both
+    `saveBooking` and `saveClientBooking` only ever queried `bookings`, so an
+    owner blocking their own house and a booking landing on it was silent. Both
+    now call `findStayClash`, which replaced the duplicated clash block in each.
+    The reverse direction is unchanged on purpose — blocking over a live booking
+    still writes `notifyCalendarConflict` rather than refusing, because sometimes
+    you do mean to.
+  - **`src/components/shared/StayDates.tsx` replaces the two native date inputs**
+    in `BookingForm`. A month grid: taken nights are struck through and
+    unclickable, and once check-in is picked you cannot reach past the next taken
+    night, so a clashing range can't be composed. `check_in` / `check_out` are
+    submitted as hidden inputs, so the server contract is untouched. Pages pass
+    `unavailable` (both new-booking pages, both calendars via `CalendarBoard` →
+    `QuickAddBooking`, both edit pages).
+  - **Edit a booking** — `/admin/bookings/[id]/edit` and
+    `/client/bookings/[id]/edit`, reusing `BookingForm` with a new `values` prop.
+    `updateBooking` / `updateClientBooking` take the id via `.bind(null, id)`
+    rather than a hidden field. **The split is recomputed from the booking's own
+    snapshots, never the client's current terms** — fixing a phone number must
+    not re-price a stay agreed months ago. The stack rate is the exception: it
+    belongs to the units, so it moves when the units do. Cancelled bookings
+    can't be edited (that would resurrect them on the calendar), and a retired
+    unit stays selectable when the booking already sits on one.
+  - **`notifyBookingUpdated`** in `notify.ts`, `booking_updated` in `KIND_ICON`.
+    Body reads `unit · dates · channel · "Dates and price changed"`;
+    `describeBookingChanges` in `src/lib/booking-changes.ts` writes that phrase
+    so both portals word it identically. A save that moved nothing sends nothing.
+    The event key carries the save's timestamp (`booking_updated:<id>:<ts>`)
+    because unlike create and cancel this fires repeatedly on one booking — a
+    double-submit still collapses. Existing keys keep their documented
+    `<kind>:<audience>:<bookingId>` shape.
+  - **Not verified against a running app** — still no `.env.local` on this
+    machine, so nothing here has been rendered signed in.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

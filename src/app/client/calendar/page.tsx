@@ -7,6 +7,7 @@ import { sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createClientBookingInline } from "@/app/client/bookings/actions";
+import { listUnavailable } from "@/lib/availability";
 import {
   CalendarBoard,
   type CalendarRow,
@@ -280,6 +281,13 @@ export default async function ClientCalendarPage({
     },
   ];
 
+  // The board only knows what is taken inside the month on screen; the quick-add
+  // picker lets you scroll past it, so it gets the full forward-looking set.
+  const unavailable = await listUnavailable(
+    supabase,
+    bookingProperties.map((p) => p.id)
+  );
+
   const legend: { label: string; color: string }[] = [
     { label: "Airbnb", color: sourceColor("airbnb") },
     { label: "Booking.com", color: sourceColor("booking_com") },
@@ -399,6 +407,7 @@ export default async function ClientCalendarPage({
             bookingProperties={bookingProperties}
             bookingClients={bookingClients}
             createAction={createClientBookingInline}
+            unavailable={unavailable}
             allowReceipt={false}
           />
         </div>

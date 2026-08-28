@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
+import { listUnavailable } from "@/lib/availability";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function NewBookingPage({
@@ -43,6 +44,11 @@ export default async function NewBookingPage({
       ota_share_percent: Number(c.ota_share_percent),
     })) ?? [];
 
+  const unavailable = await listUnavailable(
+    supabase,
+    propertyOptions.map((p) => p.id)
+  );
+
   const initialPropertyId =
     property && propertyOptions.some((p) => p.id === property)
       ? property
@@ -70,6 +76,7 @@ export default async function NewBookingPage({
           clients={clientTerms}
           initialPropertyId={initialPropertyId}
           initialDate={date}
+          unavailable={unavailable}
           error={error}
         />
       )}

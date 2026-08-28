@@ -158,6 +158,12 @@ export default async function ClientBookingDetailPage({
 
       {booking.status !== "cancelled" && (
         <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/client/bookings/${booking.id}/edit`}
+            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+          >
+            Edit booking
+          </Link>
           <form action={cancelClientBooking}>
             <input type="hidden" name="id" value={booking.id} />
             <ConfirmDeleteButton

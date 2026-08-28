@@ -1,5 +1,6 @@
 import {
   Bell,
+  CalendarCog,
   CalendarDays,
   CalendarX2,
   Home,
@@ -38,6 +39,7 @@ export function isCategory(value: string | undefined): value is NotificationCate
 
 const KIND_ICON: Record<string, LucideIcon> = {
   booking_created: CalendarDays,
+  booking_updated: CalendarCog,
   booking_cancelled: CalendarX2,
   booking_checkin_today: LogIn,
   booking_checkout_today: LogOut,

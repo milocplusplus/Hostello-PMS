@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingForm } from "@/components/admin/BookingForm";
+import type { UnavailableRange } from "@/lib/availability";
 
 type BookingFormProps = ComponentProps<typeof BookingForm>;
 
@@ -57,6 +58,7 @@ export function CalendarBoard({
   bookingProperties,
   bookingClients,
   createAction,
+  unavailable = [],
   allowReceipt = true,
 }: {
   days: string[];
@@ -66,6 +68,8 @@ export function CalendarBoard({
   bookingProperties: BookingFormProps["properties"];
   bookingClients: BookingFormProps["clients"];
   createAction: InlineCreate;
+  /** Taken nights beyond this window, so the quick-add picker can grey them out. */
+  unavailable?: UnavailableRange[];
   allowReceipt?: boolean;
 }) {
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
@@ -73,6 +77,23 @@ export function CalendarBoard({
   );
   const columns = `var(--cal-name) repeat(${days.length}, minmax(${cellMin}px, 1fr))`;
   const minWidth = `calc(var(--cal-name) + ${days.length * cellMin}px)`;
+
+  // The window always starts on the 1st, so on the 26th today's column sits off
+  // the right edge — on a phone the card is 342px of a 1178px board. Centre it
+  // in whatever is visible past the sticky property column. Other months have no
+  // today, and are left at the 1st.
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    const idx = days.indexOf(today);
+    if (!el || idx < 0) return;
+    const nameWidth = parseFloat(getComputedStyle(el).getPropertyValue("--cal-name")) || 0;
+    const cell = (el.scrollWidth - nameWidth) / days.length;
+    // The property column is sticky, so it covers the first nameWidth pixels of
+    // the card — centre today in what is left.
+    const visible = el.clientWidth - nameWidth;
+    el.scrollLeft = Math.max(0, idx * cell + cell / 2 - visible / 2);
+  }, [days, today]);
 
   function dayTint(date: string) {
     if (date === today) return "bg-hostello-gold/[0.07] border-l border-hostello-gold/40";
@@ -82,7 +103,7 @@ export function CalendarBoard({
 
   return (
     <>
-      <div className="card overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]">
+      <div ref={scroller} className="card overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]">
         <div style={{ minWidth }}>
           {/* Day header */}
           <div
@@ -164,6 +185,7 @@ export function CalendarBoard({
           properties={bookingProperties}
           clients={bookingClients}
           createAction={createAction}
+          unavailable={unavailable}
           allowReceipt={allowReceipt}
           onClose={() => setDraft(null)}
         />
@@ -181,6 +203,7 @@ function QuickAddBooking({
   properties,
   clients,
   createAction,
+  unavailable,
   allowReceipt,
   onClose,
 }: {
@@ -188,6 +211,7 @@ function QuickAddBooking({
   properties: BookingFormProps["properties"];
   clients: BookingFormProps["clients"];
   createAction: InlineCreate;
+  unavailable: UnavailableRange[];
   allowReceipt: boolean;
   onClose: () => void;
 }) {
@@ -251,6 +275,7 @@ function QuickAddBooking({
           initialPropertyId={draft.propertyId}
           initialDate={draft.date}
           initialCheckOut={checkOut}
+          unavailable={unavailable}
           allowReceipt={allowReceipt}
           error={error}
         />

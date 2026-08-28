@@ -86,6 +86,10 @@ type BookingEvent = {
   checkIn: string;
   checkOut: string;
   source: string | null;
+  /** Appended to the body — what an edit actually changed. */
+  extra?: string | null;
+  /** Overrides the default key when one booking can raise the event twice. */
+  eventKey?: string;
 };
 
 /**
@@ -100,7 +104,10 @@ async function emitBookingEvent(supabase: SupabaseClient, args: BookingEvent) {
     unitLabel(args.unitNames),
     dateRange(args.checkIn, args.checkOut),
     sourceLabel(args.source) ?? "Other",
-  ].join(" · ");
+    args.extra,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const who = await clientName(supabase, args.clientId);
 
@@ -113,7 +120,11 @@ async function emitBookingEvent(supabase: SupabaseClient, args: BookingEvent) {
       body: audience === "admin" && who ? `${who} · ${details}` : details,
       clientId: args.clientId,
       bookingId: args.bookingId,
-      eventKey: `${args.kind}:${audience}:${args.bookingId}`,
+      // Existing keys keep their documented `<kind>:<audience>:<bookingId>`
+      // shape; only an event that can fire twice for one booking overrides it.
+      eventKey: args.eventKey
+        ? `${args.eventKey}:${audience}`
+        : `${args.kind}:${audience}:${args.bookingId}`,
     });
   }
 }
@@ -134,6 +145,39 @@ export async function notifyBookingCreated(
     kind: "booking_created",
     title: args.isTentative ? "Tentative booking held" : "New booking",
     ...args,
+  });
+}
+
+/**
+ * A booking was changed after the fact. Unlike create and cancel, this can
+ * happen repeatedly on one booking, so the key carries the save's timestamp:
+ * a retried or double-submitted form collapses, a second genuine edit does not.
+ */
+export async function notifyBookingUpdated(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    bookingId: string;
+    unitNames: string[];
+    checkIn: string;
+    checkOut: string;
+    source: string | null;
+    /** "Dates and price" — what the edit touched. */
+    changed: string;
+    updatedAt: string;
+  }
+) {
+  await emitBookingEvent(supabase, {
+    kind: "booking_updated",
+    title: "Booking updated",
+    clientId: args.clientId,
+    bookingId: args.bookingId,
+    unitNames: args.unitNames,
+    checkIn: args.checkIn,
+    checkOut: args.checkOut,
+    source: args.source,
+    extra: `${args.changed} changed`,
+    eventKey: `booking_updated:${args.bookingId}:${args.updatedAt}`,
   });
 }
 

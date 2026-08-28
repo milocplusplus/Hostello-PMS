@@ -5,6 +5,8 @@ import { useFormStatus } from "react-dom";
 import { calculatePayout, isOtaSource, type DealModel, type OtaModel } from "@/lib/payout";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
+import { StayDates } from "@/components/shared/StayDates";
+import type { UnavailableRange } from "@/lib/availability";
 import {
   fieldLabel,
   fieldInput,
@@ -30,6 +32,18 @@ type ClientTerms = {
   ota_share_percent: number;
 };
 
+/** Everything an existing booking fills back in when it is reopened for editing. */
+export type BookingFormValues = {
+  guestName: string | null;
+  guestPhone: string | null;
+  salePrice: number;
+  advance: number;
+  source: string;
+  status: "confirmed" | "tentative";
+  notes: string | null;
+  extraUnitIds: string[];
+};
+
 export function BookingForm({
   action,
   properties,
@@ -37,6 +51,9 @@ export function BookingForm({
   initialPropertyId,
   initialDate,
   initialCheckOut,
+  values,
+  unavailable = [],
+  submitLabel = "Save booking",
   allowReceipt = true,
   error,
 }: {
@@ -46,6 +63,11 @@ export function BookingForm({
   initialPropertyId?: string;
   initialDate?: string;
   initialCheckOut?: string;
+  /** Present only when an existing booking is being edited. */
+  values?: BookingFormValues;
+  /** Occupied nights across every selectable unit — the picker greys them out. */
+  unavailable?: UnavailableRange[];
+  submitLabel?: string;
   /** Token receipts are Hostello's to upload — off in the client portal. */
   allowReceipt?: boolean;
   error?: string;
@@ -56,13 +78,17 @@ export function BookingForm({
   );
 
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? sortedProperties[0]?.id ?? "");
-  const [extraUnitIds, setExtraUnitIds] = useState<string[]>([]);
+  const [extraUnitIds, setExtraUnitIds] = useState<string[]>(values?.extraUnitIds ?? []);
   const [checkIn, setCheckIn] = useState(initialDate ?? "");
   const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
-  const [salePrice, setSalePrice] = useState("");
-  const [source, setSource] = useState("hostello");
-  const [showMore, setShowMore] = useState(false);
-  const [status, setStatus] = useState<"confirmed" | "tentative" | "cancelled">("confirmed");
+  const [salePrice, setSalePrice] = useState(values ? String(values.salePrice) : "");
+  const [source, setSource] = useState(values?.source ?? "hostello");
+  // An edit reopens with everything visible — those fields already have values,
+  // and hiding them behind a toggle reads as if the booking has none.
+  const [showMore, setShowMore] = useState(Boolean(values));
+  const [status, setStatus] = useState<"confirmed" | "tentative" | "cancelled">(
+    values?.status ?? "confirmed"
+  );
 
   const selectedProperty = sortedProperties.find((p) => p.id === propertyId);
   const client = clients.find((c) => c.id === selectedProperty?.client_id);
@@ -76,10 +102,29 @@ export function BookingForm({
     setExtraUnitIds((prev) => (prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]));
   }
 
-  const stackRateTotal = useMemo(() => {
-    const ids = [propertyId, ...extraUnitIds];
-    return sortedProperties.filter((p) => ids.includes(p.id)).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
-  }, [sortedProperties, propertyId, extraUnitIds]);
+  const selectedIds = useMemo(() => [propertyId, ...extraUnitIds], [propertyId, extraUnitIds]);
+
+  const stackRateTotal = useMemo(
+    () =>
+      sortedProperties
+        .filter((p) => selectedIds.includes(p.id))
+        .reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0),
+    [sortedProperties, selectedIds]
+  );
+
+  /** Only the nights taken on the units in *this* booking. */
+  const busy = useMemo(
+    () => unavailable.filter((r) => selectedIds.includes(r.propertyId)),
+    [unavailable, selectedIds]
+  );
+
+  // Changing the property or adding a unit can make an already-picked range
+  // unavailable, so this is checked against the current selection rather than
+  // only at pick time. It is the same overlap test the server runs.
+  const rangeBlocked = useMemo(
+    () => Boolean(checkIn && checkOut && busy.some((r) => r.start < checkOut && r.end >= checkIn)),
+    [busy, checkIn, checkOut]
+  );
 
   const preview = useMemo(() => {
     if (!checkIn || !checkOut || !salePrice || !client) return null;
@@ -162,35 +207,17 @@ export function BookingForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="check_in" className={fieldLabel}>
-            Check-in
-          </label>
-          <input
-            id="check_in"
-            name="check_in"
-            type="date"
-            required
-            value={checkIn}
-            onChange={(e) => setCheckIn(e.target.value)}
-            className={fieldInput}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="check_out" className={fieldLabel}>
-            Check-out
-          </label>
-          <input
-            id="check_out"
-            name="check_out"
-            type="date"
-            required
-            value={checkOut}
-            onChange={(e) => setCheckOut(e.target.value)}
-            className={fieldInput}
-          />
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={fieldLabel}>Dates</label>
+        <StayDates
+          checkIn={checkIn}
+          checkOut={checkOut}
+          onChange={(from, to) => {
+            setCheckIn(from);
+            setCheckOut(to);
+          }}
+          busy={busy}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -228,7 +255,13 @@ export function BookingForm({
         <label htmlFor="guest_name" className={fieldLabel}>
           Guest name (optional)
         </label>
-        <input id="guest_name" name="guest_name" placeholder="Optional" className={fieldInput} />
+        <input
+          id="guest_name"
+          name="guest_name"
+          placeholder="Optional"
+          defaultValue={values?.guestName ?? ""}
+          className={fieldInput}
+        />
       </div>
 
       <button
@@ -246,7 +279,13 @@ export function BookingForm({
               <label htmlFor="guest_phone" className={fieldLabel}>
                 Guest phone
               </label>
-              <input id="guest_phone" name="guest_phone" placeholder="Optional" className={fieldInput} />
+              <input
+                id="guest_phone"
+                name="guest_phone"
+                placeholder="Optional"
+                defaultValue={values?.guestPhone ?? ""}
+                className={fieldInput}
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="advance_received" className={fieldLabel}>
@@ -258,7 +297,7 @@ export function BookingForm({
                 type="number"
                 min="0"
                 step="1"
-                defaultValue={0}
+                defaultValue={values?.advance ?? 0}
                 className={fieldInput}
               />
             </div>
@@ -313,7 +352,13 @@ export function BookingForm({
             <label htmlFor="notes" className={fieldLabel}>
               Notes
             </label>
-            <input id="notes" name="notes" placeholder="Anything worth remembering" className={fieldInput} />
+            <input
+              id="notes"
+              name="notes"
+              placeholder="Anything worth remembering"
+              defaultValue={values?.notes ?? ""}
+              className={fieldInput}
+            />
           </div>
         </div>
       )}
@@ -344,23 +389,30 @@ export function BookingForm({
         </div>
       )}
 
+      {rangeBlocked && (
+        <p className={errorBanner}>
+          Those nights are already taken on one of the selected units. Pick other dates, or drop the
+          unit that clashes.
+        </p>
+      )}
+
       {error && <p className={errorBanner}>{error}</p>}
 
-      <SubmitButton />
+      <SubmitButton label={submitLabel} disabled={!checkIn || !checkOut || rangeBlocked} />
     </form>
   );
 }
 
-function SubmitButton() {
+function SubmitButton({ label, disabled }: { label: string; disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className={`mt-2 ${primaryButton} disabled:opacity-60`}
       style={primaryButtonStyle}
     >
-      {pending ? "Saving…" : "Save booking"}
+      {pending ? "Saving…" : label}
     </button>
   );
 }
