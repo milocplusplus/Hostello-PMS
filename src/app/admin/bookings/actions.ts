@@ -451,6 +451,29 @@ export async function markBookingSettled(formData: FormData) {
   revalidatePath("/client", "layout");
 }
 
+/**
+ * Tick an arrival or a departure off the day sheet. Both directions toggle, so
+ * a mis-tap is undone the same way it was made.
+ */
+export async function markStayProgress(formData: FormData) {
+  const id = formData.get("id") as string;
+  const step = formData.get("step") === "out" ? "checked_out_at" : "checked_in_at";
+  const done = formData.get("done") === "true";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bookings")
+    .update({ [step]: done ? new Date().toISOString() : null })
+    .eq("id", id);
+
+  if (error) return;
+
+  revalidatePath("/admin/today");
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/client/today");
+  revalidatePath("/client/bookings/[id]", "page");
+}
+
 export async function cancelBooking(formData: FormData) {
   const id = formData.get("id") as string;
 

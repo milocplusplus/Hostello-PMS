@@ -312,6 +312,29 @@ export async function updateClientBooking(id: string, formData: FormData) {
   redirect(`/client/bookings/${id}`);
 }
 
+/**
+ * The owner's own tick. RLS already scopes `bookings` to their client, so a
+ * bare id cannot reach someone else's stay — same reasoning as cancel below.
+ */
+export async function markClientStayProgress(formData: FormData) {
+  const id = formData.get("id") as string;
+  const step = formData.get("step") === "out" ? "checked_out_at" : "checked_in_at";
+  const done = formData.get("done") === "true";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bookings")
+    .update({ [step]: done ? new Date().toISOString() : null })
+    .eq("id", id);
+
+  if (error) return;
+
+  revalidatePath("/client/today");
+  revalidatePath("/client/bookings/[id]", "page");
+  revalidatePath("/admin/today");
+  revalidatePath("/admin/bookings/[id]", "page");
+}
+
 export async function cancelClientBooking(formData: FormData) {
   const id = formData.get("id") as string;
 

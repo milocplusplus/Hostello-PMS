@@ -13,7 +13,8 @@ import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
-import { cancelClientBooking } from "../actions";
+import { StayProgressCard } from "@/components/shared/StayProgress";
+import { cancelClientBooking, markClientStayProgress } from "../actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
@@ -41,7 +42,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -144,6 +145,15 @@ export default async function ClientBookingDetailPage({
           />
         </div>
       </div>
+
+      {booking.status !== "cancelled" && (
+        <StayProgressCard
+          bookingId={booking.id}
+          checkedInAt={booking.checked_in_at}
+          checkedOutAt={booking.checked_out_at}
+          action={markClientStayProgress}
+        />
+      )}
 
       {receipts.length > 0 && <BookingReceipts bookingId={booking.id} receipts={receipts} />}
 

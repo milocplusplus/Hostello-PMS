@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
+import { markStayProgress } from "@/app/admin/bookings/actions";
 import { Avatar } from "@/components/shared/Avatar";
 
 type Row = {
@@ -19,6 +20,8 @@ type Row = {
   status: string;
   sale_price: number | null;
   advance_received: number | null;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   clients: unknown;
   booking_properties: unknown;
 };
@@ -48,6 +51,8 @@ function toStay(b: Row): TodayStay {
     checkOut: b.check_out,
     amount: b.sale_price === null ? null : Number(b.sale_price),
     href: `/admin/bookings/${b.id}`,
+    checkedInAt: b.checked_in_at,
+    checkedOutAt: b.checked_out_at,
   };
 }
 
@@ -58,7 +63,7 @@ export default async function AdminTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, clients(name), booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, clients(name), booking_properties(properties(name))";
 
   const [{ data: stays }, { data: pending }, { data: blocks }] = await Promise.all([
     // check_out is exclusive, so a stay covering tonight has check_out > today —
@@ -151,7 +156,12 @@ export default async function AdminTodayPage() {
         ))}
       </div>
 
-      <TodayBoard arrivals={arrivals} departures={departures} staying={staying} />
+      <TodayBoard
+        arrivals={arrivals}
+        departures={departures}
+        staying={staying}
+        progressAction={markStayProgress}
+      />
 
       <section className="card overflow-hidden flex flex-col">
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border-hairline">

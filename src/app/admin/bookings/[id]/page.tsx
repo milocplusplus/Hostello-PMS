@@ -13,8 +13,10 @@ import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
+import { StayProgressCard } from "@/components/shared/StayProgress";
 import {
   markBookingSettled,
+  markStayProgress,
   cancelBooking,
   uploadBookingReceipt,
   deleteBookingReceipt,
@@ -46,7 +48,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -170,6 +172,15 @@ export default async function BookingDetailPage({
           />
         </div>
       </div>
+
+      {booking.status !== "cancelled" && (
+        <StayProgressCard
+          bookingId={booking.id}
+          checkedInAt={booking.checked_in_at}
+          checkedOutAt={booking.checked_out_at}
+          action={markStayProgress}
+        />
+      )}
 
       <BookingReceipts
         bookingId={booking.id}

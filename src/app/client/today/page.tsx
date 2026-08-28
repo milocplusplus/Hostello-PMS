@@ -5,6 +5,7 @@ import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
+import { markClientStayProgress } from "@/app/client/bookings/actions";
 
 type Row = {
   id: string;
@@ -17,6 +18,8 @@ type Row = {
   status: string;
   client_payout: number | null;
   settled: boolean;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   booking_properties: unknown;
 };
 
@@ -37,7 +40,7 @@ export default async function ClientTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, checked_in_at, checked_out_at, booking_properties(properties(name))";
 
   const [{ data: stays }, { data: unsettled }, { data: blocks }] = await Promise.all([
     supabase
@@ -75,6 +78,8 @@ export default async function ClientTodayPage() {
     // The owner sees their own payout, never Hostello's share.
     amount: b.client_payout === null ? null : Number(b.client_payout),
     href: `/client/bookings/${b.id}`,
+    checkedInAt: b.checked_in_at,
+    checkedOutAt: b.checked_out_at,
   });
 
   const rows = (stays ?? []) as unknown as Row[];
@@ -137,7 +142,12 @@ export default async function ClientTodayPage() {
         ))}
       </div>
 
-      <TodayBoard arrivals={arrivals} departures={departures} staying={staying} />
+      <TodayBoard
+        arrivals={arrivals}
+        departures={departures}
+        staying={staying}
+        progressAction={markClientStayProgress}
+      />
 
       {blocked.length > 0 && (
         <section className="card overflow-hidden flex flex-col">

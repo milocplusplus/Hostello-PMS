@@ -813,6 +813,33 @@ reassign the alias, so nothing broke.
   - **Not verified against a running app** — still no `.env.local` on this
     machine, so nothing here has been rendered signed in.
 
+
+- **Check-in / check-out ticks** (2026-08-29). `npm run build` and `npm run lint`
+  clean. Migration `20260829120000_add_booking_checkin_checkout_timestamps.sql`
+  — `bookings.checked_in_at` / `checked_out_at`, both nullable timestamptz —
+  **applied to the live DB and committed** (unlike most of the earlier ones).
+  - They record that the arrival was *handled*, not when the stay is booked for;
+    `check_in` / `check_out` already say that. Null = still outstanding.
+  - No RLS change needed: both `bookings` policies are already `ALL`-scoped
+    (`bookings: admin full access`, `bookings: client reads and writes own
+    bookings`), so each portal writes only rows it could already write.
+  - `src/components/shared/StayProgress.tsx` — `StayTick` (the round tick) and
+    `StayProgressCard` (the same two ticks on a booking). A form, not a
+    checkbox, because it is a write and a checkbox needing a Save button is
+    worse than a thing you press once. Both directions toggle, so a mis-tap
+    undoes the same way.
+  - `TodayBoard` puts a tick on every arrival and departure row — ticked rows
+    fade, and the section header counts "2 of 5" once one is done, "All done"
+    when they all are. Staying-tonight has no tick; they were ticked on arrival.
+  - **The card is on both booking detail pages too, and that is not decoration**
+    — the day sheet only ever shows today, so an arrival nobody ticked on the
+    day could otherwise never be ticked at all.
+  - `markStayProgress` / `markClientStayProgress` mirror each other the way the
+    two portals' other writes do. **No notification** — one per arrival would
+    roughly double notification volume, and the 07:00 daily-stays job already
+    announces the day's arrivals. Worth revisiting if owners ask to be told.
+  - **Not verified against a running app** — still no `.env.local` here.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { LogIn, LogOut, BedDouble, Phone } from "lucide-react";
+import {
+  StayTick,
+  type ProgressStep,
+  type StayProgressAction,
+} from "@/components/shared/StayProgress";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
@@ -21,12 +26,27 @@ export type TodayStay = {
   /** Sale price for admins, owner payout for clients — the page decides. */
   amount: number | null;
   href: string;
+  /** Set once the arrival was handled. Null = still outstanding. */
+  checkedInAt: string | null;
+  /** Set once the departure was handled. Null = still outstanding. */
+  checkedOutAt: string | null;
 };
 
-function StayRow({ stay }: { stay: TodayStay }) {
+function StayRow({
+  stay,
+  step,
+  progressAction,
+}: {
+  stay: TodayStay;
+  /** Which tick this row carries, if any — arrivals check in, departures out. */
+  step?: ProgressStep;
+  progressAction?: StayProgressAction;
+}) {
   const nights = nightsBetween(stay.checkIn, stay.checkOut);
+  const done = step === "in" ? Boolean(stay.checkedInAt) : step === "out" ? Boolean(stay.checkedOutAt) : false;
+
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
+    <li className={`flex items-center gap-3 px-4 py-3 transition-opacity ${done ? "opacity-45" : ""}`}>
       <Avatar name={stay.guestName} size={34} />
       <div className="min-w-0 flex-1">
         <Link
@@ -60,6 +80,10 @@ function StayRow({ stay }: { stay: TodayStay }) {
           </a>
         )}
       </div>
+
+      {step && progressAction && (
+        <StayTick bookingId={stay.id} step={step} done={done} action={progressAction} />
+      )}
     </li>
   );
 }
@@ -70,13 +94,24 @@ function Section({
   tint,
   stays,
   empty,
+  step,
+  progressAction,
 }: {
   title: string;
   icon: typeof LogIn;
   tint: string;
   stays: TodayStay[];
   empty: string;
+  step?: ProgressStep;
+  progressAction?: StayProgressAction;
 }) {
+  // "2 of 5" says more than "5" on a section you are working through — but only
+  // where there is something to tick, and only once one has been.
+  const done = step
+    ? stays.filter((s) => (step === "in" ? s.checkedInAt : s.checkedOutAt)).length
+    : 0;
+  const allDone = step && stays.length > 0 && done === stays.length;
+
   return (
     <section className="card overflow-hidden flex flex-col">
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border-hairline">
@@ -87,14 +122,17 @@ function Section({
           <Icon size={14} style={{ color: tint }} />
         </span>
         <h2 className="text-sm font-medium flex-1">{title}</h2>
-        <span className="text-xs text-ink-muted">{stays.length}</span>
+        {allDone && <span className="text-[11px] text-positive">All done</span>}
+        <span className="text-xs text-ink-muted tabular-nums">
+          {step && done > 0 && !allDone ? `${done} of ${stays.length}` : stays.length}
+        </span>
       </div>
       {stays.length === 0 ? (
         <p className="px-4 py-8 text-center text-xs text-ink-muted">{empty}</p>
       ) : (
         <ul className="divide-y divide-[var(--color-border-hairline)]">
           {stays.map((s) => (
-            <StayRow key={s.id} stay={s} />
+            <StayRow key={s.id} stay={s} step={step} progressAction={progressAction} />
           ))}
         </ul>
       )}
@@ -110,10 +148,13 @@ export function TodayBoard({
   arrivals,
   departures,
   staying,
+  progressAction,
 }: {
   arrivals: TodayStay[];
   departures: TodayStay[];
   staying: TodayStay[];
+  /** Ticking arrivals and departures off. Each portal passes its own write. */
+  progressAction?: StayProgressAction;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -123,6 +164,8 @@ export function TodayBoard({
         tint="var(--color-positive)"
         stays={arrivals}
         empty="No arrivals today."
+        step="in"
+        progressAction={progressAction}
       />
       <Section
         title="Departing today"
@@ -130,6 +173,8 @@ export function TodayBoard({
         tint="var(--color-hostello-purple-glow)"
         stays={departures}
         empty="No departures today."
+        step="out"
+        progressAction={progressAction}
       />
       <Section
         title="Staying tonight"
