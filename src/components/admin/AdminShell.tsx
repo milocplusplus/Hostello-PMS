@@ -8,6 +8,7 @@ import {
   Users,
   CalendarDays,
   Wallet,
+  BarChart3,
   Bell,
   Sun,
   Menu,
@@ -40,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
       { href: "/admin/bookings", label: "Bookings & Payouts", icon: Wallet, exact: false },
+      { href: "/admin/stats", label: "Stats", icon: BarChart3, exact: false },
     ],
   },
   {

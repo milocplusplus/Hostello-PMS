@@ -746,6 +746,31 @@ reassign the alias, so nothing broke.
   - Event keys are `<kind>:<audience>:<bookingId>`, so the two rows do not
     collide and old rows are unaffected.
 
+- **Stats — revenue by source** (2026-08-29). A "Stats" page in both portals,
+  reachable from the sidebar. `src/lib/stats.ts` (`statsBySource`) sums the
+  columns `payout.ts` already wrote — it never recalculates a split — and
+  `src/components/shared/StatsBoard.tsx` renders total revenue, the portal's own
+  cut (Hostello share / owner payout), bookings, nights, and a per-channel bar
+  list. Hostello / Airbnb / Booking.com / Client self-sourced are always listed
+  even at zero; offline / reference / other appear only once they have a booking.
+  `npm run build` and `npm run lint` clean.
+  - `src/app/admin/stats/page.tsx` — whole portfolio by default;
+    `StatsClientSelect` puts one client in `?client=` and the server filters.
+  - `src/app/client/stats/page.tsx` — the owner's own bookings only.
+  - Both reuse `PeriodSelect` / `periodRange` (`?period=`) and the same overlap
+    window as the dashboards (`check_in ≤ end AND check_out ≥ start`) — but
+    **confirmed only**, where the dashboards count everything non-cancelled. A
+    tentative stay is not money made. That is a deliberate difference and the
+    page says so in a footnote, so it does not read as a bug.
+  - **Hostello earns nothing on owner self-sourced stays** (`payout.ts` has always
+    zeroed `hostello_share` for `source = 'client'`). Its gross still counts in the
+    admin's Total revenue, but the row says "Hostello earns nothing on these"
+    rather than printing Rs 0, and a footnote gives the pass-through amount.
+    A second footnote says Hostello share is per-booking only — fixed monthly
+    fees are not counted, and no table records them.
+  - **Not verified against a running app** — no `.env.local` on this machine, so
+    the pages have never been rendered signed in.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from

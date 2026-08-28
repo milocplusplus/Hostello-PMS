@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, CalendarDays, Wallet, Bell, Sun, Menu, X, Plus } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarDays,
+  Wallet,
+  BarChart3,
+  Bell,
+  Sun,
+  Menu,
+  X,
+  Plus,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
@@ -18,6 +28,7 @@ const NAV = [
   { href: "/client/today", label: "Today", icon: Sun, exact: false },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
+  { href: "/client/stats", label: "Stats", icon: BarChart3, exact: false },
   { href: "/client/notifications", label: "Notifications", icon: Bell, exact: false },
 ];
 
