@@ -21,7 +21,7 @@ export default async function NewBookingPage({
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, name, stack_rate, client_id, clients(name)")
+    .select("id, name, stack_rate, short_stay_stack_rate, client_id, clients(name)")
     .eq("status", "active")
     .order("name");
 
@@ -30,6 +30,7 @@ export default async function NewBookingPage({
       id: p.id,
       name: p.name,
       stack_rate: Number(p.stack_rate ?? 0),
+      short_stay_stack_rate: Number(p.short_stay_stack_rate ?? 0),
       client_id: p.client_id,
       client_name: (p.clients as unknown as { name: string } | null)?.name ?? "—",
     })) ?? [];

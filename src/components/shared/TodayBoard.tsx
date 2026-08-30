@@ -10,6 +10,7 @@ import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
+import { formatShortStayWindow, type ShortStay } from "@/lib/short-stay";
 
 /** One stay, already scoped to whichever portal is rendering it. */
 export type TodayStay = {
@@ -30,6 +31,8 @@ export type TodayStay = {
   checkedInAt: string | null;
   /** Set once the departure was handled. Null = still outstanding. */
   checkedOutAt: string | null;
+  /** Hours instead of nights — it arrives and leaves on the same date. */
+  shortStay: ShortStay | null;
 };
 
 function StayRow({
@@ -65,8 +68,14 @@ function StayRow({
         </p>
         <p className="text-[11px] text-ink-muted mt-1 flex items-center gap-1.5 flex-wrap">
           <ChannelBadge source={stay.source} />
-          {formatDayMonth(stay.checkIn)} – {formatDayMonth(stay.checkOut)} · {nights}{" "}
-          {nights === 1 ? "night" : "nights"}
+          {stay.shortStay
+            ? `${formatDayMonth(stay.checkIn)} · ${formatShortStayWindow(
+                stay.shortStay.start,
+                stay.shortStay.end
+              )}`
+            : `${formatDayMonth(stay.checkIn)} – ${formatDayMonth(stay.checkOut)} · ${nights} ${
+                nights === 1 ? "night" : "nights"
+              }`}
         </p>
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">

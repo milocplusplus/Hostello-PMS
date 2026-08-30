@@ -12,6 +12,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start", "--", "-p", "3100"],
       "port": 3100
+    },
+    {
+      "name": "intelligence",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Hostello Sys/Hostello Intelligence/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/Hostello Sys/Hostello Intelligence",
+        "-p",
+        "3200"
+      ],
+      "port": 3200
     }
   ]
 }

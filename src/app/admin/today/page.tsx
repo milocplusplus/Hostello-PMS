@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, BedDouble, Clock, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
@@ -22,6 +23,9 @@ type Row = {
   advance_received: number | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  is_short_stay: boolean;
+  short_stay_start: string | null;
+  short_stay_end: string | null;
   clients: unknown;
   booking_properties: unknown;
 };
@@ -53,6 +57,7 @@ function toStay(b: Row): TodayStay {
     href: `/admin/bookings/${b.id}`,
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
+    shortStay: rowShortStay(b),
   };
 }
 
@@ -63,7 +68,7 @@ export default async function AdminTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, clients(name), booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, clients(name), booking_properties(properties(name))";
 
   const [{ data: stays }, { data: pending }, { data: blocks }] = await Promise.all([
     // check_out is exclusive, so a stay covering tonight has check_out > today —
@@ -89,7 +94,9 @@ export default async function AdminTodayPage() {
 
   const rows = (stays ?? []) as unknown as Row[];
   const arrivals = rows.filter((b) => b.check_in === today).map(toStay);
-  const departures = rows.filter((b) => b.check_out === today).map(toStay);
+  const departures = rows
+    .filter((b) => departureDate(b.check_in, b.check_out, b.is_short_stay) === today)
+    .map(toStay);
   const staying = rows
     .filter((b) => b.check_in < today && b.check_out > today)
     .map(toStay);

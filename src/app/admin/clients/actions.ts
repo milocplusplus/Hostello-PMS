@@ -258,6 +258,7 @@ export async function createProperty(formData: FormData) {
   const type = formData.get("type") as string;
   const status = (formData.get("status") as string) || "active";
   const stack_rate = Number(formData.get("stack_rate")) || 0;
+  const short_stay_stack_rate = Number(formData.get("short_stay_stack_rate")) || 0;
 
   if (!name || !location) {
     redirect(
@@ -279,6 +280,7 @@ export async function createProperty(formData: FormData) {
       type,
       status,
       stack_rate,
+      short_stay_stack_rate,
     })
     .select("id")
     .single();
@@ -313,6 +315,7 @@ export async function updateProperty(formData: FormData) {
   const type = formData.get("type") as string;
   const status = (formData.get("status") as string) || "active";
   const stack_rate = Number(formData.get("stack_rate")) || 0;
+  const short_stay_stack_rate = Number(formData.get("short_stay_stack_rate")) || 0;
 
   if (!name || !location) {
     redirect(
@@ -325,7 +328,7 @@ export async function updateProperty(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("properties")
-    .update({ name, location, province, city, type, status, stack_rate })
+    .update({ name, location, province, city, type, status, stack_rate, short_stay_stack_rate })
     .eq("id", id);
 
   if (error) {

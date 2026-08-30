@@ -68,7 +68,7 @@ export default async function ClientDetailPage({
       supabase
         .from("bookings")
         .select(
-          "id, guest_name, check_in, check_out, source, status, hostello_share, client_payout, settled, booking_properties(properties(name))"
+          "id, guest_name, check_in, check_out, source, status, hostello_share, client_payout, share_received, booking_properties(properties(name))"
         )
         .eq("client_id", id)
         .neq("status", "cancelled")
@@ -77,14 +77,14 @@ export default async function ClientDetailPage({
       // Only open stays — a bounded set, so the "awaiting" figure is a real total.
       supabase
         .from("bookings")
-        .select("hostello_share, settled")
+        .select("hostello_share, share_received")
         .eq("client_id", id)
         .neq("status", "cancelled")
         .gte("check_out", today),
     ]);
 
   const awaiting = (openBookings ?? [])
-    .filter((b) => !b.settled)
+    .filter((b) => !b.share_received)
     .reduce((sum, b) => sum + Number(b.hostello_share ?? 0), 0);
 
   return (
@@ -370,7 +370,7 @@ export default async function ClientDetailPage({
                   <span className="text-xs shrink-0 w-16 text-right">
                     {b.status === "tentative" ? (
                       <span className="text-status-pending">Tentative</span>
-                    ) : b.settled ? (
+                    ) : b.share_received ? (
                       <span className="text-financial">Received</span>
                     ) : (
                       <span className="text-ink-muted">Awaiting</span>

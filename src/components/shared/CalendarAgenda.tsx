@@ -30,7 +30,9 @@ export function CalendarAgenda({
       if (!seg.clippedStart) arrivals[seg.startIdx].push(entry);
       // check_out is the morning after the last night; blocks just end.
       const outIdx = seg.startIdx + seg.span;
-      if (seg.kind === "booking" && !seg.clippedEnd && outIdx < days.length) {
+      // A short stay leaves the day it arrives, and its "in" row already
+      // carries the hours it ends at — a departure the next morning is fiction.
+      if (seg.kind === "booking" && !seg.hours && !seg.clippedEnd && outIdx < days.length) {
         departures[outIdx].push(entry);
       }
     }
@@ -146,7 +148,9 @@ function AgendaEntry({ entry, direction }: { entry: Entry; direction: "in" | "ou
           <span className="text-ink-muted"> · {property}</span>
         </span>
         <span className="block text-[10px] text-ink-muted">
-          {seg.dateRange} · {nights} {nights === 1 ? "night" : "nights"}
+          {seg.hours
+            ? `${seg.dateRange} · ${seg.hours}`
+            : `${seg.dateRange} · ${nights} ${nights === 1 ? "night" : "nights"}`}
         </span>
       </span>
       {seg.amount && (

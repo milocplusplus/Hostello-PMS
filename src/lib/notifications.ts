@@ -1,8 +1,11 @@
 import {
+  BadgeCheck,
+  BadgeX,
   Bell,
   CalendarCog,
   CalendarDays,
   CalendarX2,
+  HandCoins,
   Home,
   Lock,
   LockOpen,
@@ -47,6 +50,10 @@ const KIND_ICON: Record<string, LucideIcon> = {
   guest_checked_out: LogOut,
   payment_received: Receipt,
   payout_settled: Wallet,
+  payout_submitted: HandCoins,
+  payout_confirmed: BadgeCheck,
+  payout_rejected: BadgeX,
+  share_received: Wallet,
   dates_blocked: Lock,
   dates_unblocked: LockOpen,
   calendar_conflict: TriangleAlert,
@@ -76,9 +83,13 @@ export type NotificationItem = {
 };
 
 export function notificationHref(
-  row: { booking_id?: string | null; property_id?: string | null },
+  row: { kind?: string | null; booking_id?: string | null; property_id?: string | null },
   portal: "admin" | "client"
 ): string {
+  // A payment entry is not about one booking, so it has neither id to follow.
+  if (row.kind?.startsWith("payout_")) {
+    return portal === "admin" ? "/admin/payouts" : "/client/payouts";
+  }
   if (portal === "admin") {
     if (row.booking_id) return `/admin/bookings/${row.booking_id}`;
     if (row.property_id) return `/admin/calendar?property=${row.property_id}`;

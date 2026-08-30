@@ -12,7 +12,15 @@ export type BookingSnapshot = {
   status: string;
   guestName: string | null;
   propertyIds: string[];
+  /** Null when the booking is nights. Switching either way is a change. */
+  shortStay: ShortStay | null;
 };
+
+import { hhmm, type ShortStay } from "./short-stay";
+
+function window(stay: ShortStay | null) {
+  return stay ? `${hhmm(stay.start)}-${hhmm(stay.end)}` : "";
+}
 
 function sameUnits(a: string[], b: string[]) {
   return a.length === b.length && [...a].sort().join() === [...b].sort().join();
@@ -26,6 +34,7 @@ export function describeBookingChanges(
   const changed: string[] = [];
 
   if (before.checkIn !== after.checkIn || before.checkOut !== after.checkOut) changed.push("dates");
+  if (window(before.shortStay) !== window(after.shortStay)) changed.push("hours");
   if (!sameUnits(before.propertyIds, after.propertyIds)) changed.push("units");
   if (Number(before.salePrice) !== Number(after.salePrice)) changed.push("price");
   if (before.status !== after.status) changed.push("status");

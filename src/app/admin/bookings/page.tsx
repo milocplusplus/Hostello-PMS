@@ -5,7 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
-import { markBookingSettled, cancelBooking } from "./actions";
+import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
+import { cancelBooking } from "./actions";
+import { markShareReceived } from "../payouts/actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingFilters } from "@/components/admin/BookingFilters";
@@ -59,13 +61,13 @@ export default async function BookingsPage({
   let filter = supabase
     .from("bookings")
     .select(
-      "id, guest_name, check_in, check_out, source, status, sale_price, net_sale, hostello_share, client_payout, settled, clients(name), booking_properties(properties(name))"
+      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, net_sale, hostello_share, client_payout, settled, share_received, clients(name), booking_properties(properties(name))"
     );
 
   filter = status ? filter.eq("status", status) : filter.neq("status", "cancelled");
   if (client) filter = filter.eq("client_id", client);
   if (channel) filter = filter.eq("source", channel);
-  if (settle) filter = filter.eq("settled", settle === "received");
+  if (settle) filter = filter.eq("share_received", settle === "received");
 
   const query = searching
     ? filter.ilike("guest_name", "%" + term + "%").order("check_in", { ascending: false })
@@ -83,7 +85,7 @@ export default async function BookingsPage({
       if (b.status === "cancelled") return acc;
       acc.gross += Number(b.sale_price ?? 0);
       acc.clientPayout += Number(b.client_payout ?? 0);
-      if (b.settled) acc.received += Number(b.hostello_share ?? 0);
+      if (b.share_received) acc.received += Number(b.hostello_share ?? 0);
       else acc.awaiting += Number(b.hostello_share ?? 0);
       return acc;
     },
@@ -155,7 +157,7 @@ export default async function BookingsPage({
         </div>
         <div className="card p-4 md:p-6">
           <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Clock size={12} /> Awaiting payout
+            <Clock size={12} /> Owed to Hostello
           </p>
           <p className="text-lg md:text-xl font-semibold mt-2 truncate text-status-pending">{formatPKR(totals.awaiting)}</p>
         </div>
@@ -211,12 +213,13 @@ export default async function BookingsPage({
                     .filter(Boolean)
                     .join(", ");
                   const nights = nightsBetween(b.check_in, b.check_out);
+                  const shortStay = rowShortStay(b);
                   const cancelled = b.status === "cancelled";
                   const statusNode = cancelled ? (
                     <span className="text-xs text-ink-muted">Cancelled</span>
                   ) : b.status === "tentative" ? (
                     <span className="text-xs text-status-pending">Tentative</span>
-                  ) : b.settled ? (
+                  ) : b.share_received ? (
                     <span className="text-xs text-financial">Received</span>
                   ) : (
                     <span className="text-xs text-ink-muted">Awaiting</span>
@@ -246,7 +249,14 @@ export default async function BookingsPage({
                             <span className="md:hidden flex items-center gap-1.5 flex-wrap text-xs mt-1.5">
                               <ChannelBadge source={b.source} />
                               <span className="text-ink-secondary">
-                                {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)} ({nights}n)
+                                {shortStay
+                                  ? `${formatDayMonth(b.check_in)} · ${formatShortStayWindow(
+                                      shortStay.start,
+                                      shortStay.end
+                                    )}`
+                                  : `${formatDayMonth(b.check_in)} → ${formatDayMonth(
+                                      b.check_out
+                                    )} (${nights}n)`}
                               </span>
                               <span className="text-financial">{formatPKR(b.hostello_share)}</span>
                               {statusNode}
@@ -255,8 +265,15 @@ export default async function BookingsPage({
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-ink-secondary whitespace-nowrap hidden md:table-cell">
-                        {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)}
-                        <span className="text-ink-muted"> ({nights}n)</span>
+                        {shortStay
+                          ? formatDayMonth(b.check_in)
+                          : `${formatDayMonth(b.check_in)} → ${formatDayMonth(b.check_out)}`}
+                        <span className="text-ink-muted">
+                          {" "}
+                          {shortStay
+                            ? formatShortStayWindow(shortStay.start, shortStay.end)
+                            : `(${nights}n)`}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-ink-secondary hidden md:table-cell">
                         <span className="flex items-center gap-1.5">
@@ -281,14 +298,18 @@ export default async function BookingsPage({
                           </Link>
                         ) : (
                           <div className="flex flex-col items-end gap-1.5 md:flex-row md:items-center md:justify-end md:gap-2">
-                            <form action={markBookingSettled}>
+                            <form action={markShareReceived}>
                               <input type="hidden" name="id" value={b.id} />
-                              <input type="hidden" name="settled" value={(!b.settled).toString()} />
+                              <input
+                                type="hidden"
+                                name="received"
+                                value={(!b.share_received).toString()}
+                              />
                               <button
                                 type="submit"
                                 className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2 py-1 hover:border-border-strong transition-colors whitespace-nowrap"
                               >
-                                {b.settled ? "Mark unpaid" : "Mark received"}
+                                {b.share_received ? "Mark unpaid" : "Mark received"}
                               </button>
                             </form>
                             <form action={cancelBooking}>

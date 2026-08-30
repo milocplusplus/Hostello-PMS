@@ -141,8 +141,8 @@ export function ClientForm({ action, clientId, defaultValues, error, submitLabel
 
         {showStackNote && (
           <p className="text-xs text-ink-muted">
-            Each property under this client has its own stack rate (per night) —
-            set that on the property itself.
+            Each property under this client has its own stack rate — per night,
+            plus a flat one for short stays. Set both on the property itself.
           </p>
         )}
 

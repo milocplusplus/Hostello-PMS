@@ -24,7 +24,7 @@ export default async function EditPropertyPage({
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, name, location, city, province, type, status, stack_rate")
+    .select("id, name, location, city, province, type, status, stack_rate, short_stay_stack_rate")
     .eq("id", propertyId)
     .single();
 

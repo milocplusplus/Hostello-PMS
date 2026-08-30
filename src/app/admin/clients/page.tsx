@@ -47,7 +47,7 @@ export default async function ClientsListPage({
     clientQuery,
     supabase
       .from("bookings")
-      .select("client_id, hostello_share, settled")
+      .select("client_id, hostello_share, share_received")
       .neq("status", "cancelled")
       .gte("check_out", today),
   ]);
@@ -56,7 +56,7 @@ export default async function ClientsListPage({
     (acc, b) => {
       const entry = (acc[b.client_id] ??= { count: 0, awaiting: 0 });
       entry.count += 1;
-      if (!b.settled) entry.awaiting += Number(b.hostello_share ?? 0);
+      if (!b.share_received) entry.awaiting += Number(b.hostello_share ?? 0);
       return acc;
     },
     {}

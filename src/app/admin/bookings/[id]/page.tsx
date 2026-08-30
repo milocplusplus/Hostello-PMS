@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { DEAL_MODELS, formatPKR, isOtaSource, nightsBetween } from "@/lib/payout";
+import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
@@ -21,6 +22,7 @@ import {
   uploadBookingReceipt,
   deleteBookingReceipt,
 } from "../actions";
+import { markShareReceived } from "../../payouts/actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
@@ -48,7 +50,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, share_received, share_received_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -65,6 +67,7 @@ export default async function BookingDetailPage({
     .filter((p): p is { id: string; name: string; city: string | null; type: string | null } => Boolean(p));
 
   const nights = nightsBetween(booking.check_in, booking.check_out);
+  const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
   const deductPct = Number(booking.deduct_percent_snapshot ?? 0);
   const deduction = gross - Number(booking.net_sale ?? gross);
@@ -109,9 +112,13 @@ export default async function BookingDetailPage({
 
           <div className="flex items-center gap-2 text-sm text-ink-primary">
             <CalendarDays size={14} className="text-ink-muted" />
-            {formatDayMonth(booking.check_in)} → {formatDayMonth(booking.check_out)}
+            {shortStay
+              ? formatDayMonth(booking.check_in)
+              : `${formatDayMonth(booking.check_in)} → ${formatDayMonth(booking.check_out)}`}
             <span className="text-ink-muted text-xs">
-              ({nights} {nights === 1 ? "night" : "nights"})
+              {shortStay
+                ? `short stay · ${formatShortStayWindow(shortStay.start, shortStay.end)}`
+                : `(${nights} ${nights === 1 ? "night" : "nights"})`}
             </span>
           </div>
 
@@ -162,12 +169,24 @@ export default async function BookingDetailPage({
           {Number(booking.advance_received ?? 0) > 0 && (
             <Line label="Advance received" value={formatPKR(booking.advance_received)} />
           )}
+          {/* Two settlements, not one: whoever collected the guest's money owes
+              the other side their pot, and both can be outstanding at once. */}
           <Line
-            label="Settlement"
+            label="Hostello's share"
+            value={
+              booking.share_received
+                ? `Received${
+                    booking.share_received_date ? ` · ${formatDayMonth(booking.share_received_date)}` : ""
+                  }`
+                : "Owed to Hostello"
+            }
+          />
+          <Line
+            label="Owner's payout"
             value={
               booking.settled
-                ? `Received${booking.settled_date ? ` · ${formatDayMonth(booking.settled_date)}` : ""}`
-                : "Awaiting"
+                ? `Paid out${booking.settled_date ? ` · ${formatDayMonth(booking.settled_date)}` : ""}`
+                : "Not yet sent"
             }
           />
         </div>
@@ -207,6 +226,19 @@ export default async function BookingDetailPage({
           >
             Edit booking
           </Link>
+          {/* Clearing the share here is the case where Hostello kept its cut out
+              of money it already held, so the owner never has to send it. */}
+          <form action={markShareReceived}>
+            <input type="hidden" name="id" value={booking.id} />
+            <input type="hidden" name="received" value={(!booking.share_received).toString()} />
+            <input type="hidden" name="from" value={`/admin/bookings/${booking.id}`} />
+            <button
+              type="submit"
+              className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+            >
+              {booking.share_received ? "Share not received" : "Mark share received"}
+            </button>
+          </form>
           <form action={markBookingSettled}>
             <input type="hidden" name="id" value={booking.id} />
             <input type="hidden" name="settled" value={(!booking.settled).toString()} />
@@ -214,7 +246,7 @@ export default async function BookingDetailPage({
               type="submit"
               className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
             >
-              {booking.settled ? "Mark unpaid" : "Mark received"}
+              {booking.settled ? "Payout not sent" : "Mark payout sent"}
             </button>
           </form>
           <form action={cancelBooking}>

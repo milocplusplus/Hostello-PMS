@@ -38,7 +38,15 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/app/admin/bookings/**` — booking list + create + `actions.ts`
 - `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
-  `notifications/`
+  `notifications/`, `payouts/`
+- `src/app/{admin,client}/payouts/**` + `src/lib/owed.ts` — **Owed to Hostello.**
+  The owner's page shows the balance, the bookings behind it, a form to record a
+  payment (online needs a screenshot, cash does not) and their history; the
+  admin's is the review queue, the per-client balances and the reviewed log.
+  `owed.ts` is settlement only — it adds up shares and subtracts payments, and
+  never re-derives a split. `src/components/client/RecordPayoutForm.tsx` (client
+  component: the screenshot field follows the method) and
+  `src/components/shared/PayoutHistory.tsx` (shared by both portals).
 - `src/components/admin/AdminShell.tsx`, `src/components/client/ClientShell.tsx` — nav shells
 - `src/components/admin/BookingForm.tsx` — **shared by admin AND client**
   (`client/bookings/new/page.tsx` imports it from `@/components/admin/`), live payout preview
@@ -92,8 +100,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   the high-importance channel and `ic_notification_icon` (a transparent white
   silhouette, never the colour icon) live there, not in `sw.js`.
   "Get the app" hands Android this file and everyone else an instruction.
-- `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `DEAL_MODELS`, `formatPKR`.
-  **The only correct revenue math.** Currency is PKR.
+- `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`, `DEAL_MODELS`,
+  `formatPKR`. **The only correct revenue math.** Currency is PKR.
+- `src/lib/short-stay.ts` — everything short stays (hours, not nights) mean:
+  `readShortStay` (the form contract), `rowShortStay` (a DB row’s window),
+  `shortStayCheckOut`, `departureDate`, `formatShortStayWindow`.
 - `src/lib/calendar.ts` — `getMonthGrid`, `formatMonthLabel`, `parseMonthParam`,
   `formatMonthParam`, `addMonths`, `todayISO`, `addDaysISO`, `formatDayMonth`
 - `src/lib/notify.ts` — `notifyBookingCreated/Cancelled/DatesBlocked/PayoutSettled`
@@ -129,14 +140,25 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   share_percent, deduct_percent
 - `properties` — client_id, name, location, city, province,
   type enum(`studio|1bhk|2bhk|3bhk|2_plus_kids|farmhouse|penthouse|villa|cottage`),
-  status enum(`active|inactive`), stack_rate.
+  status enum(`active|inactive`), stack_rate, short_stay_stack_rate.
   **No image_url, no bedrooms, no max_guests columns.**
 - `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
+  is_short_stay, short_stay_start, short_stay_end,
   source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),
   status enum(`confirmed|tentative|cancelled`), sale_price, advance_received,
   deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot,
   stack_rate_snapshot, net_sale, hostello_share, client_payout, settled,
-  settled_date, notes, entered_by, timestamps
+  settled_date, share_received, share_received_date, notes, entered_by, timestamps.
+  **Two settlements, not one**: `share_received` = Hostello has its `hostello_share`,
+  `settled` = the owner has their `client_payout`. They run in opposite directions
+  and are independent. Only `share_received` feeds "Owed to Hostello".
+- `client_payouts` — client_id, amount, method(`online|cash`), reference,
+  receipt_path, status(`pending|received|rejected`), admin_note, submitted_by,
+  reviewed_by/at. What an owner says they sent. A `pending` row changes no
+  balance; only an admin confirming it does. RLS lets an owner file, edit and
+  withdraw their own **pending or rejected** entries and never set `received`.
+- `client_payout_allocations` — payout_id, booking_id, client_id, amount. Which
+  bookings a confirmed payment cleared. Written only by `apply_client_payout`.
 - `booking_properties` — booking_id, property_id (many-to-many; multi-unit bookings)
 - `calendar_blocks` — start_date/end_date (**inclusive**), block_type enum(`blocked|booked`);
   `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design
@@ -181,6 +203,16 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
    `calendar_blocks` (inclusive `start_date`..`end_date`). See `buildRow()` /
    `place()` in `app/admin/calendar/page.tsx` — `place()` converts `check_out` to
    an inclusive last night before clipping to the window.
+2b. **Owed to Hostello** — the owner files a `client_payouts` row (`pending`) →
+   admin reviews on `/admin/payouts` → **confirm** calls the `apply_client_payout`
+   RPC, which marks it received and allocates it across that client's open
+   bookings **oldest check-in first**, closing each booking (`share_received`)
+   as it is fully covered and returning any overpayment as unallocated credit;
+   **reject** leaves the balance untouched and the row visible as rejected with
+   the admin's reason, which the owner can correct and resubmit. Admin can also
+   close one booking outright (`markShareReceived`) for the case where Hostello
+   kept its share out of money it already held. `revoke_client_payout` undoes a
+   confirmation, reopening only the bookings the remaining money no longer covers.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
    off gross first; `hostello_share` depends on deal_model (0 for fixed/self-sourced/tentative).
@@ -220,6 +252,22 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - **Live data is nearly empty** (1 cancelled booking, 1 calendar block, no revenue
   history) — pre-launch, not broken. Trend/sparkline/"% vs last month" UI must render
   honest empty states, never fabricated history.
+- **`settled` and `share_received` are opposite directions.** `settled` is money
+  Hostello owes the owner; `share_received` is money the owner owes Hostello.
+  Before 2026-08-29 a single `settled` was labelled "Mark received" on admin and
+  "Paid out" on the owner's portal — the same tick telling two stories. Never
+  sum one of them and label it as the other.
+- Payment screenshots live in the **`payout-receipts`** bucket at
+  `<client_id>/<uuid>.<ext>` — a different bucket from `booking-receipts`, whose
+  policies key on the *booking* id. Owners may write into their own folder here,
+  which they may not do on `booking-receipts`.
+- **A short stay is stored as one night.** `is_short_stay` bookings are hours on
+  a single date, written with `check_out = check_in + 1` so every night-based
+  query keeps working and the stack deduction lands as the flat
+  `short_stay_stack_rate × 1`. Two things must not read `check_out` literally:
+  the departure day (it is `check_in` — use `departureDate()`), and availability
+  — once a short stay is ticked out (`checked_out_at`) its date is sellable
+  again, which `findStayClash` / `listUnavailable` already allow for.
 - `calendar_blocks.end_date` is **inclusive**; booking `check_out` is **exclusive**.
   Easiest off-by-one bug in this codebase.
 - No "maintenance" block type (`blocked|booked` only) — adding one needs a migration.
@@ -227,7 +275,7 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   has a `name` column, so an unqualified `name` inside a subquery that joins
   `clients` silently binds to *that* column and the policy denies everything.
   This bit the receipt policies once already.
-- Channels / Pricing / Expenses / Payouts / Reports have **zero backing tables** —
+- Channels / Pricing / Expenses / Reports have **zero backing tables** —
   out of scope, no nav for them. Neither do guest messaging, housekeeping,
   maintenance, staff assignment or OTA sync, so there are no notifications for
   them either. Do not invent one; add the table first.

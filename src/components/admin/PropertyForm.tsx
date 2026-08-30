@@ -23,6 +23,7 @@ type PropertyFormProps = {
     type: string;
     status: string;
     stack_rate?: number | null;
+    short_stay_stack_rate?: number | null;
   };
   error?: string;
   submitLabel: string;
@@ -157,6 +158,21 @@ export function PropertyForm({
           min="0"
           step="500"
           defaultValue={defaultValues?.stack_rate ?? 0}
+          className={fieldInput}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="short_stay_stack_rate" className={fieldLabel}>
+          Short-stay stack rate (PKR, flat per stay) — leave 0 if this unit takes no short stays
+        </label>
+        <input
+          id="short_stay_stack_rate"
+          name="short_stay_stack_rate"
+          type="number"
+          min="0"
+          step="500"
+          defaultValue={defaultValues?.short_stay_stack_rate ?? 0}
           className={fieldInput}
         />
       </div>

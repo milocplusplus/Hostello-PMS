@@ -20,6 +20,7 @@ import {
   notifyPayoutSettled,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
+import { readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { describeBookingChanges } from "@/lib/booking-changes";
 
 type SaveResult = { error: string } | { clientId: string; bookingId: string };
@@ -32,7 +33,6 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const client_id = formData.get("client_id") as string;
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
-  const check_out = formData.get("check_out") as string;
   const guest_name = (formData.get("guest_name") as string)?.trim() || null;
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
@@ -40,6 +40,12 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
+
+  const { shortStay, error: shortStayError } = readShortStay(formData);
+  if (shortStayError) return { error: shortStayError };
+
+  // A short stay is one date, stored as the night it sits on.
+  const check_out = shortStay ? shortStayCheckOut(check_in) : (formData.get("check_out") as string);
 
   if (property_ids.length === 0) {
     return { error: "Select at least one unit." };
@@ -75,10 +81,15 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, name, stack_rate")
+    .select("id, name, stack_rate, short_stay_stack_rate")
     .in("id", property_ids);
 
-  const stackRateTotal = (properties ?? []).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
+  // Hours are charged against the unit's short-stay rate — flat for the stay,
+  // which is exactly `rate × 1 night` once the stay is stored as one night.
+  const stackRateTotal = (properties ?? []).reduce(
+    (sum, p) => sum + Number((shortStay ? p.short_stay_stack_rate : p.stack_rate) ?? 0),
+    0
+  );
 
   // Bookings *and* blocks — see `findStayClash`. Blocked nights used to pass
   // straight through here.
@@ -111,6 +122,9 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       guest_phone,
       check_in,
       check_out,
+      is_short_stay: Boolean(shortStay),
+      short_stay_start: shortStay?.start ?? null,
+      short_stay_end: shortStay?.end ?? null,
       source,
       status,
       sale_price,
@@ -159,6 +173,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     checkIn: check_in,
     checkOut: check_out,
     source,
+    shortStay,
     isTentative: status === "tentative",
   });
 
@@ -203,7 +218,6 @@ export async function updateBooking(id: string, formData: FormData) {
 
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
-  const check_out = formData.get("check_out") as string;
   const guest_name = (formData.get("guest_name") as string)?.trim() || null;
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
@@ -211,6 +225,11 @@ export async function updateBooking(id: string, formData: FormData) {
   const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
+
+  const { shortStay, error: shortStayError } = readShortStay(formData);
+  if (shortStayError) back(shortStayError);
+
+  const check_out = shortStay ? shortStayCheckOut(check_in) : (formData.get("check_out") as string);
 
   if (property_ids.length === 0) back("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
@@ -220,7 +239,7 @@ export async function updateBooking(id: string, formData: FormData) {
   const { data: existing } = await supabase
     .from("bookings")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -240,14 +259,17 @@ export async function updateBooking(id: string, formData: FormData) {
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, name, stack_rate, client_id")
+    .select("id, name, stack_rate, short_stay_stack_rate, client_id")
     .in("id", property_ids);
 
   if ((properties ?? []).some((p) => p.client_id !== existing.client_id)) {
     back("All units in one booking must belong to the same client.");
   }
 
-  const stackRateTotal = (properties ?? []).reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0);
+  const stackRateTotal = (properties ?? []).reduce(
+    (sum, p) => sum + Number((shortStay ? p.short_stay_stack_rate : p.stack_rate) ?? 0),
+    0
+  );
 
   const payout = calculatePayout({
     salePrice: sale_price,
@@ -273,6 +295,9 @@ export async function updateBooking(id: string, formData: FormData) {
       guest_phone,
       check_in,
       check_out,
+      is_short_stay: Boolean(shortStay),
+      short_stay_start: shortStay?.start ?? null,
+      short_stay_end: shortStay?.end ?? null,
       source,
       status,
       sale_price,
@@ -307,8 +332,17 @@ export async function updateBooking(id: string, formData: FormData) {
       status: existing.status,
       guestName: existing.guest_name,
       propertyIds: previousIds,
+      shortStay: rowShortStay(existing),
     },
-    { checkIn: check_in, checkOut: check_out, salePrice: sale_price, status, guestName: guest_name, propertyIds: property_ids }
+    {
+      checkIn: check_in,
+      checkOut: check_out,
+      salePrice: sale_price,
+      status,
+      guestName: guest_name,
+      propertyIds: property_ids,
+      shortStay,
+    }
   );
 
   // A save that moved nothing is not news.
@@ -320,6 +354,7 @@ export async function updateBooking(id: string, formData: FormData) {
       checkIn: check_in,
       checkOut: check_out,
       source,
+      shortStay,
       changed,
       updatedAt,
     });
@@ -505,7 +540,7 @@ export async function cancelBooking(formData: FormData) {
   // Read details before cancelling so the notification can describe what changed.
   const { data: booking } = await supabase
     .from("bookings")
-    .select("client_id, check_in, check_out, source, booking_properties(properties(name))")
+    .select("client_id, check_in, check_out, source, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))")
     .eq("id", id)
     .single();
 
@@ -523,6 +558,7 @@ export async function cancelBooking(formData: FormData) {
       checkIn: booking.check_in,
       checkOut: booking.check_out,
       source: booking.source,
+      shortStay: rowShortStay(booking),
     });
   }
 

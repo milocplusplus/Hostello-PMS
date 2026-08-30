@@ -37,11 +37,14 @@ export function StayDates({
   checkOut,
   onChange,
   busy,
+  mode = "nights",
 }: {
   checkIn: string;
   checkOut: string;
   onChange: (checkIn: string, checkOut: string) => void;
   busy: BusyRange[];
+  /** "day" picks a single date — a short stay, which is stored as one night. */
+  mode?: "nights" | "day";
 }) {
   const today = todayISO();
   const [view, setView] = useState(() => parseMonthParam((checkIn || today).slice(0, 7)));
@@ -69,12 +72,14 @@ export function StayDates({
     return starts[0] ?? null;
   }, [busy, checkIn]);
 
-  const picking: "in" | "out" = checkIn && !checkOut ? "out" : "in";
+  // A short stay is one date, so there is never a second half to pick.
+  const picking: "in" | "out" = mode === "day" ? "in" : checkIn && !checkOut ? "out" : "in";
 
   function cellState(date: string): CellState {
     if (takenNights.has(date)) return "taken";
     if (date === checkIn) return "start";
-    if (checkOut && date === checkOut) return "end";
+    // In day mode the check-out is the next morning, not a night on the sheet.
+    if (mode !== "day" && checkOut && date === checkOut) return "end";
     if (checkIn && checkOut && date > checkIn && date < checkOut) return "mid";
     if (picking === "out" && date > checkIn && (!nextTaken || date <= nextTaken)) {
       return "reachable";
@@ -85,6 +90,13 @@ export function StayDates({
 
   function pick(date: string) {
     if (takenNights.has(date)) return;
+
+    // One tap is the whole answer for a short stay: the day, plus the check-out
+    // morning it is stored with.
+    if (mode === "day") {
+      onChange(date, addDaysISO(date, 1));
+      return;
+    }
 
     // Anything at or before the current check-in restarts the selection, which
     // is also how you correct a mis-click without a Clear button.
@@ -181,7 +193,15 @@ export function StayDates({
       </div>
 
       <p className="text-xs text-ink-secondary">
-        {!checkIn ? (
+        {mode === "day" ? (
+          checkIn ? (
+            <>
+              Short stay on <span className="text-ink-primary">{formatDayMonth(checkIn)}</span>
+            </>
+          ) : (
+            "Pick the day of the short stay."
+          )
+        ) : !checkIn ? (
           "Pick the check-in night."
         ) : !checkOut ? (
           <>

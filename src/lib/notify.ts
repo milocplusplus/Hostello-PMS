@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatPKR } from "./payout";
+import { methodLabel } from "./owed";
 import { formatDayMonth } from "./calendar";
 import { sourceLabel } from "./block-sources";
+import { formatShortStayWindow, type ShortStay } from "./short-stay";
 import { deliverPush } from "./push";
 import type { NotificationCategory } from "./notifications";
 
@@ -61,8 +63,10 @@ async function emit(supabase: SupabaseClient, args: EmitArgs): Promise<void> {
   }
 }
 
-function dateRange(from: string, to: string) {
+function dateRange(from: string, to: string, shortStay?: ShortStay | null) {
   const start = formatDayMonth(from);
+  // A short stay's check-out is the next morning on paper only — say the hours.
+  if (shortStay) return `${start} · ${formatShortStayWindow(shortStay.start, shortStay.end)}`;
   return from === to ? start : `${start} → ${formatDayMonth(to)}`;
 }
 
@@ -86,6 +90,8 @@ type BookingEvent = {
   checkIn: string;
   checkOut: string;
   source: string | null;
+  /** Set when the booking is hours rather than nights. */
+  shortStay?: ShortStay | null;
   /** Appended to the body — what an edit actually changed. */
   extra?: string | null;
   /** Overrides the default key when one booking can raise the event twice. */
@@ -102,7 +108,7 @@ type BookingEvent = {
 async function emitBookingEvent(supabase: SupabaseClient, args: BookingEvent) {
   const details = [
     unitLabel(args.unitNames),
-    dateRange(args.checkIn, args.checkOut),
+    dateRange(args.checkIn, args.checkOut, args.shortStay),
     sourceLabel(args.source) ?? "Other",
     args.extra,
   ]
@@ -138,6 +144,7 @@ export async function notifyBookingCreated(
     checkIn: string;
     checkOut: string;
     source: string | null;
+    shortStay?: ShortStay | null;
     isTentative: boolean;
   }
 ) {
@@ -162,6 +169,7 @@ export async function notifyBookingUpdated(
     checkIn: string;
     checkOut: string;
     source: string | null;
+    shortStay?: ShortStay | null;
     /** "Dates and price" — what the edit touched. */
     changed: string;
     updatedAt: string;
@@ -176,6 +184,7 @@ export async function notifyBookingUpdated(
     checkIn: args.checkIn,
     checkOut: args.checkOut,
     source: args.source,
+    shortStay: args.shortStay,
     extra: `${args.changed} changed`,
     eventKey: `booking_updated:${args.bookingId}:${args.updatedAt}`,
   });
@@ -190,6 +199,7 @@ export async function notifyBookingCancelled(
     checkIn: string;
     checkOut: string;
     source: string | null;
+    shortStay?: ShortStay | null;
   }
 ) {
   await emitBookingEvent(supabase, {
@@ -287,6 +297,92 @@ export async function notifyPaymentReceived(
     bookingId: args.bookingId,
     // One per receipt: re-uploading a replacement is a new event, a retry is not.
     eventKey: `payment_received:${args.receiptId}`,
+  });
+}
+
+/**
+ * An owner says they have sent Hostello its share. Admin-only: the owner just
+ * filed it, telling them about their own action is noise. Keyed on the entry,
+ * so a resubmitted correction announces itself once more and a double-tap does
+ * not.
+ */
+export async function notifyPayoutSubmitted(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    payoutId: string;
+    amount: number;
+    method: string;
+    attempt: number;
+  }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "payout_submitted",
+    category: "payment",
+    audience: "admin",
+    title: `${who ?? "A client"} recorded a payment`,
+    body: `${formatPKR(args.amount)} · ${methodLabel(args.method)} · needs confirming.`,
+    clientId: args.clientId,
+    eventKey: `payout_submitted:${args.payoutId}:${args.attempt}`,
+  });
+}
+
+/** Admin confirmed the money landed. The owner is the one who needs to know. */
+export async function notifyPayoutConfirmed(
+  supabase: SupabaseClient,
+  args: { clientId: string; payoutId: string; amount: number; balance: number }
+) {
+  await emit(supabase, {
+    kind: "payout_confirmed",
+    category: "payment",
+    audience: "client",
+    title: "Payment confirmed",
+    body: `${formatPKR(args.amount)} received. ${
+      args.balance > 0 ? `${formatPKR(args.balance)} still owed.` : "Nothing owed to Hostello."
+    }`,
+    clientId: args.clientId,
+    eventKey: `payout_confirmed:${args.payoutId}`,
+  });
+}
+
+/** Admin says it never arrived. The balance does not move — that is the point. */
+export async function notifyPayoutRejected(
+  supabase: SupabaseClient,
+  args: { clientId: string; payoutId: string; amount: number; reason: string | null }
+) {
+  await emit(supabase, {
+    kind: "payout_rejected",
+    category: "payment",
+    audience: "client",
+    title: "Payment not received",
+    body: `${formatPKR(args.amount)} could not be confirmed${
+      args.reason ? ` · ${args.reason}` : ""
+    }. The amount owed is unchanged.`,
+    clientId: args.clientId,
+    // Rejecting the same entry twice is one decision; a resubmit gets a new key
+    // from `notifyPayoutSubmitted`, so the conversation still moves.
+    eventKey: `payout_rejected:${args.payoutId}`,
+  });
+}
+
+/**
+ * Hostello kept its share out of money it already held, so nothing was owed and
+ * nothing was paid. The owner still sees the booking close.
+ */
+export async function notifyShareReceived(
+  supabase: SupabaseClient,
+  args: { clientId: string; bookingId: string; unitNames: string[]; share: number }
+) {
+  await emit(supabase, {
+    kind: "share_received",
+    category: "payment",
+    audience: "client",
+    title: `Hostello's share settled for ${unitLabel(args.unitNames)}`,
+    body: `${formatPKR(args.share)} marked as received. Nothing owed on this booking.`,
+    clientId: args.clientId,
+    bookingId: args.bookingId,
+    eventKey: `share_received:${args.bookingId}`,
   });
 }
 

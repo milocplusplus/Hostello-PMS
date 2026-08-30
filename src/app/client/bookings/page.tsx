@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { cancelClientBooking } from "./actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
@@ -40,7 +41,7 @@ export default async function ClientBookingsPage({
   const { data: bookings } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, booking_properties(properties(name))"
+      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, booking_properties(properties(name))"
     )
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
@@ -133,6 +134,7 @@ export default async function ClientBookingsPage({
                   .filter(Boolean)
                   .join(", ");
                 const nights = nightsBetween(b.check_in, b.check_out);
+                const shortStay = rowShortStay(b);
                 const statusNode =
                   b.status === "tentative" ? (
                     <span className="text-xs text-status-pending">Tentative</span>
@@ -159,7 +161,14 @@ export default async function ClientBookingsPage({
                           <span className="md:hidden flex items-center gap-1.5 flex-wrap text-xs mt-1.5">
                             <ChannelBadge source={b.source} />
                             <span className="text-ink-secondary">
-                              {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)} ({nights}n)
+                              {shortStay
+                                ? `${formatDayMonth(b.check_in)} · ${formatShortStayWindow(
+                                    shortStay.start,
+                                    shortStay.end
+                                  )}`
+                                : `${formatDayMonth(b.check_in)} → ${formatDayMonth(
+                                    b.check_out
+                                  )} (${nights}n)`}
                             </span>
                             <span className="text-financial">{formatPKR(b.client_payout)}</span>
                             {statusNode}
@@ -168,8 +177,15 @@ export default async function ClientBookingsPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-ink-secondary whitespace-nowrap hidden md:table-cell">
-                      {formatDayMonth(b.check_in)} → {formatDayMonth(b.check_out)}
-                      <span className="text-ink-muted"> ({nights}n)</span>
+                      {shortStay
+                        ? formatDayMonth(b.check_in)
+                        : `${formatDayMonth(b.check_in)} → ${formatDayMonth(b.check_out)}`}
+                      <span className="text-ink-muted">
+                        {" "}
+                        {shortStay
+                          ? formatShortStayWindow(shortStay.start, shortStay.end)
+                          : `(${nights}n)`}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-ink-secondary hidden md:table-cell">
                       <span className="flex items-center gap-1.5">

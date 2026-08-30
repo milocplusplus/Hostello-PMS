@@ -32,6 +32,12 @@ const EXTENSIONS: Record<string, string> = {
 
 export const RECEIPT_ACCEPT = Object.keys(EXTENSIONS).join(",");
 
+/** The extension a mime type is stored under, or null if it isn't allowed.
+ *  Shared with the payout-receipt bucket, which takes the same set of files. */
+export function receiptExtension(mime: string): string | null {
+  return EXTENSIONS[mime] ?? null;
+}
+
 export type Receipt = {
   id: string;
   kind: ReceiptKind;

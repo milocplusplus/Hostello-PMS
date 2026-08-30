@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, TriangleAlert, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
 import { todayISO, addDaysISO, formatFullDate } from "@/lib/calendar";
 import { StaySection, type TodayStay } from "@/components/shared/TodayBoard";
@@ -23,6 +24,9 @@ type Row = {
   client_payout: number | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  is_short_stay: boolean;
+  short_stay_start: string | null;
+  short_stay_end: string | null;
   booking_properties: unknown;
 };
 
@@ -41,7 +45,7 @@ export default async function ClientCheckInsPage() {
   const { data } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, checked_in_at, checked_out_at, booking_properties(properties(name))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))"
     )
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
@@ -69,6 +73,7 @@ export default async function ClientCheckInsPage() {
     href: `/client/bookings/${b.id}`,
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
+    shortStay: rowShortStay(b),
   });
 
   const rows = ((data ?? []) as unknown as Row[]).map(toStay);
@@ -76,11 +81,15 @@ export default async function ClientCheckInsPage() {
   // A stay produces two independent jobs — an arrival and a departure — and
   // they fall due on different days, so each is grouped on its own date.
   const arrivingToday = rows.filter((s) => s.checkIn === today);
-  const departingToday = rows.filter((s) => s.checkOut === today);
+  // A short stay is out the same day it arrives, so its departure job is that
+  // date — never the check-out morning it is stored with.
+  const leaves = (s: TodayStay) => departureDate(s.checkIn, s.checkOut, Boolean(s.shortStay));
+
+  const departingToday = rows.filter((s) => leaves(s) === today);
   const missedArrivals = rows.filter((s) => s.checkIn < today && !s.checkedInAt);
-  const missedDepartures = rows.filter((s) => s.checkOut < today && !s.checkedOutAt);
+  const missedDepartures = rows.filter((s) => leaves(s) < today && !s.checkedOutAt);
   const arrivingSoon = rows.filter((s) => s.checkIn > today);
-  const departingSoon = rows.filter((s) => s.checkOut > today && s.checkOut <= until);
+  const departingSoon = rows.filter((s) => leaves(s) > today && leaves(s) <= until);
 
   const leftToday =
     arrivingToday.filter((s) => !s.checkedInAt).length +

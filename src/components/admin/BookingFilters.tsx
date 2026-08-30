@@ -121,8 +121,8 @@ export function BookingFilters({
         style={{ backgroundImage: caret }}
       >
         <option value="">Any settlement</option>
-        <option value="awaiting">Awaiting payout</option>
-        <option value="received">Received</option>
+        <option value="awaiting">Owed to Hostello</option>
+        <option value="received">Share received</option>
       </select>
     </div>
   );

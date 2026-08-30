@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, TriangleAlert, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentUser } from "@/lib/auth";
 import { todayISO, addDaysISO, formatFullDate } from "@/lib/calendar";
 import { StaySection, type TodayStay } from "@/components/shared/TodayBoard";
@@ -23,6 +24,9 @@ type Row = {
   sale_price: number | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  is_short_stay: boolean;
+  short_stay_start: string | null;
+  short_stay_end: string | null;
   clients: unknown;
   booking_properties: unknown;
 };
@@ -46,6 +50,7 @@ function toStay(b: Row): TodayStay {
     href: `/admin/bookings/${b.id}`,
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
+    shortStay: rowShortStay(b),
   };
 }
 
@@ -61,7 +66,7 @@ export default async function AdminCheckInsPage() {
   const { data } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, checked_in_at, checked_out_at, clients(name), booking_properties(properties(name))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, clients(name), booking_properties(properties(name))"
     )
     .neq("status", "cancelled")
     .gte("check_out", from)
@@ -73,11 +78,15 @@ export default async function AdminCheckInsPage() {
   // A stay produces two independent jobs — an arrival and a departure — and
   // they fall due on different days, so each is grouped on its own date.
   const arrivingToday = rows.filter((s) => s.checkIn === today);
-  const departingToday = rows.filter((s) => s.checkOut === today);
+  // A short stay is out the same day it arrives, so its departure job is that
+  // date — never the check-out morning it is stored with.
+  const leaves = (s: TodayStay) => departureDate(s.checkIn, s.checkOut, Boolean(s.shortStay));
+
+  const departingToday = rows.filter((s) => leaves(s) === today);
   const missedArrivals = rows.filter((s) => s.checkIn < today && !s.checkedInAt);
-  const missedDepartures = rows.filter((s) => s.checkOut < today && !s.checkedOutAt);
+  const missedDepartures = rows.filter((s) => leaves(s) < today && !s.checkedOutAt);
   const arrivingSoon = rows.filter((s) => s.checkIn > today);
-  const departingSoon = rows.filter((s) => s.checkOut > today && s.checkOut <= until);
+  const departingSoon = rows.filter((s) => leaves(s) > today && leaves(s) <= until);
 
   const leftToday =
     arrivingToday.filter((s) => !s.checkedInAt).length +

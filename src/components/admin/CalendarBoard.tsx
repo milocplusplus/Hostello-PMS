@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, X } from "lucide-react";
+import { Clock, Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingForm } from "@/components/admin/BookingForm";
@@ -27,6 +27,8 @@ export type CalendarSegment = {
   source: string | null;
   title: string;
   dateRange: string;
+  /** "2:00 PM – 8:00 PM" on a short stay, null on a booking of nights. */
+  hours: string | null;
   amount: string | null;
   tentative: boolean;
   href: string;
@@ -291,7 +293,9 @@ function Bar({ seg }: { seg: CalendarSegment }) {
   return (
     <Link
       href={seg.href}
-      title={`${seg.title} · ${seg.dateRange}${seg.amount ? ` · ${seg.amount}` : ""}`}
+      title={`${seg.title} · ${seg.dateRange}${seg.hours ? ` · ${seg.hours}` : ""}${
+        seg.amount ? ` · ${seg.amount}` : ""
+      }`}
       className={`relative z-10 my-[4px] flex items-center gap-1.5 overflow-hidden border px-1.5 min-w-0 transition hover:brightness-125 ${
         seg.tentative ? "border-dashed" : ""
       } ${seg.clippedStart ? "ml-0 rounded-l-none" : "ml-[3px] rounded-l-md"} ${
@@ -314,6 +318,9 @@ function Bar({ seg }: { seg: CalendarSegment }) {
       ) : (
         <Lock size={11} className="shrink-0 text-ink-secondary" />
       )}
+      {/* A short stay is one cell wide like a one-night booking — the clock is
+          what tells them apart at a glance. */}
+      {seg.hours && <Clock size={10} className="shrink-0 text-ink-muted" />}
       <span className="text-[11px] text-ink-primary truncate">{seg.title}</span>
       {showRange && (
         <span className="text-[10px] text-ink-muted whitespace-nowrap shrink-0">

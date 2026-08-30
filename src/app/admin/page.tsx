@@ -112,7 +112,7 @@ export default async function AdminDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, settled, created_at, clients(name), booking_properties(property_id, properties(name))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients(name), booking_properties(property_id, properties(name))";
 
   const [
     profile,
@@ -179,7 +179,7 @@ export default async function AdminDashboard({
   const grossThisMonth = (monthBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const awaiting = (monthBookings ?? []).reduce(
-    (s, b) => s + (b.settled ? 0 : Number(b.hostello_share ?? 0)),
+    (s, b) => s + (b.share_received ? 0 : Number(b.hostello_share ?? 0)),
     0
   );
 

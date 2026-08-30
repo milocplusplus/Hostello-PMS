@@ -8,6 +8,7 @@ import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createBookingInline } from "@/app/admin/bookings/actions";
 import { listUnavailable } from "@/lib/availability";
+import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import {
   CalendarBoard,
   type CalendarRow,
@@ -56,7 +57,7 @@ export default async function CalendarPage({
   const [{ data: allProperties }, { data: clientTerms }] = await Promise.all([
     supabase
       .from("properties")
-      .select("id, name, type, city, stack_rate, client_id, clients(name)")
+      .select("id, name, type, city, stack_rate, short_stay_stack_rate, client_id, clients(name)")
       .eq("status", "active")
       .order("name"),
     supabase
@@ -94,6 +95,7 @@ export default async function CalendarPage({
       type: p.type as string | null,
       city: p.city as string | null,
       stackRate: Number(p.stack_rate ?? 0),
+      shortStayRate: Number(p.short_stay_stack_rate ?? 0),
       clientId: p.client_id as string,
       clientName: (p.clients as unknown as { name: string } | null)?.name ?? "—",
     }))
@@ -199,12 +201,17 @@ export default async function CalendarPage({
     status: string;
     guest_name: string | null;
     sale_price: number | null;
+    is_short_stay: boolean;
+    short_stay_start: string | null;
+    short_stay_end: string | null;
   }[] = [];
 
   if (bookingIds.length > 0) {
     let query = supabase
       .from("bookings")
-      .select("id, check_in, check_out, source, status, guest_name, sale_price")
+      .select(
+        "id, check_in, check_out, source, status, guest_name, sale_price, is_short_stay, short_stay_start, short_stay_end"
+      )
       .in("id", bookingIds)
       .neq("status", "cancelled")
       .lte("check_in", windowEnd)
@@ -255,6 +262,7 @@ export default async function CalendarPage({
       const lastNight = addDaysISO(b.check_out, -1);
       const pos = place(b.check_in, lastNight);
       if (!pos) continue;
+      const shortStay = rowShortStay(b);
       segments.push({
         key: `b-${b.id}`,
         kind: "booking",
@@ -265,7 +273,11 @@ export default async function CalendarPage({
         color: sourceColor(b.source),
         source: b.source,
         title: b.guest_name ?? "Guest",
-        dateRange: `${formatDayMonth(b.check_in)} – ${formatDayMonth(b.check_out)}`,
+        // A short stay leaves the day it arrives — its hours are the range.
+        dateRange: shortStay
+          ? formatDayMonth(b.check_in)
+          : `${formatDayMonth(b.check_in)} – ${formatDayMonth(b.check_out)}`,
+        hours: shortStay && formatShortStayWindow(shortStay.start, shortStay.end),
         amount: b.sale_price ? formatPKR(b.sale_price) : null,
         tentative: b.status === "tentative",
         href: `/admin/bookings/${b.id}`,
@@ -288,6 +300,7 @@ export default async function CalendarPage({
         source: null,
         title: bl.notes ?? (booked ? "Booked" : "Blocked"),
         dateRange: `${formatDayMonth(bl.start_date)} – ${formatDayMonth(bl.end_date)}`,
+        hours: null,
         amount: null,
         tentative: false,
         href: `/admin/calendar/block?month=${monthStr}`,
@@ -328,6 +341,7 @@ export default async function CalendarPage({
     id: p.id,
     name: p.name,
     stack_rate: p.stackRate,
+    short_stay_stack_rate: p.shortStayRate,
     client_id: p.clientId,
     client_name: p.clientName,
   }));

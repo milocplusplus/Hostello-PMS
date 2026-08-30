@@ -79,6 +79,10 @@ export async function findStayClash(
     .select("check_in, check_out")
     .in("id", bookingIds)
     .neq("status", "cancelled")
+    // A short stay holds its date only until the guest is ticked out; after
+    // that the same day can be sold again. Overnight stays hold their nights
+    // regardless.
+    .or("is_short_stay.eq.false,checked_out_at.is.null")
     .lt("check_in", checkOut)
     .gt("check_out", checkIn)
     .limit(1);
@@ -110,7 +114,9 @@ export async function listUnavailable(
   const [links, blocks] = await Promise.all([
     supabase
       .from("booking_properties")
-      .select("property_id, booking_id, bookings!inner(check_in, check_out, status)")
+      .select(
+        "property_id, booking_id, bookings!inner(check_in, check_out, status, is_short_stay, checked_out_at)"
+      )
       .in("property_id", propertyIds)
       .neq("bookings.status", "cancelled")
       // check_out is exclusive, so the last night is check_out - 1: a stay is
@@ -127,8 +133,15 @@ export async function listUnavailable(
 
   for (const link of links.data ?? []) {
     if (link.booking_id === options.excludeBookingId) continue;
-    const booking = link.bookings as unknown as { check_in: string; check_out: string } | null;
+    const booking = link.bookings as unknown as {
+      check_in: string;
+      check_out: string;
+      is_short_stay: boolean;
+      checked_out_at: string | null;
+    } | null;
     if (!booking) continue;
+    // A finished short stay leaves its date free for the rest of the day.
+    if (booking.is_short_stay && booking.checked_out_at) continue;
     ranges.push({
       propertyId: link.property_id,
       start: booking.check_in,

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, BedDouble, Wallet, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
@@ -20,6 +21,9 @@ type Row = {
   settled: boolean;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  is_short_stay: boolean;
+  short_stay_start: string | null;
+  short_stay_end: string | null;
   booking_properties: unknown;
 };
 
@@ -40,7 +44,7 @@ export default async function ClientTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, checked_in_at, checked_out_at, booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))";
 
   const [{ data: stays }, { data: unsettled }, { data: blocks }] = await Promise.all([
     supabase
@@ -81,11 +85,14 @@ export default async function ClientTodayPage() {
     href: `/client/bookings/${b.id}`,
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
+    shortStay: rowShortStay(b),
   });
 
   const rows = (stays ?? []) as unknown as Row[];
   const arrivals = rows.filter((b) => b.check_in === today).map(toStay);
-  const departures = rows.filter((b) => b.check_out === today).map(toStay);
+  const departures = rows
+    .filter((b) => departureDate(b.check_in, b.check_out, b.is_short_stay) === today)
+    .map(toStay);
   const staying = rows.filter((b) => b.check_in < today && b.check_out > today).map(toStay);
   const awaiting = (unsettled ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
 

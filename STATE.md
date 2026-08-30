@@ -876,6 +876,65 @@ reassign the alias, so nothing broke.
   - **Not verified against a running app** — still no `.env.local` here. The
     notification path in particular is unproven: it has never been fired.
 
+
+- **Owed to Hostello** (2026-08-29). `npm run build` and `npm run lint` clean.
+  Migrations `20260828213722_add_client_payouts_owed_to_hostello` and
+  `20260828213754_add_client_payout_allocation_functions` — **applied to the live
+  DB and committed.**
+  - **The bug this had to settle first: `bookings.settled` meant two opposite
+    things.** Admin labelled it "Mark received" and summed the unticked ones as
+    money owners owe Hostello; the owner's portal labelled the *same tick* "Paid
+    out" and summed the unticked ones as money Hostello owes them. A booking has
+    two settlements, so it now has two columns: **`share_received`** (Hostello
+    has its cut) and **`settled`** (the owner has theirs), independent. The
+    backfill copied `settled` into `share_received` because the admin screens
+    were the only ones writing it. Every admin "awaiting" figure — dashboard,
+    Bookings & Payouts, Clients, client detail — now reads `share_received`; the
+    client portal's "awaiting payout" keeps reading `settled`, and is finally
+    telling the truth.
+  - **`/client/payouts`** — the balance, the bookings behind it (oldest first,
+    part-payments shown), a form to record a payment, and their own history.
+    Online demands a screenshot, cash does not; the field follows the method,
+    which is the only reason `RecordPayoutForm` is a client component. The form
+    caps the amount at the balance **less anything already pending**, so one
+    payment cannot be filed twice.
+  - **`/admin/payouts`** — review queue, owed-by-client, reviewed log. Confirm
+    and reject sit in one form (`formAction` on the second button) because the
+    reason box belongs to reject but has to reach it.
+  - **A pending entry moves no money.** Confirming calls `apply_client_payout`,
+    which marks the entry received and allocates it across open bookings oldest
+    check-in first, closing each as it is fully covered — one transaction, one
+    round trip to Sydney, and idempotent, so a re-submitted form is not a second
+    payment. An overpayment comes back as an unallocated remainder.
+    `revoke_client_payout` is the undo, and reopens only the bookings the
+    remaining allocations no longer cover.
+  - **Rejecting changes nothing but the record**: the row stays, shows the
+    admin's reason to the owner, and can be corrected and resubmitted in place.
+  - **`markShareReceived`** closes one booking with no payment against it — the
+    case where Hostello kept its share out of money it already held and only
+    forwarded the owner's part.
+  - Four notification kinds: `payout_submitted` (admin), `payout_confirmed` /
+    `payout_rejected` / `share_received` (owner). `notificationHref` sends the
+    `payout_*` ones to the payouts page, since they belong to no one booking. A
+    resubmission carries a timestamp in its event key so it announces itself
+    again; a double-tap does not.
+  - Screenshots go to a new private **`payout-receipts`** bucket at
+    `<client_id>/<uuid>.<ext>` — owners may write into their own folder there,
+    unlike `booking-receipts`. Policies use `objects.name`, per the old bite.
+  - **Verified against the live database, not just by rendering** — inside
+    transactions that rolled back, with no test rows committed. Allocation: 2500
+    against shares of 1000/2000/3000 closed the first and part-covered the
+    second; a following 4000 closed the rest and returned 500 as credit;
+    replaying a confirmed entry allocated nothing; revoking the 4000 reopened
+    exactly the two bookings it had covered. Security, as a client user: filing
+    an entry pre-marked received, filing against another owner, promoting their
+    own entry to received, and calling either RPC were all refused; another
+    owner's entries were invisible; filing and editing their own pending entry
+    worked.
+  - **The UI itself has still never been rendered signed in** — no `.env.local`
+    on this machine, so the pages, the upload and the notifications are unproven
+    in a browser.
+
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from
@@ -928,4 +987,6 @@ reassign the alias, so nothing broke.
 - Booking `check_out` is exclusive; `calendar_blocks.end_date` is inclusive. The
   calendar's `place()` helper converts check_out to an inclusive last night before
   clipping — keep it that way.
-- Don't build Channels / Pricing / Expenses / Payouts / Reports — no tables back them.
+- Don't build Channels / Pricing / Expenses / Reports — no tables back them.
+- Owed to Hostello has real tables now. `share_received` is the owner-owes-Hostello
+  direction, `settled` is the Hostello-owes-owner one. Never sum one as the other.

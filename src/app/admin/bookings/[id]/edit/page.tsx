@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { updateBooking } from "../../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
+import { rowShortStay } from "@/lib/short-stay";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function EditBookingPage({
@@ -21,7 +22,7 @@ export default async function EditBookingPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, client_id, guest_name, guest_phone, check_in, check_out, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
+      "id, client_id, guest_name, guest_phone, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -44,7 +45,7 @@ export default async function EditBookingPage({
       .single(),
     supabase
       .from("properties")
-      .select("id, name, stack_rate, client_id, status")
+      .select("id, name, stack_rate, short_stay_stack_rate, client_id, status")
       .eq("client_id", booking.client_id)
       .order("name"),
   ]);
@@ -59,6 +60,7 @@ export default async function EditBookingPage({
       id: p.id,
       name: p.name,
       stack_rate: Number(p.stack_rate ?? 0),
+      short_stay_stack_rate: Number(p.short_stay_stack_rate ?? 0),
       client_id: p.client_id,
       client_name: clientRecord.name,
     }));
@@ -109,6 +111,7 @@ export default async function EditBookingPage({
           status: booking.status as "confirmed" | "tentative",
           notes: booking.notes,
           extraUnitIds: bookedIds.slice(1),
+          shortStay: rowShortStay(booking),
         }}
         submitLabel="Save changes"
         error={error}

@@ -28,6 +28,20 @@ export function isOtaSource(source: string): boolean {
 }
 
 /**
+ * Does this booking's share come out of the stack rate? The same branch
+ * `calculatePayout` takes below, exported so a form can warn that the rate it
+ * is about to divide by is zero rather than silently handing Hostello the lot.
+ */
+export function usesStackRate(input: {
+  dealModel: DealModel;
+  otaModel: OtaModel;
+  source: string;
+}): boolean {
+  if (isOtaSource(input.source)) return input.otaModel === "stack";
+  return input.dealModel === "ads" || input.dealModel === "fixed_stack";
+}
+
+/**
  * Nights are always derived from dates, never typed in.
  * Check-out day does not count (5th to 8th is 3 nights).
  */

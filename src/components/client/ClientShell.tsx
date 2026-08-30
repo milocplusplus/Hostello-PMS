@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   CalendarDays,
   Wallet,
+  HandCoins,
   BarChart3,
   Bell,
   Sun,
@@ -30,6 +31,7 @@ const NAV = [
   { href: "/client/checkins", label: "Check-ins", icon: LogIn, exact: false },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
+  { href: "/client/payouts", label: "Owed to Hostello", icon: HandCoins, exact: false },
   { href: "/client/stats", label: "Stats", icon: BarChart3, exact: false },
   { href: "/client/notifications", label: "Notifications", icon: Bell, exact: false },
 ];

@@ -2,11 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { calculatePayout, isOtaSource, type DealModel, type OtaModel } from "@/lib/payout";
+import { calculatePayout, isOtaSource, usesStackRate, type DealModel, type OtaModel } from "@/lib/payout";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
 import { StayDates } from "@/components/shared/StayDates";
 import type { UnavailableRange } from "@/lib/availability";
+import {
+  DEFAULT_SHORT_STAY,
+  shortStayCheckOut,
+  shortStayHours,
+} from "@/lib/short-stay";
 import {
   fieldLabel,
   fieldInput,
@@ -19,6 +24,7 @@ type PropertyOption = {
   id: string;
   name: string;
   stack_rate: number;
+  short_stay_stack_rate: number;
   client_id: string;
   client_name: string;
 };
@@ -42,6 +48,8 @@ export type BookingFormValues = {
   status: "confirmed" | "tentative";
   notes: string | null;
   extraUnitIds: string[];
+  /** Set only when the booking is hours rather than nights. */
+  shortStay: { start: string; end: string } | null;
 };
 
 export function BookingForm({
@@ -81,6 +89,9 @@ export function BookingForm({
   const [extraUnitIds, setExtraUnitIds] = useState<string[]>(values?.extraUnitIds ?? []);
   const [checkIn, setCheckIn] = useState(initialDate ?? "");
   const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
+  const [shortStay, setShortStay] = useState(Boolean(values?.shortStay));
+  const [stayStart, setStayStart] = useState(values?.shortStay?.start ?? DEFAULT_SHORT_STAY.start);
+  const [stayEnd, setStayEnd] = useState(values?.shortStay?.end ?? DEFAULT_SHORT_STAY.end);
   const [salePrice, setSalePrice] = useState(values ? String(values.salePrice) : "");
   const [source, setSource] = useState(values?.source ?? "hostello");
   // An edit reopens with everything visible — those fields already have values,
@@ -104,12 +115,17 @@ export function BookingForm({
 
   const selectedIds = useMemo(() => [propertyId, ...extraUnitIds], [propertyId, extraUnitIds]);
 
+  // A short stay is charged against the unit's own short-stay rate — flat for
+  // the stay, where the nightly rate is per night.
   const stackRateTotal = useMemo(
     () =>
       sortedProperties
         .filter((p) => selectedIds.includes(p.id))
-        .reduce((sum, p) => sum + Number(p.stack_rate ?? 0), 0),
-    [sortedProperties, selectedIds]
+        .reduce(
+          (sum, p) => sum + Number((shortStay ? p.short_stay_stack_rate : p.stack_rate) ?? 0),
+          0
+        ),
+    [sortedProperties, selectedIds, shortStay]
   );
 
   /** Only the nights taken on the units in *this* booking. */
@@ -142,6 +158,14 @@ export function BookingForm({
       status,
     });
   }, [checkIn, checkOut, salePrice, client, stackRateTotal, source, status]);
+
+  const stackBased = client
+    ? usesStackRate({ dealModel: client.deal_model, otaModel: client.ota_model, source })
+    : false;
+  // Without a rate the stack maths hands Hostello the entire net, which is
+  // never what "we also do short stays" means.
+  const missingShortStayRate = shortStay && stackBased && stackRateTotal === 0;
+  const badWindow = shortStay && stayEnd <= stayStart;
 
   return (
     <form action={action} className="card p-6 flex flex-col gap-4">
@@ -207,8 +231,33 @@ export function BookingForm({
         </div>
       )}
 
+      <input type="hidden" name="is_short_stay" value={shortStay ? "1" : ""} />
+      {shortStay && (
+        <>
+          <input type="hidden" name="short_stay_start" value={stayStart} />
+          <input type="hidden" name="short_stay_end" value={stayEnd} />
+        </>
+      )}
+
       <div className="flex flex-col gap-1.5">
-        <label className={fieldLabel}>Dates</label>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <label className={fieldLabel}>{shortStay ? "Day" : "Dates"}</label>
+          <label className="flex items-center gap-1.5 text-xs text-ink-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={shortStay}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setShortStay(on);
+                // The picked range means something different on each side, so
+                // keep the day and re-derive rather than carrying nights over.
+                if (checkIn) setCheckOut(on ? shortStayCheckOut(checkIn) : "");
+              }}
+              className="accent-[var(--color-hostello-gold)]"
+            />
+            Short stay (hours, not a night)
+          </label>
+        </div>
         <StayDates
           checkIn={checkIn}
           checkOut={checkOut}
@@ -217,8 +266,38 @@ export function BookingForm({
             setCheckOut(to);
           }}
           busy={busy}
+          mode={shortStay ? "day" : "nights"}
         />
       </div>
+
+      {shortStay && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="stay_start" className={fieldLabel}>
+              From
+            </label>
+            <input
+              id="stay_start"
+              type="time"
+              value={stayStart}
+              onChange={(e) => setStayStart(e.target.value)}
+              className={fieldInput}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="stay_end" className={fieldLabel}>
+              To
+            </label>
+            <input
+              id="stay_end"
+              type="time"
+              value={stayEnd}
+              onChange={(e) => setStayEnd(e.target.value)}
+              className={fieldInput}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
@@ -366,7 +445,10 @@ export function BookingForm({
       {preview && (
         <div className="rounded-md border border-hostello-gold/40 bg-hostello-gold/5 p-4 flex flex-col gap-1.5 text-sm">
           <p className="text-ink-secondary">
-            {preview.nights} night{preview.nights === 1 ? "" : "s"} · Net after deduction:{" "}
+            {shortStay
+              ? `Short stay · ${shortStayHours(stayStart, stayEnd)} hours`
+              : `${preview.nights} night${preview.nights === 1 ? "" : "s"}`}{" "}
+            · Net after deduction:{" "}
             <span className="text-ink-primary">Rs {preview.netSale.toLocaleString("en-PK")}</span>
           </p>
           <p className="text-ink-secondary">
@@ -396,9 +478,25 @@ export function BookingForm({
         </p>
       )}
 
+      {badWindow && <p className={errorBanner}>The short stay has to end after it starts.</p>}
+
+      {missingShortStayRate && (
+        <p className={errorBanner}>
+          No short-stay rate is set on{" "}
+          {sortedProperties
+            .filter((p) => selectedIds.includes(p.id))
+            .map((p) => p.name)
+            .join(", ")}
+          . Set one on the property first, or this stay hands Hostello the whole net.
+        </p>
+      )}
+
       {error && <p className={errorBanner}>{error}</p>}
 
-      <SubmitButton label={submitLabel} disabled={!checkIn || !checkOut || rangeBlocked} />
+      <SubmitButton
+        label={submitLabel}
+        disabled={!checkIn || !checkOut || rangeBlocked || badWindow || missingShortStayRate}
+      />
     </form>
   );
 }

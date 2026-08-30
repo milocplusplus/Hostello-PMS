@@ -6,6 +6,7 @@ import { currentClient, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
@@ -42,7 +43,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -59,6 +60,7 @@ export default async function ClientBookingDetailPage({
     .filter((p): p is { id: string; name: string; city: string | null; type: string | null } => Boolean(p));
 
   const nights = nightsBetween(booking.check_in, booking.check_out);
+  const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
   const deduction = gross - Number(booking.net_sale ?? gross);
 
@@ -89,9 +91,13 @@ export default async function ClientBookingDetailPage({
 
           <div className="flex items-center gap-2 text-sm text-ink-primary">
             <CalendarDays size={14} className="text-ink-muted" />
-            {formatDayMonth(booking.check_in)} → {formatDayMonth(booking.check_out)}
+            {shortStay
+              ? formatDayMonth(booking.check_in)
+              : `${formatDayMonth(booking.check_in)} → ${formatDayMonth(booking.check_out)}`}
             <span className="text-ink-muted text-xs">
-              ({nights} {nights === 1 ? "night" : "nights"})
+              {shortStay
+                ? `short stay · ${formatShortStayWindow(shortStay.start, shortStay.end)}`
+                : `(${nights} ${nights === 1 ? "night" : "nights"})`}
             </span>
           </div>
 
