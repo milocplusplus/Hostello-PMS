@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft, CalendarSync } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { sourceColor } from "@/lib/block-sources";
@@ -164,15 +164,17 @@ export default async function CalendarPage({
   const propertyIds = visible.map((p) => p.id);
 
   // ---- Data ---------------------------------------------------------------
-  // A channel or status filter is about bookings; manual blocks have neither,
-  // so they drop out of the view rather than pretending to match. Otherwise the
-  // blocks depend only on the property ids and go out with the link lookup.
+  // A status filter is about bookings; a block has no status, so blocks drop
+  // out rather than pretending to match. A *channel* filter is different now
+  // that imported dates carry the channel they came from — those are kept and
+  // matched below; manual blocks still drop out. Otherwise the blocks depend
+  // only on the property ids and go out with the link lookup.
   const [{ data: bookingLinks }, { data: blocks }] = await Promise.all([
     supabase
       .from("booking_properties")
       .select("booking_id, property_id")
       .in("property_id", propertyIds),
-    channelFilter || statusFilter
+    statusFilter
       ? Promise.resolve({
           data: [] as {
             id: string;
@@ -181,11 +183,13 @@ export default async function CalendarPage({
             end_date: string;
             block_type: string;
             notes: string | null;
+            source: string | null;
+            feed_id: string | null;
           }[],
         })
       : supabase
           .from("calendar_blocks")
-          .select("id, property_id, start_date, end_date, block_type, notes")
+          .select("id, property_id, start_date, end_date, block_type, notes, source, feed_id")
           .in("property_id", propertyIds)
           .lte("start_date", windowEnd)
           .gte("end_date", windowStart),
@@ -285,6 +289,9 @@ export default async function CalendarPage({
     }
 
     for (const bl of blocksByProperty.get(p.id) ?? []) {
+      // Under a channel filter only imported dates from that channel survive.
+      if (channelFilter && (!bl.feed_id || bl.source !== channelFilter)) continue;
+
       // calendar_blocks.end_date is inclusive.
       const pos = place(bl.start_date, bl.end_date);
       if (!pos) continue;
@@ -297,13 +304,13 @@ export default async function CalendarPage({
         startDate: bl.start_date,
         endDate: bl.end_date,
         color: booked ? "var(--color-status-booked)" : "var(--color-status-blocked)",
-        source: null,
+        source: bl.feed_id ? bl.source : null,
         title: bl.notes ?? (booked ? "Booked" : "Blocked"),
         dateRange: `${formatDayMonth(bl.start_date)} – ${formatDayMonth(bl.end_date)}`,
         hours: null,
         amount: null,
         tentative: false,
-        href: `/admin/calendar/block?month=${monthStr}`,
+        href: bl.feed_id ? "/admin/calendar/feeds" : `/admin/calendar/block?month=${monthStr}`,
       });
     }
 
@@ -375,6 +382,13 @@ export default async function CalendarPage({
         >
           <Lock size={13} />
           Block dates
+        </Link>
+        <Link
+          href="/admin/calendar/feeds"
+          className="rounded-md py-2 px-3 text-xs font-medium text-ink-secondary border border-border-hairline flex items-center gap-1.5 hover:border-border-strong transition-colors"
+        >
+          <CalendarSync size={13} />
+          Channels
         </Link>
         <Link
           href="/admin/bookings/new"

@@ -30,6 +30,9 @@ export default async function BlockDatesPage({
   const { data: blocks } = await supabase
     .from("calendar_blocks")
     .select("id, property_id, start_date, end_date, notes, properties(name)")
+    // Imported channel dates are managed on /admin/calendar/feeds — unblocking
+    // one here would only bring it back on the next sync.
+    .is("feed_id", null)
     .order("start_date", { ascending: false })
     .limit(50);
 

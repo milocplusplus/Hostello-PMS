@@ -33,6 +33,21 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   day); `?client=<id>` renders that one client's property timeline. A bare
   `?property=` resolves to its owning client. Holds `place()` / `buildRow()`, the
   availability math. `calendar/block/page.tsx` + `calendar/actions.ts` handle blocking.
+  `calendar/feeds/**` is both directions of channel sync. **In:** connect a
+  channel's iCal export (Airbnb, Booking.com) and import its dates as blocks.
+  **Out:** publish a property's occupied nights at
+  `https://<ref>.supabase.co/functions/v1/ical/<token>` — the `ical` Edge
+  Function over the `ical_export_document()` SQL function. Airbnb has no API for
+  ordinary hosts; iCal is the only route, and it carries dates but no guest name
+  and no price, so an imported night is a block, never a booking.
+- `supabase/functions/ical-sync/` — **the only code that reads a channel
+  calendar.** It is an edge function and not app code because pg_cron has to run
+  the same sync every minute and nothing external can call a Server Action.
+  `src/lib/ical-sync.ts` is only a caller: it forwards the admin's own session
+  token, so no service-role key is needed in Vercel. The *rules* (booked vs
+  blocked, what is stale, when to raise a clash) live in
+  `sync_calendar_feed_apply()` in SQL, next to the data where cron can reach
+  them; the function only fetches and parses.
 - `src/app/admin/clients/**` — client CRUD, and nested property CRUD under
   `clients/[id]/properties/**`
 - `src/app/admin/bookings/**` — booking list + create + `actions.ts`
@@ -161,7 +176,19 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   bookings a confirmed payment cleared. Written only by `apply_client_payout`.
 - `booking_properties` — booking_id, property_id (many-to-many; multi-unit bookings)
 - `calendar_blocks` — start_date/end_date (**inclusive**), block_type enum(`blocked|booked`);
-  `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design
+  `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design.
+  `feed_id` + `external_uid` mark a row an imported channel date owns; both null
+  on a block a person made, and a sync only ever touches its own rows.
+- `calendar_feeds` — property_id, url, source(`booking_source`), label, active,
+  last_synced_at, last_error, last_event_count. One channel iCal link per
+  property. Deleting it cascades away the blocks it imported.
+- `calendar_exports` — property_id (**unique**), token, active, last_fetched_at,
+  fetch_count. The link a channel subscribes to. `ical_export_document(token)`
+  builds the document; it is SECURITY DEFINER and `execute` is granted **only to
+  `service_role`**, because the only caller is the `ical` Edge Function.
+  The import side's `sync_calendar_feed_apply()` / `sync_calendar_feed_failed()`
+  / `is_ical_sync_secret()` are locked down the same way. The sync's shared
+  secret lives in **Vault** (`ical_sync_secret`), never in a table or the repo.
 - `notifications` — **one row per event**: kind (text), category
   (`booking|payment|calendar|system|critical`), audience (`admin|client|both`),
   title, body, client_id (nullable), booking_id, property_id, actor_user_id,
@@ -275,10 +302,39 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   has a `name` column, so an unqualified `name` inside a subquery that joins
   `clients` silently binds to *that* column and the policy denies everything.
   This bit the receipt policies once already.
-- Channels / Pricing / Expenses / Reports have **zero backing tables** —
-  out of scope, no nav for them. Neither do guest messaging, housekeeping,
-  maintenance, staff assignment or OTA sync, so there are no notifications for
-  them either. Do not invent one; add the table first.
+- Pricing / Expenses / Reports have **zero backing tables** — out of scope, no
+  nav for them. Neither do guest messaging, housekeeping, maintenance or staff
+  assignment, so there are no notifications for them either. Do not invent one;
+  add the table first. OTA sync is the one exception and is now fully built:
+  `calendar_feeds` in, `calendar_exports` out, a `calendar_conflict`
+  notification when they disagree, and a 5-minute schedule.
+- **`pg_safeupdate` is on for this database**: an UPDATE or DELETE with no
+  WHERE clause fails with `21000: DELETE requires a WHERE clause`, *including*
+  against a temporary table inside a function. This is why
+  `sync_calendar_feed_apply()` re-derives its event set from the jsonb argument
+  instead of staging it in a temp table.
+- **A cron cannot call `emit_notification`** — it raises on a null `auth.uid()`.
+  System-generated notifications insert into `notifications` directly from a
+  SECURITY DEFINER function with no `actor_user_id`; `notify_daily_stays()` and
+  `sync_calendar_feed_apply()` both do this. Application code still goes
+  through `notify.ts`.
+- **`findStayClash()` now makes a network call.** After the local checks pass it
+  asks the connected channels directly, to cover the minutes between two
+  scheduled syncs. It short-circuits on one indexed query when the property has
+  no feed, and **returns null when a channel is unreachable** — never fail a
+  booking because an OTA was down.
+- **`ical_export_document()` is a second copy of `listUnavailable()`'s rules**
+  (src/lib/availability.ts), in SQL, because a Deno edge function cannot import
+  the app's TypeScript. Cancelled frees its nights, a ticked-out short stay
+  frees its date, a block is inclusive. Change one, change the other.
+- **A published export URL is a credential.** It is fetched anonymously, so
+  anyone holding it sees those dates. That is why the document carries dates and
+  nothing else — never add a guest name, phone or price to it.
+- **OTA sync is asymmetric and only half of it can be fast.** Reading Airbnb's
+  `.ics` is on our schedule, so it can be near-live. Airbnb re-reads *our* feed
+  on its own schedule (~2h) and nothing can hurry it — so never describe the
+  app→channel direction as real-time, and close the gap by checking the feed at
+  booking-save time instead.
 - **Browser push needs three env vars** — `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
   `VAPID_PRIVATE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (the sender has to read
   other users' subscriptions, which no session may do). Without them `push.ts`

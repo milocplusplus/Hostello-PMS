@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDaysISO, formatDayMonth, todayISO } from "./calendar";
+import { checkChannelClash } from "./ical-sync";
 
 /**
  * What makes a night unavailable, in one place.
@@ -95,7 +96,12 @@ export async function findStayClash(
     )}).`;
   }
 
-  return null;
+  // Nothing local objects, so ask the channels themselves. The scheduled sync
+  // runs every minute; this covers the gap between two of them, for the
+  // case where Airbnb sold the night a moment ago. It stays quiet when no
+  // channel is connected and when one cannot be reached — see
+  // `checkChannelClash`, which never fails a booking on a channel's behalf.
+  return await checkChannelClash(supabase, { propertyIds, checkIn, checkOut });
 }
 
 /**

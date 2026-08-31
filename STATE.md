@@ -250,6 +250,121 @@
     (1 each) but is DENIED on both the table insert and the storage insert.
   - Deployed 2026-08-25 as `dpl_6udvjNvVe1WeAbpRC6JPeq69R5EF` (READY, production,
     commit `9d13783`).
+- **Channel calendar sync, Phase 1 — import only** (2026-08-30). Airbnb has no
+  API for ordinary hosts; iCal is the only route, and it is two independent
+  one-way feeds. This phase is the direction that prevents double-bookings:
+  reading a channel's `.ics` and holding those nights.
+  - Migration `add_calendar_feeds_ical_import`: `calendar_feeds` (property_id,
+    url, source, label, active, last_synced_at, last_error, last_event_count),
+    admin-full-access + owner-read RLS, plus `feed_id` / `external_uid` on
+    `calendar_blocks` and a unique index on the pair. A feed-owned block has a
+    `feed_id`; a human's is null and is never touched by a sync.
+  - `src/lib/ical.ts` — RFC 5545 reader (line unfolding, `\n` `\,` `\;` `\\`
+    unescaping, `STATUS:CANCELLED` dropped). **`DTEND` is exclusive, so the last
+    night is `DTEND − 1`** — the same off-by-one as everywhere else here.
+  - `src/lib/ical-sync.ts` — `syncFeed` / `syncAllFeeds`. The feed is the
+    authority for its own rows: present → upsert on `(feed_id, external_uid)`,
+    absent → delete, **but only when `end_date >= today`**, because OTA feeds
+    trim their history and following them would erase last month's calendar.
+    15s fetch timeout, 2MB cap, rejects a body with no `BEGIN:VCALENDAR`.
+  - `/admin/calendar/feeds` (+ `actions.ts`) — connect / sync now / sync all /
+    disconnect. Adding a feed syncs immediately so a wrong link says so at once.
+    `validateFeedUrl` refuses non-http(s) and loopback/private hosts: the server
+    fetches whatever is saved here.
+  - Calendar page: block query now selects `source, feed_id`; imported bars carry
+    the channel colour and link to `/admin/calendar/feeds`. A **channel** filter
+    now keeps imported blocks of that channel instead of dropping all blocks (a
+    status filter still drops them — a block has no status). The manual block
+    list on `/admin/calendar/block` filters to `feed_id is null`, since
+    unblocking an imported date would only bring it back on the next sync.
+  - Verified: `npm run build` + `npm run lint` clean; the parser unit-checked
+    against a real Airbnb-shaped feed (folded DESCRIPTION, CRLF, cancelled
+    event, both date conversions). **Not** exercised against a live Airbnb link
+    or a signed-in session yet.
+- **Channel calendar sync, Phase 2 — export** (2026-08-30). Publishing a
+  property's occupied nights as an `.ics` a channel can subscribe to.
+  - The fetcher is anonymous, so this needs a public unauthenticated URL, which
+    a Server Component cannot be. Rather than add this repo's first route
+    handler, the document is built in Postgres and served by a **Supabase Edge
+    Function** (`ical`, `verify_jwt: false`, ~80 lines of doorway).
+    URL shape: `https://<ref>.supabase.co/functions/v1/ical/<token>`.
+  - Migration `add_calendar_exports_ical_publish`: `calendar_exports`
+    (property_id **unique**, token, active, last_fetched_at, fetch_count) +
+    `ical_escape()` + `ical_export_document(p_token)`. The document function is
+    SECURITY DEFINER with `execute` revoked from `public, anon, authenticated`
+    and granted **only to `service_role`** — confirmed with
+    `has_function_privilege`. Follow-up migration pins `ical_escape`'s
+    search_path (the linter flags any function without one).
+  - **The occupied-nights rules in `ical_export_document` mirror
+    `listUnavailable()` in `src/lib/availability.ts`** — cancelled booking frees
+    its nights, short stay frees its date once `checked_out_at` is set, block
+    holds start..end inclusive. Two implementations of one rule because Deno
+    cannot import the app's TS; change one, change the other.
+  - `DTEND` is exclusive: a booking's `check_out` passes straight through, a
+    block's inclusive `end_date` gets +1.
+  - Published documents carry **dates only** — no guest name, phone or price.
+    The token in the URL is the whole credential, so the payload must be dull.
+    404 is returned for unknown, disabled and malformed tokens alike, so the
+    endpoint cannot be used to tell live tokens from dead ones.
+  - UI: second half of `/admin/calendar/feeds` ("Send our dates out") — create /
+    copy / re-issue / delete a link per property, plus when a channel last read
+    it. New `src/components/admin/CopyLinkButton.tsx`.
+  - Verified for real: the document rendered inside a **rolled-back**
+    transaction against live property D-102 with a seeded future booking
+    (09-01→09-05 exclusive → `DTSTART 20260901 / DTEND 20260905`), an inclusive
+    block (09-10..09-12 → `DTEND 20260913`), a cancelled booking and a
+    ticked-out short stay (both correctly absent). Live endpoint returns 200
+    `text/calendar` for a good token, 404 for unknown/malformed, and HEAD works;
+    `fetch_count` went 0→2 over two reads and `last_fetched_at` stamped. Every
+    test row was removed — `calendar_exports` is empty again. Finally the
+    exported document was fed back through the Phase 1 parser and produced the
+    same inclusive nights, so the two halves agree.
+- **Channel calendar sync, Phase 3 — schedule, alerting, live check**
+  (2026-08-30). Also a **consolidation**: Phase 1 put the fetch/parse in
+  `src/lib/ical.ts`, and a cron cannot call a Server Action, so scheduling it
+  would have meant a second copy in Deno. Instead there is now one
+  implementation and the app calls it.
+  - `supabase/functions/ical-sync/` — the only place a channel calendar is
+    read. `POST {action:"sync", feed_id?}` and `POST {action:"check",
+    property_ids, check_in, check_out}`. Two ways in, both checked in the
+    function body (`verify_jwt:false`, because the cron path has no JWT): an
+    admin's session JWT, or the shared secret in `X-Sync-Secret`.
+  - `src/lib/ical.ts` is **deleted**; `src/lib/ical-sync.ts` is now only a
+    caller that forwards the admin's own access token — so no service-role key
+    is needed in Vercel for this.
+  - `sync_calendar_feed_apply(feed_id, events)` holds the *rules* — what counts
+    as booked, what a stale row is, when a clash is worth a notification — next
+    to the data, where cron can reach them. The edge function only does the two
+    things SQL is bad at: an outbound fetch and parsing iCal.
+  - Clash alerting: an imported date overlapping a live booking inserts a
+    `calendar_conflict` notification directly (SECURITY DEFINER, no
+    `actor_user_id`) — the same pattern `notify_daily_stays()` already uses,
+    because `emit_notification` raises on a null `auth.uid()` and a cron has
+    none. Same kind/category/event_key as `notifyCalendarConflict()` so the two
+    paths collapse rather than double-report.
+  - Schedule: `pg_net` + pg_cron job `hostello-ical-sync`, `* * * * *`, via
+    `run_ical_sync()`, which reads the secret from **Vault** at call time so it
+    is never in `cron.job`, a migration or the repo. It no-ops when no feed is
+    connected. pg_net is async — replies land in `net._http_response`, which is
+    where to look when a sync seems not to have run.
+  - Live pre-save check: wired into **`findStayClash()`** rather than the four
+    call sites, so both portals' create and edit paths get it. It returns null
+    (i.e. allows the booking) when no channel is connected or a channel is
+    unreachable — refusing to sell a room because Airbnb was down is a worse
+    outage than the one it guards against. It also short-circuits on one local
+    indexed query, so a property with no feed pays nothing.
+  - Verified end to end against the live database, driven through
+    `run_ical_sync()` (so: vault secret → pg_net → edge auth → fetch → parse →
+    reconcile), by pointing a feed on D-103 at D-102's own export link:
+    booking 09-01→09-05 exclusive arrived as **09-01..09-04 inclusive**, block
+    09-10..09-12 arrived unchanged, `block_type` derived right from the
+    summaries, one `calendar_conflict` notification written and fanned out to 1
+    recipient. A second run was a clean no-op (0/0/0/0). Cancelling on the
+    publishing side removed exactly one imported row on the next sync. Every
+    test row deleted afterwards — feeds, exports and blocks are all back to 0
+    and bookings back to 14.
+  - Security advisor after the change: **no new warnings**. The new functions
+    are service_role-only with pinned search_paths.
 
 ## Deployment
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
@@ -955,6 +1070,24 @@ reassign the alias, so nothing broke.
    digest row per client instead of one per booking, keyed the same way.
 5. Open the bell and both day sheets once signed in — like everything since
    Phase 4 they were verified by rendering, not against real data.
+6. **Connect one real Airbnb link** on `/admin/calendar/feeds` and check the
+   imported nights land on the right dates — the `DTEND − 1` conversion is unit
+   tested but has never met a live feed.
+7. **Paste one export link into a real Airbnb listing** and confirm Airbnb
+   accepts it and the nights close. The document is verified; Airbnb's reaction
+   to it is not. `last_fetched_at` on `/admin/calendar/feeds` is how you tell
+   whether Airbnb ever actually came to read it.
+8. **Watch the first few `hostello-ical-sync` runs** once a real feed is
+   connected: `select * from cron.job_run_details where jobname is not null
+   order by start_time desc limit 10;` and
+   `select id, status_code, content from net._http_response order by id desc
+   limit 10;`. Two things only real traffic answers — whether a real Airbnb feed
+   parses cleanly, and whether a property with many bookings makes the clash
+   notification feel like spam. If it does, the change is one digest row per
+   feed per run instead of one per clashing booking, keyed the same way.
+9. Consider committing `supabase/functions/` deploys to a script — right now
+   both edge functions were deployed straight to Supabase from this session and
+   the repo copies are the record, not the mechanism.
 
 ## Open questions / debt
 - **Client password reset is undeliverable with fake emails.** `requestPasswordReset`
@@ -987,6 +1120,7 @@ reassign the alias, so nothing broke.
 - Booking `check_out` is exclusive; `calendar_blocks.end_date` is inclusive. The
   calendar's `place()` helper converts check_out to an inclusive last night before
   clipping — keep it that way.
-- Don't build Channels / Pricing / Expenses / Reports — no tables back them.
+- Don't build Pricing / Expenses / Reports — no tables back them. Channel sync
+  now has one (`calendar_feeds`), but import only — see the Phase 1 entry above.
 - Owed to Hostello has real tables now. `share_received` is the owner-owes-Hostello
   direction, `settled` is the Hostello-owes-owner one. Never sum one as the other.
