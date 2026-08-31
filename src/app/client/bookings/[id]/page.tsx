@@ -14,8 +14,15 @@ import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
+import { GuestIdCards } from "@/components/shared/GuestIdCards";
+import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
-import { cancelClientBooking, markClientStayProgress } from "../actions";
+import {
+  cancelClientBooking,
+  markClientStayProgress,
+  uploadClientGuestIds,
+  deleteClientGuestId,
+} from "../actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
@@ -28,10 +35,13 @@ function Line({ label, value, gold }: { label: string; value: string; gold?: boo
 
 export default async function ClientBookingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ id_error?: string }>;
 }) {
   const { id } = await params;
+  const { id_error } = await searchParams;
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -51,7 +61,10 @@ export default async function ClientBookingDetailPage({
 
   if (!booking) notFound();
 
-  const receipts = await listReceipts(supabase, booking.id);
+  const [receipts, guestIds] = await Promise.all([
+    listReceipts(supabase, booking.id),
+    listGuestIds(supabase, booking.id),
+  ]);
 
   const units =((booking.booking_properties as unknown as {
     properties: { id: string; name: string; city: string | null; type: string | null } | null;
@@ -162,6 +175,15 @@ export default async function ClientBookingDetailPage({
       )}
 
       {receipts.length > 0 && <BookingReceipts bookingId={booking.id} receipts={receipts} />}
+
+      <GuestIdCards
+        bookingId={booking.id}
+        guestIds={guestIds}
+        uploadAction={uploadClientGuestIds}
+        deleteAction={deleteClientGuestId}
+        viewerId={user.id}
+        error={id_error}
+      />
 
       {booking.notes && (
         <div className="card p-5">

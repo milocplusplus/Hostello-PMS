@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { DEAL_MODELS, formatPKR, isOtaSource, nightsBetween } from "@/lib/payout";
+import { DEAL_MODELS, formatPKR, isOtaSource, isPassThroughSource, nightsBetween } from "@/lib/payout";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
@@ -14,6 +14,8 @@ import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
+import { GuestIdCards } from "@/components/shared/GuestIdCards";
+import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
 import {
   markBookingSettled,
@@ -21,6 +23,8 @@ import {
   cancelBooking,
   uploadBookingReceipt,
   deleteBookingReceipt,
+  uploadGuestIds,
+  deleteGuestId,
 } from "../actions";
 import { markShareReceived } from "../../payouts/actions";
 
@@ -38,10 +42,10 @@ export default async function BookingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ receipt_error?: string }>;
+  searchParams: Promise<{ receipt_error?: string; id_error?: string }>;
 }) {
   const { id } = await params;
-  const { receipt_error } = await searchParams;
+  const { receipt_error, id_error } = await searchParams;
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -57,7 +61,10 @@ export default async function BookingDetailPage({
 
   if (!booking) notFound();
 
-  const receipts = await listReceipts(supabase, booking.id);
+  const [receipts, guestIds] = await Promise.all([
+    listReceipts(supabase, booking.id),
+    listGuestIds(supabase, booking.id),
+  ]);
 
   const client = booking.clients as unknown as { name: string } | null;
   const units = ((booking.booking_properties as unknown as {
@@ -73,7 +80,9 @@ export default async function BookingDetailPage({
   const deduction = gross - Number(booking.net_sale ?? gross);
   // OTA bookings settle on their own per-client terms, not the deal model.
   const otaSnapshot = isOtaSource(booking.source) ? booking.ota_model_snapshot : null;
-  const dealLabel = otaSnapshot
+  const dealLabel = isPassThroughSource(booking.source)
+    ? `${sourceLabel(booking.source) ?? booking.source} — Hostello earns nothing`
+    : otaSnapshot
     ? otaSnapshot === "none"
       ? "Airbnb / Booking.com — Hostello earns nothing"
       : otaSnapshot === "percent"
@@ -207,6 +216,14 @@ export default async function BookingDetailPage({
         uploadAction={uploadBookingReceipt}
         deleteAction={deleteBookingReceipt}
         error={receipt_error}
+      />
+
+      <GuestIdCards
+        bookingId={booking.id}
+        guestIds={guestIds}
+        uploadAction={uploadGuestIds}
+        deleteAction={deleteGuestId}
+        error={id_error}
       />
 
       {booking.notes && (

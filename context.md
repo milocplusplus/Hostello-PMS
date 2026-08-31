@@ -115,8 +115,9 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   the high-importance channel and `ic_notification_icon` (a transparent white
   silhouette, never the colour icon) live there, not in `sw.js`.
   "Get the app" hands Android this file and everyone else an instruction.
-- `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`, `DEAL_MODELS`,
-  `formatPKR`. **The only correct revenue math.** Currency is PKR.
+- `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`,
+  `isOtaSource`, `isPassThroughSource`, `DEAL_MODELS`, `formatPKR`. **The only
+  correct revenue math.** Currency is PKR.
 - `src/lib/short-stay.ts` — everything short stays (hours, not nights) mean:
   `readShortStay` (the form contract), `rowShortStay` (a DB row’s window),
   `shortStayCheckOut`, `departureDate`, `formatShortStayWindow`.
@@ -125,6 +126,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `src/lib/notify.ts` — `notifyBookingCreated/Cancelled/DatesBlocked/PayoutSettled`
   A booking event writes **two rows**, one per audience (`emitBookingEvent`):
   the admin's body leads with the client's name, the owner's does not.
+- `src/lib/guest-ids.ts` — guest ID cards (CNIC / passport scans) on a booking:
+  `guestIdFiles`, `validateGuestIds`, `attachGuestIds`, `listGuestIds`. The only
+  code that touches the `guest-ids` bucket; it borrows the file rules from
+  `receipts.ts`. `src/components/shared/GuestIdCards.tsx` renders the card on
+  both booking detail pages, and `BookingForm` carries a multiple file input so
+  IDs can be attached at booking time. **Unlike receipts, both sides upload.**
 - `src/lib/receipts.ts` — token-receipt upload/list helpers (`attachReceipt`,
   `listReceipts`, `validateReceipt`, `RECEIPT_KINDS`). The only code that touches
   the `booking-receipts` storage bucket. `src/components/shared/BookingReceipts.tsx`
@@ -210,6 +217,12 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   policies key on. **Hostello uploads, the client only reads.** Clients have no
   insert policy on either the table or the bucket, and `BookingForm` takes
   `allowReceipt={false}` in the client portal so no dead control is shown.
+- `booking_guest_ids` — booking_id, storage_path, uploaded_by, created_at. Many
+  per booking. Bytes live in the **private** `guest-ids` bucket at
+  `<booking_id>/<uuid>.<ext>`, same as receipts. **Both Hostello and the owner
+  upload here** — whoever met the guest took the ID — but an owner may only
+  delete rows they uploaded themselves, which is why `listGuestIds` returns
+  `uploadedBy` and the client portal passes `viewerId`.
 
 ## Key flows
 1. **Booking create** — `components/admin/BookingForm.tsx` → `app/{admin,client}/bookings/actions.ts`
@@ -242,7 +255,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
    confirmation, reopening only the bookings the remaining money no longer covers.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
-   off gross first; `hostello_share` depends on deal_model (0 for fixed/self-sourced/tentative).
+   off gross first; `hostello_share` depends on deal_model (0 for fixed/tentative).
+   **Hostello earns nothing on a stay it did not sell**: `client` (owner
+   self-sourced), `offline` (walk-in), `reference` (referral) and `other` are
+   pass-through — the whole net goes to the owner whatever the deal model says.
+   `isPassThroughSource()` in `payout.ts` is the one list; never re-spell it.
 4. **Auth/role routing** — Supabase Auth (`app/login/actions.ts`) → `profiles.role` →
    `src/middleware.ts` gates `/admin` vs `/client`.
 

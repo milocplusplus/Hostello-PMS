@@ -12,6 +12,12 @@ import {
   RECEIPT_BUCKET,
 } from "@/lib/receipts";
 import {
+  attachGuestIds,
+  guestIdFiles,
+  validateGuestIds,
+  GUEST_ID_BUCKET,
+} from "@/lib/guest-ids";
+import {
   notifyBookingCreated,
   notifyBookingCancelled,
   notifyBookingUpdated,
@@ -60,6 +66,10 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const receipt = receiptFile(formData);
   const receiptProblem = receipt ? validateReceipt(receipt) : null;
   if (receiptProblem) return { error: receiptProblem };
+
+  const guestIds = guestIdFiles(formData);
+  const guestIdProblem = validateGuestIds(guestIds);
+  if (guestIdProblem) return { error: guestIdProblem };
 
   const supabase = await createClient();
 
@@ -166,6 +176,12 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     });
   }
 
+  await attachGuestIds(supabase, {
+    bookingId: newBooking.id,
+    files: guestIds,
+    uploadedBy: user?.id ?? null,
+  });
+
   await notifyBookingCreated(supabase, {
     clientId: client_id,
     bookingId: newBooking.id,
@@ -233,6 +249,12 @@ export async function updateBooking(id: string, formData: FormData) {
 
   if (property_ids.length === 0) back("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+
+  // The edit form carries the same ID-card field as the new-booking form, so a
+  // save can bring more scans with it.
+  const guestIds = guestIdFiles(formData);
+  const guestIdProblem = validateGuestIds(guestIds);
+  if (guestIdProblem) back(guestIdProblem);
 
   const supabase = await createClient();
 
@@ -323,6 +345,11 @@ export async function updateBooking(id: string, formData: FormData) {
       .from("booking_properties")
       .insert(property_ids.map((property_id) => ({ booking_id: id, property_id })));
   }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  await attachGuestIds(supabase, { bookingId: id, files: guestIds, uploadedBy: user?.id ?? null });
 
   const changed = describeBookingChanges(
     {
@@ -440,6 +467,58 @@ export async function deleteBookingReceipt(formData: FormData) {
 
   if (receipt?.storage_path) {
     await supabase.storage.from(RECEIPT_BUCKET).remove([receipt.storage_path]);
+  }
+
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/client/bookings/[id]", "page");
+  redirect(`/admin/bookings/${bookingId}`);
+}
+
+export async function uploadGuestIds(formData: FormData) {
+  const bookingId = formData.get("booking_id") as string;
+  const files = guestIdFiles(formData);
+
+  if (files.length === 0) {
+    redirect(`/admin/bookings/${bookingId}?id_error=${encodeURIComponent("Choose a file first.")}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await attachGuestIds(supabase, {
+    bookingId,
+    files,
+    uploadedBy: user?.id ?? null,
+  });
+
+  if (error) {
+    redirect(`/admin/bookings/${bookingId}?id_error=${encodeURIComponent(error)}`);
+  }
+
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/client/bookings/[id]", "page");
+  redirect(`/admin/bookings/${bookingId}`);
+}
+
+export async function deleteGuestId(formData: FormData) {
+  const id = formData.get("id") as string;
+  const bookingId = formData.get("booking_id") as string;
+
+  const supabase = await createClient();
+
+  const { data: card } = await supabase
+    .from("booking_guest_ids")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("booking_guest_ids").delete().eq("id", id);
+  if (error) return;
+
+  if (card?.storage_path) {
+    await supabase.storage.from(GUEST_ID_BUCKET).remove([card.storage_path]);
   }
 
   revalidatePath("/admin/bookings/[id]", "page");

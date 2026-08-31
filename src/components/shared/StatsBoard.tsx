@@ -1,6 +1,6 @@
 import { CircleDollarSign, Wallet, CalendarDays, Moon } from "lucide-react";
 import { sourceColor } from "@/lib/block-sources";
-import { formatPKR } from "@/lib/payout";
+import { formatPKR, isPassThroughSource } from "@/lib/payout";
 import type { SourceStats } from "@/lib/stats";
 
 /**
@@ -20,10 +20,13 @@ export function StatsBoard({
 }) {
   const cutLabel = variant === "admin" ? "Hostello share" : "Your payout";
   const cutOf = (s: SourceStats) => (variant === "admin" ? s.hostelloShare : s.clientPayout);
-  // Hostello earns nothing on a stay the owner sourced themselves — that zero is
-  // the deal, not a bad month, so it is worded rather than printed as Rs 0.
-  const passThrough = (s: SourceStats) => variant === "admin" && s.source === "client";
-  const selfSourced = sources.find((s) => s.source === "client")?.gross ?? 0;
+  // Hostello earns nothing on a stay it did not sell — owner-sourced, a walk-in,
+  // a referral. That zero is the deal, not a bad month, so it is worded rather
+  // than printed as Rs 0.
+  const passThrough = (s: SourceStats) => variant === "admin" && isPassThroughSource(s.source);
+  const passedThrough = sources
+    .filter((s) => isPassThroughSource(s.source))
+    .reduce((sum, s) => sum + s.gross, 0);
 
   const tiles = [
     {
@@ -130,10 +133,10 @@ export function StatsBoard({
 
         <div className="border-t border-border-hairline pt-3 flex flex-col gap-1 text-[11px] text-ink-muted">
           <p>Confirmed bookings only — tentative and cancelled stays are left out.</p>
-          {variant === "admin" && selfSourced > 0 && (
+          {variant === "admin" && passedThrough > 0 && (
             <p>
-              <span className="text-ink-secondary">{formatPKR(selfSourced)}</span> of the total is
-              self-sourced by owners. Hostello earns nothing on it.
+              <span className="text-ink-secondary">{formatPKR(passedThrough)}</span> of the total is
+              owner-sourced, walk-in or referral. Hostello earns nothing on it.
             </p>
           )}
           {variant === "admin" && (

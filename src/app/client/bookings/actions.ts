@@ -11,6 +11,12 @@ import {
   notifyStayProgress,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
+import {
+  attachGuestIds,
+  guestIdFiles,
+  validateGuestIds,
+  GUEST_ID_BUCKET,
+} from "@/lib/guest-ids";
 import { describeBookingChanges } from "@/lib/booking-changes";
 import { readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 
@@ -44,6 +50,12 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   if (!check_in || !check_out || check_out <= check_in) {
     return { error: "Check-out must be after check-in." };
   }
+
+  // Check the attachments before anything is written — once the booking exists,
+  // rejecting the form would only invite a duplicate.
+  const guestIds = guestIdFiles(formData);
+  const guestIdProblem = validateGuestIds(guestIds);
+  if (guestIdProblem) return { error: guestIdProblem };
 
   const supabase = await createClient();
   const {
@@ -138,6 +150,12 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   }));
   await supabase.from("booking_properties").insert(linkRows);
 
+  await attachGuestIds(supabase, {
+    bookingId: newBooking.id,
+    files: guestIds,
+    uploadedBy: user?.id ?? null,
+  });
+
   // The owner entered this one, so the fan-out sends it to the admins and not
   // back to them.
   await notifyBookingCreated(supabase, {
@@ -202,6 +220,12 @@ export async function updateClientBooking(id: string, formData: FormData) {
 
   if (property_ids.length === 0) back("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+
+  // The edit form carries the same ID-card field as the new-booking form, so a
+  // save can bring more scans with it.
+  const guestIds = guestIdFiles(formData);
+  const guestIdProblem = validateGuestIds(guestIds);
+  if (guestIdProblem) back(guestIdProblem);
 
   const supabase = await createClient();
   const {
@@ -303,6 +327,8 @@ export async function updateClientBooking(id: string, formData: FormData) {
       .insert(property_ids.map((property_id) => ({ booking_id: id, property_id })));
   }
 
+  await attachGuestIds(supabase, { bookingId: id, files: guestIds, uploadedBy: user?.id ?? null });
+
   const changed = describeBookingChanges(
     {
       checkIn: existing.check_in,
@@ -344,6 +370,63 @@ export async function updateClientBooking(id: string, formData: FormData) {
   revalidatePath("/admin", "layout");
 
   redirect(`/client/bookings/${id}`);
+}
+
+/**
+ * The owner attaching an ID card after the fact. RLS is what scopes this: the
+ * insert policy only accepts a booking on their own client.
+ */
+export async function uploadClientGuestIds(formData: FormData) {
+  const bookingId = formData.get("booking_id") as string;
+  const files = guestIdFiles(formData);
+
+  if (files.length === 0) {
+    redirect(`/client/bookings/${bookingId}?id_error=${encodeURIComponent("Choose a file first.")}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await attachGuestIds(supabase, {
+    bookingId,
+    files,
+    uploadedBy: user?.id ?? null,
+  });
+
+  if (error) {
+    redirect(`/client/bookings/${bookingId}?id_error=${encodeURIComponent(error)}`);
+  }
+
+  revalidatePath("/client/bookings/[id]", "page");
+  revalidatePath("/admin/bookings/[id]", "page");
+  redirect(`/client/bookings/${bookingId}`);
+}
+
+/** Only their own uploads — the RLS policy is what enforces it. */
+export async function deleteClientGuestId(formData: FormData) {
+  const id = formData.get("id") as string;
+  const bookingId = formData.get("booking_id") as string;
+
+  const supabase = await createClient();
+
+  const { data: card } = await supabase
+    .from("booking_guest_ids")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("booking_guest_ids").delete().eq("id", id);
+  if (error) return;
+
+  if (card?.storage_path) {
+    await supabase.storage.from(GUEST_ID_BUCKET).remove([card.storage_path]);
+  }
+
+  revalidatePath("/client/bookings/[id]", "page");
+  revalidatePath("/admin/bookings/[id]", "page");
+  redirect(`/client/bookings/${bookingId}`);
 }
 
 /**

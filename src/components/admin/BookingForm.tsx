@@ -2,9 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { calculatePayout, isOtaSource, usesStackRate, type DealModel, type OtaModel } from "@/lib/payout";
-import { BOOKING_SOURCES } from "@/lib/block-sources";
+import {
+  calculatePayout,
+  isOtaSource,
+  isPassThroughSource,
+  usesStackRate,
+  type DealModel,
+  type OtaModel,
+} from "@/lib/payout";
+import { BOOKING_SOURCES, sourceLabel } from "@/lib/block-sources";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
+import { GUEST_ID_ACCEPT } from "@/lib/guest-ids";
 import { StayDates } from "@/components/shared/StayDates";
 import type { UnavailableRange } from "@/lib/availability";
 import {
@@ -343,6 +351,24 @@ export function BookingForm({
         />
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="guest_ids" className={fieldLabel}>
+          Guest ID cards (optional)
+        </label>
+        <input
+          id="guest_ids"
+          name="guest_ids"
+          type="file"
+          multiple
+          accept={GUEST_ID_ACCEPT}
+          className={`${fieldInput} file:mr-3 file:rounded file:border-0 file:bg-surface-3 file:px-2 file:py-1 file:text-xs file:text-ink-secondary`}
+        />
+        <p className="text-[11px] text-ink-muted">
+          CNIC or passport scans — pick several at once. More can be attached later from the
+          booking.
+        </p>
+      </div>
+
       <button
         type="button"
         onClick={() => setShowMore((v) => !v)}
@@ -455,6 +481,11 @@ export function BookingForm({
             Hostello earns:{" "}
             <span className="text-financial font-medium">Rs {preview.hostelloShare.toLocaleString("en-PK")}</span>
           </p>
+          {isPassThroughSource(source) && (
+            <p className="text-[11px] text-ink-muted">
+              {sourceLabel(source)} — Hostello earns nothing on this booking.
+            </p>
+          )}
           {client && isOtaSource(source) && (
             <p className="text-[11px] text-ink-muted">
               {client.ota_model === "none"

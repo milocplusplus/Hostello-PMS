@@ -28,6 +28,18 @@ export function isOtaSource(source: string): boolean {
 }
 
 /**
+ * Sources Hostello earns nothing on, whatever the deal model says: the owner
+ * sourced the guest themselves, a referral or a walk-in arrived at the door, or
+ * nobody recorded where it came from. None of them are Hostello's sale, so the
+ * whole net goes to the owner.
+ */
+const PASS_THROUGH_SOURCES = ["client", "offline", "reference", "other"];
+
+export function isPassThroughSource(source: string): boolean {
+  return PASS_THROUGH_SOURCES.includes(source);
+}
+
+/**
  * Does this booking's share come out of the stack rate? The same branch
  * `calculatePayout` takes below, exported so a form can warn that the rate it
  * is about to divide by is zero rather than silently handing Hostello the lot.
@@ -37,6 +49,7 @@ export function usesStackRate(input: {
   otaModel: OtaModel;
   source: string;
 }): boolean {
+  if (isPassThroughSource(input.source)) return false;
   if (isOtaSource(input.source)) return input.otaModel === "stack";
   return input.dealModel === "ads" || input.dealModel === "fixed_stack";
 }
@@ -62,7 +75,7 @@ export type PayoutInput = {
   stackRate: number; // per night, used by ads, fixed_stack and the 'stack' OTA model
   otaModel: OtaModel; // stands in for the deal model on airbnb / booking_com bookings
   otaSharePercent: number; // used when otaModel is 'percent'
-  source: string; // 'client' means self-sourced by the owner — Hostello earns nothing on it
+  source: string; // self-sourced / walk-in / referral / other earn Hostello nothing
   status: "confirmed" | "tentative" | "cancelled";
 };
 
@@ -83,11 +96,11 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
   const netSale =
     Math.round(input.salePrice * (1 - input.deductPercent / 100) * 100) / 100;
 
-  const selfSourcedOrTentative = input.source === "client" || input.status === "tentative";
+  const earnsNothing = isPassThroughSource(input.source) || input.status === "tentative";
 
   let hostelloShare = 0;
 
-  if (!selfSourcedOrTentative && isOtaSource(input.source)) {
+  if (!earnsNothing && isOtaSource(input.source)) {
     switch (input.otaModel) {
       case "percent":
         hostelloShare = (netSale * input.otaSharePercent) / 100;
@@ -99,7 +112,7 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
         hostelloShare = 0;
         break;
     }
-  } else if (!selfSourcedOrTentative) {
+  } else if (!earnsNothing) {
     switch (input.dealModel) {
       case "percent":
       case "fixed_percent":
