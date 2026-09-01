@@ -268,24 +268,29 @@ export default async function ClientDashboard({
   ];
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">{clientRecord.name}</h1>
-          <p className="text-sm text-ink-secondary mt-1.5">
+    <div className="flex flex-col gap-5 animate-in">
+      <section className="card card-feature overflow-hidden p-5 md:p-7 flex items-start justify-between gap-5 flex-wrap">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-16 w-72 h-72 rounded-full opacity-40 blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(201,164,76,0.35), transparent 70%)" }}
+        />
+        <div className="relative min-w-0">
+          <p className="eyebrow">Owner portal</p>
+          <h1 className="text-2xl md:text-[34px] leading-tight font-semibold mt-2">
+            <span className="text-gradient-brand">{clientRecord.name}</span>
+          </h1>
+          <p className="text-sm text-ink-secondary mt-2">
             Your properties in {formatMonthLabel(year, month0)}.
           </p>
         </div>
-        <Link
-          href="/client/bookings/new"
-          className="rounded-lg py-2 px-4 text-sm font-medium text-white flex items-center gap-1.5 gradient-brand transition-transform hover:scale-[1.02]"
-        >
+        <Link href="/client/bookings/new" className="btn btn-gold relative shrink-0">
           <Plus size={15} strokeWidth={2.5} />
           Add booking
         </Link>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 stagger">
         <Kpi
           label="Active properties"
           value={String(activeCount)}
@@ -336,7 +341,7 @@ export default async function ClientDashboard({
         <div className="card p-5 lg:col-span-2 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium">Payout overview</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight">Payout overview</h2>
               <p className="text-xs text-ink-muted mt-0.5">Cumulative — {period.label}</p>
             </div>
             <PeriodSelect value={period.key} />
@@ -357,16 +362,16 @@ export default async function ClientDashboard({
           {periodPayout > 0 ? (
             <RevenueChart dates={period.days} series={periodSeries} />
           ) : (
-            <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
+            <p className="tile px-5 py-10 text-center text-sm text-ink-secondary">
               No payouts recorded in {period.label} yet.
             </p>
           )}
         </div>
 
         <div className="card p-5 flex flex-col gap-3">
-          <h2 className="text-sm font-medium">Nights this month</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight">Nights this month</h2>
           {totalNights === 0 ? (
-            <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
+            <p className="tile px-5 py-10 text-center text-sm text-ink-secondary">
               No active properties yet.
             </p>
           ) : (
@@ -409,19 +414,18 @@ export default async function ClientDashboard({
 
       <div className="card p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-sm font-medium">Today&apos;s summary</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight">Today&apos;s summary</h2>
           <div className="flex items-center gap-2">
             <Link
               href="/client/checkins"
-              className="text-xs text-surface-0 rounded-md px-2.5 py-1.5 font-medium flex items-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "var(--color-hostello-gold)" }}
+              className="btn btn-gold btn-sm"
             >
               <LogIn size={13} />
               Manage check-ins
             </Link>
             <Link
               href="/client/today"
-              className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               Open day sheet
             </Link>
@@ -433,17 +437,20 @@ export default async function ClientDashboard({
             <Link
               key={t.label}
               href="/client/today"
-              className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5 border border-transparent hover:border-border-strong transition-colors"
+              className="tile tile-hover p-3 flex flex-col gap-2"
             >
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.tint }} />
-              <p className="text-lg font-semibold leading-none">{t.value}</p>
+              <span
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: t.tint, boxShadow: `0 0 10px ${t.tint}` }}
+              />
+              <p className="display num text-xl font-semibold leading-none">{t.value}</p>
               <p className="text-[11px] text-ink-muted leading-tight">{t.label}</p>
             </Link>
           ))}
         </div>
 
         {todayFeed.length === 0 ? (
-          <p className="rounded-lg bg-surface-2/60 py-6 text-center text-sm text-ink-secondary">
+          <p className="tile py-6 text-center text-sm text-ink-secondary">
             Nothing arriving or leaving today.
           </p>
         ) : (
@@ -451,7 +458,7 @@ export default async function ClientDashboard({
             {todayFeed.map(({ kind, b }) => (
               <li
                 key={`${kind}-${b.id}`}
-                className="flex items-center gap-3 rounded-lg bg-surface-2/60 px-3 py-2.5"
+                className="tile tile-hover flex items-center gap-3 px-3 py-2.5"
               >
                 <Avatar name={b.guestName} size={30} />
                 <div className="min-w-0 flex-1">
@@ -471,7 +478,7 @@ export default async function ClientDashboard({
 
       <div className="card p-5 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-sm font-medium">Booking activity</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight">Booking activity</h2>
           <Link
             href="/client/bookings"
             className="text-xs text-ink-muted hover:text-ink-primary transition-colors"

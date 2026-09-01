@@ -30,9 +30,11 @@ import { markShareReceived } from "../../payouts/actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2 border-b border-border-hairline last:border-0">
+    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-border-hairline last:border-0">
       <span className="text-xs text-ink-secondary">{label}</span>
-      <span className={`text-sm ${gold ? "text-financial" : "text-ink-primary"}`}>{value}</span>
+      <span className={`num text-sm font-medium ${gold ? "text-financial" : "text-ink-primary"}`}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -95,15 +97,20 @@ export default async function BookingDetailPage({
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">
       <div>
-        <Link href="/admin/calendar" className="text-ink-muted text-xs hover:text-ink-secondary">
+        <Link
+          href="/admin/calendar"
+          className="text-ink-muted text-xs hover:text-hostello-purple-light transition-colors"
+        >
           ← Calendar
         </Link>
-        <div className="flex items-start justify-between gap-4 flex-wrap mt-2">
-          <div className="flex items-center gap-3">
-            <Avatar name={booking.guest_name} size={44} />
+        <div className="flex items-start justify-between gap-4 flex-wrap mt-3">
+          <div className="flex items-center gap-3.5">
+            <Avatar name={booking.guest_name} size={48} />
             <div>
-              <h1 className="text-xl font-semibold">{booking.guest_name ?? "Guest"}</h1>
-              <p className="text-xs text-ink-secondary mt-1 flex items-center gap-1.5">
+              <h1 className="text-xl md:text-2xl font-semibold">
+                {booking.guest_name ?? "Guest"}
+              </h1>
+              <p className="text-xs text-ink-secondary mt-1.5 flex items-center gap-1.5">
                 <ChannelBadge source={booking.source} />
                 {sourceLabel(booking.source) ?? booking.source}
                 <span className="text-ink-muted">·</span>
@@ -117,7 +124,7 @@ export default async function BookingDetailPage({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-ink-secondary mb-3">Stay</h2>
+          <h2 className="eyebrow mb-3">Stay</h2>
 
           <div className="flex items-center gap-2 text-sm text-ink-primary">
             <CalendarDays size={14} className="text-ink-muted" />
@@ -165,8 +172,8 @@ export default async function BookingDetailPage({
         </div>
 
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-ink-secondary mb-1">Payout</h2>
-          <p className="text-[11px] text-ink-muted mb-2">{dealLabel} — terms as of booking</p>
+          <h2 className="eyebrow mb-1.5">Payout</h2>
+          <p className="text-[11px] text-ink-muted mb-3">{dealLabel} — terms as of booking</p>
 
           <Line label="Sale price" value={formatPKR(gross)} />
           {deduction > 0 && (
@@ -228,7 +235,7 @@ export default async function BookingDetailPage({
 
       {booking.notes && (
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-ink-secondary mb-2 flex items-center gap-1.5">
+          <h2 className="eyebrow mb-2.5 flex items-center gap-1.5">
             <StickyNote size={13} /> Notes
           </h2>
           <p className="text-sm text-ink-secondary whitespace-pre-wrap">{booking.notes}</p>
@@ -239,7 +246,7 @@ export default async function BookingDetailPage({
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href={`/admin/bookings/${booking.id}/edit`}
-            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+            className="btn btn-ghost btn-sm"
           >
             Edit booking
           </Link>
@@ -251,7 +258,7 @@ export default async function BookingDetailPage({
             <input type="hidden" name="from" value={`/admin/bookings/${booking.id}`} />
             <button
               type="submit"
-              className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               {booking.share_received ? "Share not received" : "Mark share received"}
             </button>
@@ -261,7 +268,7 @@ export default async function BookingDetailPage({
             <input type="hidden" name="settled" value={(!booking.settled).toString()} />
             <button
               type="submit"
-              className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+              className="btn btn-ghost btn-sm"
             >
               {booking.settled ? "Payout not sent" : "Mark payout sent"}
             </button>

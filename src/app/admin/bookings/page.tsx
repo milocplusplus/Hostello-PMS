@@ -112,8 +112,8 @@ export default async function BookingsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="text-ink-muted text-xs tracking-wide">FINANCE</p>
-        <h1 className="text-2xl font-semibold mt-1">Bookings &amp; Payouts</h1>
+        <p className="eyebrow">Finance</p>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Bookings &amp; Payouts</h1>
       </div>
 
       <div className="card p-3 flex items-center gap-3 flex-wrap justify-between">
@@ -126,19 +126,21 @@ export default async function BookingsPage({
           settle={settle}
         />
         {!searching && (
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-surface-2/60 border border-border-hairline shrink-0">
             <Link
               href={monthHref(prevYear, prevMonth0)}
               aria-label="Previous month"
-              className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+              className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
             >
               <ChevronLeft size={16} />
             </Link>
-            <p className="text-sm font-medium px-1">{formatMonthLabel(year, month0)}</p>
+            <p className="text-sm font-medium px-2 min-w-[110px] text-center">
+              {formatMonthLabel(year, month0)}
+            </p>
             <Link
               href={monthHref(nextYear, nextMonth0)}
               aria-label="Next month"
-              className="p-1.5 rounded-md text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+              className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
             >
               <ChevronRight size={16} />
             </Link>
@@ -147,26 +149,55 @@ export default async function BookingsPage({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">Gross revenue</p>
-          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-ink-primary">{formatPKR(totals.gross)}</p>
-        </div>
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">Client payouts</p>
-          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-ink-primary">{formatPKR(totals.clientPayout)}</p>
-        </div>
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Clock size={12} /> Owed to Hostello
-          </p>
-          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-status-pending">{formatPKR(totals.awaiting)}</p>
-        </div>
-        <div className="card p-4 md:p-6 border border-hostello-gold/30">
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <CheckCircle2 size={12} /> Received (cash in hand)
-          </p>
-          <p className="text-lg md:text-xl font-semibold mt-2 truncate text-financial">{formatPKR(totals.received)}</p>
-        </div>
+        {/* Each tile is lit by the colour of the figure it carries, so the two
+            that matter — what is owed and what is in hand — read first. */}
+        {[
+          {
+            label: "Gross revenue",
+            value: formatPKR(totals.gross),
+            ink: "text-ink-primary",
+            tint: "var(--color-hostello-purple-glow)",
+            icon: null,
+          },
+          {
+            label: "Client payouts",
+            value: formatPKR(totals.clientPayout),
+            ink: "text-ink-primary",
+            tint: "var(--color-channel-booking)",
+            icon: null,
+          },
+          {
+            label: "Owed to Hostello",
+            value: formatPKR(totals.awaiting),
+            ink: "text-status-pending",
+            tint: "var(--color-status-pending)",
+            icon: <Clock size={12} />,
+          },
+          {
+            label: "Received (cash in hand)",
+            value: formatPKR(totals.received),
+            ink: "text-financial",
+            tint: "var(--color-hostello-gold)",
+            icon: <CheckCircle2 size={12} />,
+          },
+        ].map((t) => (
+          <div key={t.label} className="card card-hover overflow-hidden relative p-4 md:p-5">
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-[0.14]"
+              style={{ background: `radial-gradient(14rem 5rem at 12% 0%, ${t.tint}, transparent 70%)` }}
+            />
+            <p className="eyebrow relative flex items-center gap-1.5">
+              {t.icon}
+              {t.label}
+            </p>
+            {/* Four across, so these stay at lg/xl — at 2xl a seven-figure sum
+                truncates in the narrowest column. */}
+            <p className={`display num relative text-lg md:text-xl font-semibold mt-2 truncate ${t.ink}`}>
+              {t.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       {rows.length === 0 && (
@@ -184,16 +215,17 @@ export default async function BookingsPage({
 
       {rows.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border-hairline flex items-center justify-between gap-3">
-            <p className="text-xs text-ink-secondary">{scopeLabel}</p>
+          <div className="px-4 py-3.5 border-b border-border-hairline flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight">{scopeLabel}</h2>
             <p className="text-xs text-ink-muted">
-              {rows.length} {rows.length === 1 ? "booking" : "bookings"}
+              <span className="num">{rows.length}</span>{" "}
+              {rows.length === 1 ? "booking" : "bookings"}
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed md:table-auto md:min-w-[720px]">
+            <table className="data-table w-full text-sm table-fixed md:table-auto md:min-w-[720px]">
               <thead>
-                <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
+                <tr className="text-left border-b border-border-hairline">
                   <th className="px-4 py-3 font-normal">Guest</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Channel</th>
@@ -215,15 +247,35 @@ export default async function BookingsPage({
                   const nights = nightsBetween(b.check_in, b.check_out);
                   const shortStay = rowShortStay(b);
                   const cancelled = b.status === "cancelled";
-                  const statusNode = cancelled ? (
-                    <span className="text-xs text-ink-muted">Cancelled</span>
-                  ) : b.status === "tentative" ? (
-                    <span className="text-xs text-status-pending">Tentative</span>
-                  ) : b.share_received ? (
-                    <span className="text-xs text-financial">Received</span>
-                  ) : (
-                    <span className="text-xs text-ink-muted">Awaiting</span>
+                  // Settlement state is the column people scan; a dot-pill reads
+                  // at a glance where four differently-coloured words did not.
+                  const pill = (label: string, tone: string, dot: string) => (
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full pl-1.5 pr-2.5 py-1 border whitespace-nowrap ${tone}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
+                      {label}
+                    </span>
                   );
+                  const statusNode = cancelled
+                    ? pill("Cancelled", "text-ink-muted border-border-hairline bg-surface-3/60", "bg-ink-muted")
+                    : b.status === "tentative"
+                      ? pill(
+                          "Tentative",
+                          "text-status-pending border-status-pending/40 bg-status-pending/10",
+                          "bg-status-pending"
+                        )
+                      : b.share_received
+                        ? pill(
+                            "Received",
+                            "text-hostello-gold border-hostello-gold/40 bg-hostello-gold/10",
+                            "bg-hostello-gold"
+                          )
+                        : pill(
+                            "Awaiting",
+                            "text-ink-secondary border-border-hairline bg-surface-3/60",
+                            "bg-ink-muted"
+                          );
                   return (
                     <tr
                       key={b.id}
@@ -305,10 +357,7 @@ export default async function BookingsPage({
                                 name="received"
                                 value={(!b.share_received).toString()}
                               />
-                              <button
-                                type="submit"
-                                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2 py-1 hover:border-border-strong transition-colors whitespace-nowrap"
-                              >
+                              <button type="submit" className="btn btn-ghost btn-sm">
                                 {b.share_received ? "Mark unpaid" : "Mark received"}
                               </button>
                             </form>
@@ -316,7 +365,7 @@ export default async function BookingsPage({
                               <input type="hidden" name="id" value={b.id} />
                               <button
                                 type="submit"
-                                className="text-xs text-ink-muted hover:text-status-booked transition-colors"
+                                className="text-xs text-ink-muted hover:text-negative transition-colors px-1"
                               >
                                 Cancel
                               </button>

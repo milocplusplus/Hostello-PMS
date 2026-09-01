@@ -19,7 +19,7 @@ export default async function ForgotPasswordPage({
             <HostelloMark size={26} />
             <span className="text-ink-primary text-lg font-medium tracking-wide">HOSTELLO</span>
           </div>
-          <p className="text-ink-muted text-xs tracking-wide">PROPERTY MANAGEMENT</p>
+          <p className="eyebrow">PROPERTY MANAGEMENT</p>
         </div>
 
         {sent ? (

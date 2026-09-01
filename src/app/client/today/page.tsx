@@ -130,8 +130,8 @@ export default async function ClientTodayPage() {
   return (
     <div className="flex flex-col gap-4 animate-in">
       <div>
-        <p className="text-ink-muted text-xs tracking-wide">OVERVIEW</p>
-        <h1 className="text-2xl font-semibold mt-1">Today</h1>
+        <p className="eyebrow">OVERVIEW</p>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Today</h1>
         <p className="text-sm text-ink-secondary mt-1.5">{formatFullDate(today)}</p>
       </div>
 

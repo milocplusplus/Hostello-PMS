@@ -311,21 +311,40 @@ export default async function AdminDashboard({
   ];
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">
-            {greeting()}
-            {profile?.full_name ? `, ${profile.full_name}` : ""} 👋
+    <div className="flex flex-col gap-5 animate-in">
+      {/* Hero. The one place on the page that carries the brand at full
+          strength, so the dashboard opens on something rather than on a row of
+          grey boxes. */}
+      <section className="card card-feature overflow-hidden p-5 md:p-7 flex items-start justify-between gap-5 flex-wrap">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-24 -right-16 w-72 h-72 rounded-full opacity-40 blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(201,164,76,0.35), transparent 70%)" }}
+        />
+        <div className="relative min-w-0">
+          <p className="eyebrow">
+            {new Date().toLocaleDateString("en-GB", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+          </p>
+          <h1 className="text-2xl md:text-[34px] leading-tight font-semibold mt-2">
+            <span className="text-gradient-brand">
+              {greeting()}
+              {profile?.full_name ? `, ${profile.full_name}` : ""}
+            </span>
           </h1>
-          <p className="text-sm text-ink-secondary mt-1.5">
+          <p className="text-sm text-ink-secondary mt-2 max-w-md">
             Here&apos;s what&apos;s happening across your portfolio today.
           </p>
         </div>
-        <AddBookingMenu />
-      </div>
+        <div className="relative shrink-0">
+          <AddBookingMenu />
+        </div>
+      </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 stagger">
         <Kpi
           label="Properties"
           value={String(activeCount)}
@@ -386,10 +405,10 @@ export default async function AdminDashboard({
         <div className="flex flex-col gap-4">
           <section className="card p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-medium">Booking activity</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight">Booking activity</h2>
               <Link
                 href="/admin/bookings"
-                className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+                className="btn btn-ghost btn-sm"
               >
                 View all
               </Link>
@@ -398,7 +417,7 @@ export default async function AdminDashboard({
           </section>
 
           <section className="card p-5 flex flex-col gap-4">
-            <h2 className="text-base font-medium">Occupancy</h2>
+            <h2 className="text-[15px] font-semibold tracking-tight">Occupancy</h2>
             {activeCount === 0 ? (
               <p className="py-10 text-center text-sm text-ink-secondary">
                 No active properties yet — occupancy starts once you add one.
@@ -412,8 +431,10 @@ export default async function AdminDashboard({
                     available={pctOf(nightsAvailable)}
                   />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-2xl font-semibold">{occupancyPct}%</p>
-                    <p className="text-[10px] text-ink-muted mt-0.5">Occupancy rate</p>
+                    <p className="display num text-[28px] font-semibold leading-none">
+                      {occupancyPct}%
+                    </p>
+                    <p className="eyebrow mt-1.5">Occupancy</p>
                   </div>
                 </div>
                 <ul className="flex flex-col gap-2.5 text-sm min-w-[180px]">
@@ -422,15 +443,21 @@ export default async function AdminDashboard({
                     { label: "Blocked", n: nightsBlocked, color: "var(--color-status-blocked)" },
                     { label: "Available", n: nightsAvailable, color: "var(--color-positive)" },
                   ].map((s) => (
-                    <li key={s.label} className="flex items-center justify-between gap-6">
-                      <span className="flex items-center gap-2 text-ink-secondary">
+                    <li
+                      key={s.label}
+                      className="tile flex items-center justify-between gap-6 px-3 py-2"
+                    >
+                      <span className="flex items-center gap-2.5 text-ink-secondary">
                         <span
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: s.color }}
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: s.color,
+                            boxShadow: `0 0 8px ${s.color}`,
+                          }}
                         />
                         {s.label}
                       </span>
-                      <span className="text-ink-primary">{pctOf(s.n)}%</span>
+                      <span className="num text-ink-primary font-medium">{pctOf(s.n)}%</span>
                     </li>
                   ))}
                 </ul>
@@ -442,11 +469,13 @@ export default async function AdminDashboard({
         <div className="flex flex-col gap-4">
           <section className="card p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-medium">Revenue overview</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight">Revenue overview</h2>
               <PeriodSelect value={period.key} />
             </div>
             <div>
-              <p className="text-2xl font-semibold">{formatPKR(periodGross)}</p>
+              <p className="display num text-3xl font-semibold text-financial">
+                {formatPKR(periodGross)}
+              </p>
               <Delta
                 current={periodGross}
                 previous={prevPeriodGross}
@@ -465,19 +494,18 @@ export default async function AdminDashboard({
 
           <section className="card p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-base font-medium">Today&apos;s summary</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight">Today&apos;s summary</h2>
               <div className="flex items-center gap-2">
                 <Link
                   href="/admin/checkins"
-                  className="text-xs text-surface-0 rounded-md px-2.5 py-1.5 font-medium flex items-center gap-1.5 transition-opacity hover:opacity-90"
-                  style={{ backgroundColor: "var(--color-hostello-gold)" }}
+                  className="btn btn-gold btn-sm"
                 >
                   <LogIn size={13} />
                   Manage check-ins
                 </Link>
                 <Link
                   href="/admin/today"
-                  className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+                  className="btn btn-ghost btn-sm"
                 >
                   Open day sheet
                 </Link>
@@ -488,22 +516,25 @@ export default async function AdminDashboard({
                 <Link
                   key={t.label}
                   href={t.href}
-                  className="rounded-lg bg-surface-2/60 p-3 flex flex-col gap-1.5 border border-transparent hover:border-border-strong transition-colors"
+                  className="tile tile-hover p-3 flex flex-col gap-2"
                 >
                   <span
-                    className="w-7 h-7 rounded-md flex items-center justify-center"
-                    style={{ backgroundColor: `color-mix(in srgb, ${t.tint} 20%, transparent)` }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${t.tint} 18%, transparent)`,
+                      boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${t.tint} 35%, transparent)`,
+                    }}
                   >
                     <t.icon size={14} style={{ color: t.tint }} />
                   </span>
-                  <p className="text-lg font-semibold leading-none">{t.value}</p>
+                  <p className="display num text-xl font-semibold leading-none">{t.value}</p>
                   <p className="text-[11px] text-ink-muted leading-tight">{t.label}</p>
                 </Link>
               ))}
             </div>
 
             {todayFeed.length === 0 ? (
-              <p className="rounded-lg bg-surface-2/60 py-6 text-center text-sm text-ink-secondary">
+              <p className="tile py-6 text-center text-sm text-ink-secondary">
                 Nothing arriving or leaving today.
               </p>
             ) : (
@@ -511,7 +542,7 @@ export default async function AdminDashboard({
                 {todayFeed.map(({ kind, b }) => (
                   <li
                     key={`${kind}-${b.id}`}
-                    className="flex items-center gap-3 rounded-lg bg-surface-2/60 px-3 py-2.5"
+                    className="tile tile-hover flex items-center gap-3 px-3 py-2.5"
                   >
                     <Avatar name={b.guestName} size={30} />
                     <div className="min-w-0 flex-1">
@@ -540,10 +571,10 @@ export default async function AdminDashboard({
 
       <section className="card p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-medium">Recent bookings</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight">Recent bookings</h2>
           <Link
             href="/admin/bookings"
-            className="text-xs text-ink-secondary border border-border-hairline rounded-md px-2.5 py-1.5 hover:border-border-strong transition-colors"
+            className="btn btn-ghost btn-sm"
           >
             View all bookings
           </Link>
@@ -560,9 +591,9 @@ export default async function AdminDashboard({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed md:table-auto md:min-w-[720px]">
+            <table className="data-table w-full text-sm table-fixed md:table-auto md:min-w-[720px]">
               <thead>
-                <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
+                <tr className="text-left border-b border-border-hairline">
                   <th className="pb-3 pr-4 font-normal">Guest</th>
                   <th className="pb-3 pr-4 font-normal hidden md:table-cell">Property</th>
                   <th className="pb-3 pr-4 font-normal hidden md:table-cell">Dates</th>

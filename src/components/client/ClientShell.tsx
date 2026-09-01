@@ -38,11 +38,13 @@ const NAV = [
 
 function Logo({ clientName }: { clientName: string }) {
   return (
-    <div className="flex items-center gap-2.5 min-w-0">
-      <HostelloMark size={30} className="shrink-0" />
+    <div className="flex items-center gap-3 min-w-0">
+      <span className="relative flex items-center justify-center w-9 h-9 rounded-xl shrink-0 border border-border-hairline gradient-brand-subtle">
+        <HostelloMark size={22} />
+      </span>
       <div className="flex flex-col leading-none min-w-0">
-        <span className="text-sm font-semibold tracking-wide">HOSTELLO</span>
-        <span className="text-[10px] text-ink-muted tracking-wide mt-0.5 truncate">
+        <span className="display text-sm font-semibold tracking-[0.14em]">HOSTELLO</span>
+        <span className="text-[10px] text-hostello-purple-light tracking-[0.18em] mt-1 truncate">
           {clientName.toUpperCase()}
         </span>
       </div>
@@ -69,19 +71,28 @@ function NavLinks({
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+            aria-current={active ? "page" : undefined}
+            className={`group relative flex items-center gap-3 pl-3.5 pr-3 py-2.5 rounded-xl text-sm transition-all duration-200 ${
               active
-                ? "bg-surface-3 text-ink-primary"
-                : "text-ink-secondary hover:text-ink-primary hover:bg-surface-2"
+                ? "text-ink-primary bg-gradient-to-r from-hostello-purple-glow/22 via-hostello-purple-mid/10 to-transparent border border-hostello-purple-glow/20"
+                : "text-ink-secondary border border-transparent hover:text-ink-primary hover:bg-surface-2/70 hover:border-border-hairline"
             }`}
           >
-            <Icon size={16} strokeWidth={2} />
-            <span className="flex-1">{item.label}</span>
+            <span
+              className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full transition-all duration-200 ${
+                active ? "h-5 bg-hostello-gold" : "h-0 bg-transparent"
+              }`}
+            />
+            <Icon
+              size={17}
+              strokeWidth={2}
+              className={`shrink-0 transition-colors ${
+                active ? "text-hostello-gold" : "text-ink-muted group-hover:text-hostello-purple-light"
+              }`}
+            />
+            <span className={`flex-1 truncate ${active ? "font-medium" : ""}`}>{item.label}</span>
             {item.href === "/client/notifications" && unreadCount > 0 && (
-              <span
-                className="text-[10px] font-medium text-surface-0 rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center"
-                style={{ backgroundColor: "var(--color-hostello-gold)" }}
-              >
+              <span className="num text-[10px] font-semibold text-surface-0 rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center gradient-gold">
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -104,17 +115,20 @@ function SidebarFooter({
       {/* Above the account row, so it is the last thing before "Sign out" in
           both the desktop sidebar and the phone drawer. */}
       <InstallAppButton />
-      <div className="px-3 py-4 border-t border-border-hairline flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium text-white shrink-0 gradient-brand">
+      <div className="m-3 mt-2 p-2.5 rounded-xl bg-surface-2/50 border border-border-hairline flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-semibold text-white shrink-0 gradient-brand">
             {userName.slice(0, 1).toUpperCase()}
           </div>
-          <span className="text-xs text-ink-secondary truncate">{userName}</span>
+          <div className="min-w-0 leading-tight">
+            <p className="text-xs text-ink-primary truncate">{userName}</p>
+            <p className="text-[10px] text-ink-muted">Owner</p>
+          </div>
         </div>
         <form action={logoutAction}>
           <button
             type="submit"
-            className="text-xs text-ink-muted hover:text-ink-primary transition-colors shrink-0"
+            className="text-[11px] text-ink-muted hover:text-ink-primary transition-colors shrink-0 px-1"
           >
             Sign out
           </button>
@@ -147,14 +161,14 @@ export function ClientShell({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex bg-surface-0 text-ink-primary">
+    <div className="min-h-screen flex text-ink-primary">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 shrink-0 border-r border-border-hairline bg-surface-1 flex-col">
+      <aside className="hidden md:flex w-64 shrink-0 border-r border-border-hairline glass flex-col sticky top-0 h-screen">
         <div className="px-5 py-6">
           <Logo clientName={clientName} />
         </div>
 
-        <nav className="flex-1 px-3 flex flex-col gap-0.5 mt-2">
+        <nav className="flex-1 px-3 flex flex-col gap-1 mt-2 overflow-y-auto pb-4">
           <NavLinks pathname={pathname} unreadCount={unreadCount} />
         </nav>
 
@@ -162,7 +176,7 @@ export function ClientShell({
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-1 border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 glass border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo clientName={clientName} />
         <div className="flex items-center gap-1 shrink-0">
           <NotificationBell
@@ -186,23 +200,23 @@ export function ClientShell({
       {menuOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-fade"
             onClick={() => setMenuOpen(false)}
             aria-hidden
           />
-          <div className="relative w-64 bg-surface-1 border-r border-border-hairline flex flex-col safe-panel">
+          <div className="relative w-[17rem] bg-surface-1 border-r border-border-hairline flex flex-col safe-panel shadow-[var(--shadow-pop)] animate-drawer">
             <div className="px-5 py-6 flex items-center justify-between">
               <Logo clientName={clientName} />
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
                 aria-label="Close menu"
-                className="p-1 text-ink-secondary shrink-0"
+                className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors shrink-0"
               >
                 <X size={18} />
               </button>
             </div>
-            <nav className="flex-1 px-3 flex flex-col gap-0.5">
+            <nav className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto">
               <NavLinks
                 pathname={pathname}
                 unreadCount={unreadCount}
@@ -216,13 +230,10 @@ export function ClientShell({
 
       <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col">
         {/* Desktop top bar */}
-        <div className="hidden md:flex items-center gap-4 px-8 py-4 border-b border-border-hairline bg-surface-0/80 backdrop-blur sticky top-0 z-20">
+        <div className="hidden md:flex items-center gap-4 px-8 py-3.5 border-b border-border-hairline glass-deep sticky top-0 z-20">
           <GlobalSearch searchAction={searchAction} />
           <div className="flex-1" />
-          <Link
-            href="/client/bookings/new"
-            className="rounded-lg py-2 px-4 text-sm font-medium text-white flex items-center gap-1.5 gradient-brand transition-transform hover:scale-[1.02]"
-          >
+          <Link href="/client/bookings/new" className="btn btn-primary">
             <Plus size={15} strokeWidth={2.5} />
             Add booking
           </Link>

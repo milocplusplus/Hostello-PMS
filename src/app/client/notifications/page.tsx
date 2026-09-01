@@ -34,8 +34,8 @@ export default async function ClientNotificationsPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-ink-muted text-xs tracking-wide">UPDATES</p>
-          <h1 className="text-2xl font-semibold mt-1">Notifications</h1>
+          <p className="eyebrow">UPDATES</p>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Notifications</h1>
           <p className="text-sm text-ink-secondary mt-1.5">
             Bookings, payouts and date changes on your properties.
           </p>

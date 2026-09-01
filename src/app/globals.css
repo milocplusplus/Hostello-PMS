@@ -13,11 +13,13 @@
   --color-hostello-gold-muted: #8a7238;
   --color-hostello-gold-bright: #f0c869;
 
-  /* Surfaces (dark-first UI) */
+  /* Surfaces (dark-first UI). Each step carries a little more of the brand
+     purple than the last, so stacked panels separate by hue as well as by
+     value — a flat grey ramp is what made this read as bland. */
   --color-surface-0: #0a0910; /* app background */
-  --color-surface-1: #16131e; /* cards, sidebars */
-  --color-surface-2: #1e1a29; /* raised panels, modals */
-  --color-surface-3: #282332; /* popovers, hover states */
+  --color-surface-1: #15121f; /* cards, sidebars */
+  --color-surface-2: #1e1a2c; /* raised panels, modals */
+  --color-surface-3: #29233a; /* popovers, hover states */
 
   /* Text */
   --color-ink-primary: #f5f3ef;
@@ -40,14 +42,31 @@
   --color-positive: #34d399;
   --color-negative: #f87171;
 
-  /* Borders */
-  --color-border-hairline: rgba(245, 243, 239, 0.08);
-  --color-border-strong: rgba(245, 243, 239, 0.16);
+  /* Borders — tinted, not neutral, so they belong to the surfaces they edge */
+  --color-border-hairline: rgba(190, 178, 226, 0.11);
+  --color-border-strong: rgba(198, 186, 232, 0.22);
 
-  /* Elevation */
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  /* Elevation. Cards carry a hairline top highlight as well as a drop shadow;
+     that inset is what stops a dark panel reading as a flat rectangle. */
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 12px 32px -16px rgba(0, 0, 0, 0.7);
+  --shadow-card-hover:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 24px 48px -20px rgba(0, 0, 0, 0.75);
+  --shadow-pop:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 24px 60px -18px rgba(0, 0, 0, 0.85);
   --shadow-glow-purple: 0 0 0 1px rgba(139, 92, 246, 0.15), 0 8px 32px -8px rgba(139, 92, 246, 0.25);
   --shadow-glow-gold: 0 0 0 1px rgba(240, 200, 105, 0.15), 0 8px 32px -8px rgba(240, 200, 105, 0.2);
+
+  /* One focus ring for the whole app, so keyboard focus is never invisible */
+  --ring-focus: 0 0 0 2px var(--color-surface-0), 0 0 0 4px var(--color-hostello-purple-glow);
+
+  --radius-card: 16px;
+  --radius-control: 10px;
 
   --background: var(--color-surface-0);
   --foreground: var(--color-ink-primary);
@@ -95,6 +114,7 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-outfit), var(--font-geist-sans);
 }
 
 /* Hostello is dark-first by design direction; no light-mode override for now */
@@ -112,10 +132,101 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Ambient brand light: three very low-alpha radials fixed behind everything, so
+   the background reads as a lit room rather than a flat black sheet. Fixed
+   rather than scrolled, and pointer-transparent — it never affects layout. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(70rem 50rem at 12% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(55rem 40rem at 100% 0%, rgba(201, 164, 76, 0.08), transparent 55%),
+    radial-gradient(60rem 45rem at 50% 115%, rgba(108, 74, 182, 0.12), transparent 60%);
+}
+
+/* Everything the app renders sits above that wash */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* Stop iOS inflating body text when a phone turns landscape */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* Headings take the display face and tighter tracking. This one rule is what
+   gives every page its typographic voice, instead of 40 files opting in. */
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+h1,
+.display-lg {
+  letter-spacing: -0.03em;
+}
+
+/* Figures only line up in a column with tabular figures */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Small caps label above a heading or a stat */
+.eyebrow {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.35);
+  color: var(--color-ink-primary);
+}
+
+/* Keyboard focus, once, everywhere */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-focus);
+  border-radius: 8px;
+}
+
+/* Scrollbars that belong to this app rather than to the OS */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface-3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface-3);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-hostello-purple-mid) 60%, var(--color-surface-3));
+  background-clip: content-box;
 }
 
 /* Installed on a phone, the app runs edge to edge under the status bar and home
@@ -137,8 +248,8 @@ html {
 
 @media (min-width: 768px) {
   .safe-main {
-    padding-top: 2.5rem;
-    padding-bottom: 2.5rem;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
   }
 }
 
@@ -165,6 +276,7 @@ html {
 .text-financial {
   color: var(--color-hostello-gold);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .text-positive {
@@ -175,20 +287,85 @@ html {
   color: var(--color-negative);
 }
 
+/* Everything below is `components`, deliberately: rules written outside a layer
+   outrank Tailwind's utilities, so an unlayered `.btn { padding }` would quietly
+   beat a `py-2.5` sitting next to it in the same className. In the components
+   layer the utility wins, which is what every call site expects. */
+@layer components {
+
+/* ── Surfaces ────────────────────────────────────────────────────────────── */
+
 .card {
+  position: relative;
   background-color: var(--color-surface-1);
+  background-image: linear-gradient(
+    168deg,
+    color-mix(in srgb, var(--color-surface-2) 70%, transparent) 0%,
+    var(--color-surface-1) 45%,
+    var(--color-surface-1) 100%
+  );
   border: 1px solid var(--color-border-hairline);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
 .card-hover {
-  transition: border-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .card-hover:hover {
   border-color: var(--color-border-strong);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Drops the card's gradient face. For cards holding sticky panes — the calendar
+   board's property column paints its own opaque background over the card, and
+   against a gradient that patch is visible. */
+.card-flat {
+  background-image: none;
+  background-color: var(--color-surface-1);
+}
+
+/* A card that should read as the primary object on its page */
+.card-feature {
+  border-color: rgba(139, 92, 246, 0.22);
+  background-image: linear-gradient(
+    150deg,
+    rgba(139, 92, 246, 0.16) 0%,
+    color-mix(in srgb, var(--color-surface-2) 80%, transparent) 42%,
+    var(--color-surface-1) 100%
+  );
+}
+
+/* Frosted bars, drawers and popovers — chrome reads as glass over the page
+   instead of as another opaque slab. */
+.glass {
+  background-color: color-mix(in srgb, var(--color-surface-1) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+.glass-deep {
+  background-color: color-mix(in srgb, var(--color-surface-0) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* A hairline that fades out at both ends, for section separations */
+.rule-fade {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-border-strong) 15%,
+    var(--color-border-strong) 85%,
+    transparent
+  );
 }
 
 /* Gradient surfaces — used sparingly, on primary CTAs and hero accents only */
@@ -204,6 +381,19 @@ html {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(201, 164, 76, 0.08) 100%);
 }
 
+/* Text carrying the brand gradient — hero figures only, never body copy */
+.text-gradient-brand {
+  background: linear-gradient(
+    100deg,
+    var(--color-ink-primary) 0%,
+    var(--color-hostello-purple-light) 55%,
+    var(--color-hostello-gold-bright) 115%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .glow-purple {
   box-shadow: var(--shadow-glow-purple);
 }
@@ -212,12 +402,152 @@ html {
   box-shadow: var(--shadow-glow-gold);
 }
 
-/* Sparkline / trend line strokes render via inline SVG; this just gives a
-   consistent fade-in so the dashboard doesn't feel static */
+/* ── Controls ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-control);
+  padding: 0.55rem 0.95rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 180ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-hostello-purple-glow) 0%, var(--color-hostello-purple-mid) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 6px 20px -8px rgba(139, 92, 246, 0.7);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.24) inset, 0 10px 28px -8px rgba(139, 92, 246, 0.85);
+  transform: translateY(-1px);
+}
+
+.btn-gold {
+  color: var(--color-surface-0);
+  background: linear-gradient(135deg, var(--color-hostello-gold-bright) 0%, var(--color-hostello-gold) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 20px -8px rgba(201, 164, 76, 0.6);
+  font-weight: 600;
+}
+
+.btn-gold:hover:not(:disabled) {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 10px 28px -8px rgba(201, 164, 76, 0.75);
+  transform: translateY(-1px);
+}
+
+/* Sits on cards as often as on the page, so it needs a border that survives
+   surface-1 underneath it — at hairline strength it read as bare text. */
+.btn-ghost {
+  color: var(--color-ink-secondary);
+  background-color: var(--color-surface-2);
+  border-color: var(--color-border-strong);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-ink-primary);
+  border-color: var(--color-hostello-purple-mid);
+  background-color: var(--color-surface-3);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+
+/* Form fields, so every input in the app focuses the same way. No width — a
+   block input already fills its column, and the filter selects must stay
+   auto-width inside their flex rows. */
+.field {
+  background-color: color-mix(in srgb, var(--color-surface-2) 85%, transparent);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-control);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-ink-primary);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 180ms ease, background-color 150ms ease;
+}
+
+.field::placeholder {
+  color: var(--color-ink-muted);
+}
+
+.field:hover {
+  border-color: var(--color-border-strong);
+}
+
+.field:focus {
+  border-color: var(--color-hostello-purple-mid);
+  background-color: var(--color-surface-2);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.16);
+}
+
+/* ── Data ────────────────────────────────────────────────────────────────── */
+
+/* Rows that answer the pointer, and a header that reads as a header */
+.data-table th {
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: var(--color-ink-muted);
+}
+
+.data-table tbody tr {
+  transition: background-color 140ms ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--color-surface-2) 55%, transparent);
+}
+
+/* Inset tiles inside a card (today's counts, legend rows, empty states) */
+.tile {
+  background-color: color-mix(in srgb, var(--color-surface-2) 55%, transparent);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.tile-hover:hover {
+  border-color: var(--color-border-strong);
+  background-color: var(--color-surface-2);
+  transform: translateY(-1px);
+}
+
+}
+/* end @layer components */
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -226,7 +556,49 @@ html {
 }
 
 .animate-in {
-  animation: fade-in-up 240ms ease-out both;
+  animation: fade-in-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Children arrive in sequence rather than all at once. Capped at the 7th so a
+   long list does not spend a second appearing. */
+.stagger > * {
+  animation: fade-in-up 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 45ms; }
+.stagger > *:nth-child(3) { animation-delay: 90ms; }
+.stagger > *:nth-child(4) { animation-delay: 135ms; }
+.stagger > *:nth-child(5) { animation-delay: 180ms; }
+.stagger > *:nth-child(6) { animation-delay: 225ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 270ms; }
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-drawer {
+  animation: slide-in-left 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade {
+  animation: fade-in 200ms ease-out both;
 }
 
 @keyframes pulse-dot {
@@ -244,26 +616,47 @@ html {
 
 /* Route-level loading skeletons. Every navigation here waits on a database on
    another continent; painting the page's shape immediately is what makes the
-   app feel instant instead of frozen. */
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 0.6;
+   app feel instant instead of frozen. A sweep reads as loading where a fading
+   block just reads as a dim box. */
+@keyframes skeleton-sweep {
+  from {
+    background-position: -180% 0;
   }
-  50% {
-    opacity: 0.3;
+  to {
+    background-position: 180% 0;
   }
 }
 
 .skeleton {
   background-color: var(--color-surface-2);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(175, 160, 216, 0.12) 45%,
+    rgba(175, 160, 216, 0.18) 50%,
+    rgba(175, 160, 216, 0.12) 55%,
+    transparent 100%
+  );
+  background-size: 180% 100%;
+  background-repeat: no-repeat;
   border-radius: 8px;
-  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-in,
+  .animate-fade,
+  .animate-drawer,
+  .stagger > *,
   .skeleton,
   .animate-pulse-dot {
     animation: none;
+  }
+
+  .card-hover:hover,
+  .tile-hover:hover,
+  .btn:hover,
+  .btn:active {
+    transform: none;
   }
 }

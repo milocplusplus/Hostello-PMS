@@ -64,11 +64,20 @@ export function CalendarAgenda({
     const date = days[i];
     const isToday = date === today;
     return (
-      <div key={date} className="flex gap-3 p-3 md:p-4">
-        <div className="w-11 shrink-0 text-center">
+      <div
+        key={date}
+        className={`flex gap-3 p-3 md:p-4 transition-colors ${
+          isToday ? "bg-hostello-gold/[0.06]" : "hover:bg-surface-2/40"
+        }`}
+      >
+        <div
+          className={`w-12 shrink-0 text-center rounded-xl py-1.5 ${
+            isToday ? "bg-hostello-gold/10 border border-hostello-gold/30" : ""
+          }`}
+        >
           <p className="text-[10px] uppercase tracking-wide text-ink-muted">{weekdayShort(date)}</p>
           <p
-            className={`text-lg leading-tight ${
+            className={`display num text-lg leading-tight ${
               isToday ? "font-semibold text-hostello-gold" : "text-ink-primary"
             }`}
           >
@@ -122,17 +131,20 @@ function AgendaEntry({ entry, direction }: { entry: Entry; direction: "in" | "ou
   return (
     <Link
       href={seg.href}
-      className={`flex items-center gap-2 rounded-md border px-2 py-1.5 min-w-0 transition hover:brightness-125 ${
+      className={`flex items-center gap-2 rounded-xl border px-2 py-2 min-w-0 transition-all duration-150 hover:brightness-125 hover:-translate-y-px ${
         seg.tentative ? "border-dashed" : ""
       }`}
       style={{
-        backgroundColor: `color-mix(in srgb, ${seg.color} 14%, var(--color-surface-1))`,
+        backgroundImage: `linear-gradient(180deg, color-mix(in srgb, ${seg.color} 22%, var(--color-surface-1)) 0%, color-mix(in srgb, ${seg.color} 11%, var(--color-surface-1)) 100%)`,
         borderColor: `color-mix(in srgb, ${seg.color} 45%, transparent)`,
+        boxShadow: `0 1px 0 rgba(255,255,255,0.05) inset`,
       }}
     >
       <span
-        className={`w-7 shrink-0 text-[9px] font-semibold uppercase tracking-wide ${
-          direction === "in" ? "text-hostello-purple-light" : "text-ink-muted"
+        className={`w-8 shrink-0 text-center text-[9px] font-semibold uppercase tracking-wide rounded-md py-0.5 ${
+          direction === "in"
+            ? "text-hostello-purple-light bg-hostello-purple-glow/15"
+            : "text-ink-muted bg-surface-3/60"
         }`}
       >
         {direction}

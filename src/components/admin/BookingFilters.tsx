@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
-  "bg-surface-2 border border-border-hairline rounded-md pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary outline-none focus:border-hostello-purple-mid hover:border-border-strong transition-colors appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
+  "field pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
 
 const caret =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%237c7789' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>\")";
@@ -56,7 +56,7 @@ export function BookingFilters({
           defaultValue={q}
           placeholder="Search guest name…"
           aria-label="Search bookings by guest name"
-          className="bg-surface-2 border border-border-hairline rounded-md pl-7 pr-7 py-1.5 text-xs text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors w-full sm:w-52"
+          className="field pl-7 pr-7 py-1.5 text-xs w-full sm:w-52"
         />
         {q && (
           <button

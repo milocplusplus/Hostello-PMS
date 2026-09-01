@@ -105,8 +105,7 @@ export default async function AdminPayoutsPage({
                 <input type="hidden" name="id" value={e.id} />
                 <button
                   type="submit"
-                  className="text-xs rounded-md px-3 py-1.5 font-medium text-surface-0"
-                  style={{ backgroundColor: "var(--color-hostello-gold)" }}
+                  className="btn btn-gold btn-sm"
                 >
                   Mark received
                 </button>

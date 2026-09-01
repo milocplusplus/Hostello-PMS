@@ -123,8 +123,7 @@ export default async function ClientDetailPage({
         <div className="flex items-center gap-2 shrink-0">
           <Link
             href={`/admin/clients/${id}/bookings/new`}
-            className="rounded-md py-1.5 px-3 text-xs font-medium text-surface-0 flex items-center gap-1"
-            style={{ backgroundColor: "var(--color-hostello-gold)" }}
+            className="btn btn-gold btn-sm"
           >
             <ReceiptText size={13} strokeWidth={2.5} />
             Add booking
@@ -254,8 +253,7 @@ export default async function ClientDetailPage({
           <h2 className="text-sm font-medium text-ink-secondary">Properties</h2>
           <Link
             href={`/admin/clients/${id}/properties/new`}
-            className="rounded-md py-1.5 px-3 text-xs font-medium text-surface-0 flex items-center gap-1"
-            style={{ backgroundColor: "var(--color-hostello-gold)" }}
+            className="btn btn-gold btn-sm"
           >
             <Plus size={13} strokeWidth={2.5} />
             Add property

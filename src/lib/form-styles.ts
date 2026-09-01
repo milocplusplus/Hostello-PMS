@@ -1,18 +1,28 @@
-export const fieldLabel = "text-xs text-ink-secondary";
+/**
+ * The app's form and button vocabulary. Every page imports from here, so this
+ * is where the look of a control changes — the visual definitions themselves
+ * live as `.field` / `.btn` in `globals.css`.
+ */
+export const fieldLabel = "text-xs font-medium text-ink-secondary";
 
-export const fieldInput =
-  "bg-surface-2 border border-border-hairline rounded-md px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors";
+/* No width on either: both used to size to content, and stretch to full width
+   only because their containers are flex columns. Keep it that way — some call
+   sites put them inline in a row. */
+export const fieldInput = "field";
 
-export const primaryButton =
-  "rounded-md py-2.5 px-4 text-sm font-medium text-surface-0 transition-colors";
+export const primaryButton = "btn btn-gold";
 
-export const primaryButtonStyle = { backgroundColor: "var(--color-hostello-gold)" };
+/**
+ * Retained so existing `style={primaryButtonStyle}` call sites keep compiling.
+ * `.btn-gold` already paints the gradient, so this adds nothing — drop the prop
+ * when you next touch one of those call sites.
+ */
+export const primaryButtonStyle = {};
 
-export const secondaryButton =
-  "text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors";
+export const secondaryButton = "btn btn-ghost btn-sm";
 
 export const errorBanner =
-  "text-xs text-status-booked bg-status-booked/10 border border-status-booked/30 rounded-md px-3 py-2";
+  "text-xs text-negative bg-negative/10 border border-negative/30 rounded-lg px-3 py-2.5";
 
 export const noticeBanner =
-  "text-xs text-status-available bg-status-available/10 border border-status-available/30 rounded-md px-3 py-2";
+  "text-xs text-positive bg-positive/10 border border-positive/30 rounded-lg px-3 py-2.5";

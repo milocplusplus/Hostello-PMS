@@ -26,9 +26,11 @@ import {
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2 border-b border-border-hairline last:border-0">
+    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-border-hairline last:border-0">
       <span className="text-xs text-ink-secondary">{label}</span>
-      <span className={`text-sm ${gold ? "text-financial" : "text-ink-primary"}`}>{value}</span>
+      <span className={`num text-sm font-medium ${gold ? "text-financial" : "text-ink-primary"}`}>
+        {value}
+      </span>
     </div>
   );
 }

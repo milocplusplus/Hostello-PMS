@@ -85,15 +85,15 @@ export function GlobalSearch({
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search bookings, guests, properties..."
-          className="w-full bg-surface-2 border border-border-hairline rounded-lg pl-9 pr-14 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors"
+          className="field w-full pl-9 pr-14 py-2.5 rounded-xl"
         />
-        <kbd className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-ink-muted border border-border-hairline rounded px-1.5 py-0.5">
+        <kbd className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-ink-muted bg-surface-3/70 border border-border-hairline rounded-md px-1.5 py-1 leading-none">
           ⌘K
         </kbd>
       </div>
 
       {open && query.trim().length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-2 card overflow-hidden z-50 max-h-96 overflow-y-auto animate-in">
+        <div className="absolute top-full left-0 right-0 mt-2 card overflow-hidden z-50 max-h-96 overflow-y-auto animate-in shadow-[var(--shadow-pop)]">
           {isPending && results.length === 0 && (
             <div className="flex items-center gap-2 px-4 py-4 text-xs text-ink-muted">
               <Loader2 size={13} className="animate-spin" />
@@ -116,9 +116,11 @@ export function GlobalSearch({
                     <button
                       type="button"
                       onClick={() => go(r.href)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 transition-colors"
+                      className="group w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-2 transition-colors"
                     >
-                      <Icon size={14} className="text-hostello-purple-light shrink-0" />
+                      <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-hostello-purple-glow/15 border border-hostello-purple-glow/20 group-hover:bg-hostello-purple-glow/25 transition-colors">
+                        <Icon size={14} className="text-hostello-purple-light" />
+                      </span>
                       <div className="min-w-0">
                         <p className="text-sm text-ink-primary truncate">{r.title}</p>
                         <p className="text-xs text-ink-muted truncate">{r.subtitle}</p>

@@ -10,20 +10,22 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <main className="min-h-screen bg-surface-0 flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6">
+      <div className="w-full max-w-sm animate-in">
         {/* Wordmark */}
-        <div className="flex flex-col items-center gap-1 mb-10">
-          <div className="flex items-center gap-2">
-            <HostelloMark size={26} />
-            <span className="text-ink-primary text-lg font-medium tracking-wide">
+        <div className="flex flex-col items-center gap-3 mb-9">
+          <span className="flex items-center justify-center w-14 h-14 rounded-2xl border border-border-hairline gradient-brand-subtle glow-purple">
+            <HostelloMark size={30} />
+          </span>
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="display text-ink-primary text-xl font-semibold tracking-[0.16em]">
               HOSTELLO
             </span>
+            <p className="eyebrow">Property management</p>
           </div>
-          <p className="text-ink-muted text-xs tracking-wide">PROPERTY MANAGEMENT</p>
         </div>
 
-        <form action={login} className="card p-6 flex flex-col gap-4">
+        <form action={login} className="card p-6 md:p-7 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label htmlFor="email" className="text-xs text-ink-secondary">
               Email
@@ -35,7 +37,7 @@ export default async function LoginPage({
               required
               autoComplete="email"
               placeholder="you@company.com"
-              className="bg-surface-2 border border-border-hairline rounded-md px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors"
+              className="field"
             />
           </div>
 
@@ -50,7 +52,7 @@ export default async function LoginPage({
               required
               autoComplete="current-password"
               placeholder="••••••••"
-              className="bg-surface-2 border border-border-hairline rounded-md px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors"
+              className="field"
             />
           </div>
 
@@ -62,8 +64,7 @@ export default async function LoginPage({
 
           <button
             type="submit"
-            className="mt-2 rounded-md py-2.5 text-sm font-medium text-surface-0 transition-colors"
-            style={{ backgroundColor: "var(--color-hostello-gold)" }}
+            className="btn btn-gold mt-2 w-full py-2.5"
           >
             Sign in
           </button>

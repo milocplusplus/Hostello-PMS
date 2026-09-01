@@ -31,8 +31,8 @@ export default async function AdminNotificationsPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-ink-muted text-xs tracking-wide">OVERVIEW</p>
-          <h1 className="text-2xl font-semibold mt-1">Activity</h1>
+          <p className="eyebrow">OVERVIEW</p>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Activity</h1>
           <p className="text-sm text-ink-secondary mt-1.5">
             Every booking, payment, block and clash across the portfolio.
           </p>

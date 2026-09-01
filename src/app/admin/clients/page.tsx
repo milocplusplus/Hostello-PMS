@@ -66,13 +66,12 @@ export default async function ClientsListPage({
     <div className="flex flex-col gap-6">
       <header className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-ink-muted text-xs tracking-wide">PORTFOLIO</p>
-          <h1 className="text-2xl font-semibold mt-1">Clients</h1>
+          <p className="eyebrow">PORTFOLIO</p>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Clients</h1>
         </div>
         <Link
           href="/admin/clients/new"
-          className="rounded-md py-2 px-4 text-sm font-medium text-surface-0 flex items-center gap-1.5"
-          style={{ backgroundColor: "var(--color-hostello-gold)" }}
+          className="btn btn-gold"
         >
           <Plus size={15} strokeWidth={2.5} />
           Add client
@@ -86,7 +85,7 @@ export default async function ClientsListPage({
           defaultValue={q}
           placeholder="Search name, email or phone…"
           aria-label="Search clients"
-          className="w-full bg-surface-2 border border-border-hairline rounded-md pl-8 pr-8 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-hostello-purple-mid transition-colors"
+          className="field w-full pl-8 pr-8"
         />
         {term && (
           <Link

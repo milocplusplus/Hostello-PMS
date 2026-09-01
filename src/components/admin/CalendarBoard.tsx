@@ -98,21 +98,26 @@ export function CalendarBoard({
   }, [days, today]);
 
   function dayTint(date: string) {
-    if (date === today) return "bg-hostello-gold/[0.07] border-l border-hostello-gold/40";
+    if (date === today) return "bg-hostello-gold/[0.09] border-l border-hostello-gold/50";
     if (isWeekend(date)) return "bg-surface-2/50";
     return "";
   }
 
   return (
     <>
-      <div ref={scroller} className="card overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]">
+      {/* card-flat: the property column below is sticky and opaque, and would
+          show as a flat patch over a gradient card face. */}
+      <div
+        ref={scroller}
+        className="card card-flat overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]"
+      >
         <div style={{ minWidth }}>
           {/* Day header */}
           <div
             className="grid border-b border-border-hairline"
             style={{ gridTemplateColumns: columns }}
           >
-            <div className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 py-3 text-[10px] uppercase tracking-wider text-ink-muted">
+            <div className="eyebrow sticky left-0 z-20 bg-surface-1 px-3 md:px-4 py-3.5 border-r border-border-hairline">
               Property
             </div>
             {days.map((d) => (
@@ -121,9 +126,9 @@ export function CalendarBoard({
                   {weekdayShort(d).charAt(0)}
                 </p>
                 <p
-                  className={`text-xs mt-0.5 ${
+                  className={`num text-xs mt-1 ${
                     d === today
-                      ? "font-semibold text-surface-0 mx-auto w-5 h-5 leading-5 rounded-full bg-hostello-gold"
+                      ? "font-semibold text-surface-0 mx-auto w-5 h-5 leading-5 rounded-full gradient-gold shadow-[0_0_12px_-2px_var(--color-hostello-gold)]"
                       : "text-ink-secondary"
                   }`}
                 >
@@ -146,7 +151,7 @@ export function CalendarBoard({
                 className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 flex flex-col justify-center border-r border-border-hairline"
                 style={{ gridColumn: 1, gridRow: `1 / -1` }}
               >
-                <p className="text-xs text-ink-primary truncate">{row.name}</p>
+                <p className="text-xs font-medium text-ink-primary truncate">{row.name}</p>
                 {row.subtext && (
                   <p className="text-[10px] text-ink-muted truncate mt-0.5">{row.subtext}</p>
                 )}
@@ -167,7 +172,7 @@ export function CalendarBoard({
                       setDraft({ propertyId: row.id, propertyName: row.name, date: d })
                     }
                     title={`Add booking — ${d}`}
-                    className={`transition-colors hover:bg-hostello-purple-glow/15 ${dayTint(d)}`}
+                    className={`transition-colors hover:bg-hostello-purple-glow/20 hover:shadow-[inset_0_0_0_1px_var(--color-hostello-purple-glow)] ${dayTint(d)}`}
                     style={{ gridColumn: i + 2, gridRow: "1 / -1" }}
                   />
                 )
@@ -242,12 +247,12 @@ function QuickAddBooking({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 overflow-y-auto p-4 sm:p-8"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto p-4 sm:p-8 animate-fade"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="max-w-lg mx-auto"
+        className="max-w-lg mx-auto animate-in"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -255,8 +260,8 @@ function QuickAddBooking({
       >
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
-            <h2 className="text-lg font-medium">Add a booking</h2>
-            <p className="text-xs text-ink-muted mt-0.5">
+            <h2 className="text-lg font-semibold">Add a booking</h2>
+            <p className="text-xs text-ink-muted mt-1">
               {draft.propertyName} · {formatDayMonth(draft.date)} → {formatDayMonth(checkOut)} · 1 night
             </p>
           </div>
@@ -264,7 +269,7 @@ function QuickAddBooking({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-md text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink-primary hover:bg-surface-2 transition-colors"
           >
             <X size={16} />
           </button>
@@ -296,21 +301,24 @@ function Bar({ seg }: { seg: CalendarSegment }) {
       title={`${seg.title} · ${seg.dateRange}${seg.hours ? ` · ${seg.hours}` : ""}${
         seg.amount ? ` · ${seg.amount}` : ""
       }`}
-      className={`relative z-10 my-[4px] flex items-center gap-1.5 overflow-hidden border px-1.5 min-w-0 transition hover:brightness-125 ${
+      className={`relative z-10 my-[4px] flex items-center gap-1.5 overflow-hidden border px-1.5 min-w-0 transition-all duration-150 hover:brightness-125 hover:-translate-y-px ${
         seg.tentative ? "border-dashed" : ""
-      } ${seg.clippedStart ? "ml-0 rounded-l-none" : "ml-[3px] rounded-l-md"} ${
-        seg.clippedEnd ? "mr-0 rounded-r-none" : "mr-[3px] rounded-r-md"
+      } ${seg.clippedStart ? "ml-0 rounded-l-none" : "ml-[3px] rounded-l-lg"} ${
+        seg.clippedEnd ? "mr-0 rounded-r-none" : "mr-[3px] rounded-r-lg"
       }`}
       style={{
         gridColumn: `${seg.startIdx + 2} / span ${seg.span}`,
         gridRow: seg.lane + 1,
-        backgroundColor: `color-mix(in srgb, ${seg.color} 22%, var(--color-surface-1))`,
+        // Lit from the channel's own colour rather than filled flat with it, so
+        // a dozen bars on one board still read as distinct objects.
+        backgroundImage: `linear-gradient(180deg, color-mix(in srgb, ${seg.color} 34%, var(--color-surface-1)) 0%, color-mix(in srgb, ${seg.color} 18%, var(--color-surface-1)) 100%)`,
         borderColor: `color-mix(in srgb, ${seg.color} 55%, transparent)`,
+        boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 12px -6px ${seg.color}`,
       }}
     >
       <span
         className="absolute left-0 top-0 bottom-0 w-[3px]"
-        style={{ backgroundColor: seg.color }}
+        style={{ backgroundColor: seg.color, boxShadow: `0 0 8px -1px ${seg.color}` }}
         aria-hidden
       />
       {seg.kind === "booking" ? (

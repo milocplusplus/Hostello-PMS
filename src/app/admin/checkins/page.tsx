@@ -96,8 +96,8 @@ export default async function AdminCheckInsPage() {
   return (
     <div className="flex flex-col gap-4 animate-in">
       <div>
-        <p className="text-ink-muted text-xs tracking-wide">OPERATIONS</p>
-        <h1 className="text-2xl font-semibold mt-1">Check-ins &amp; check-outs</h1>
+        <p className="eyebrow">OPERATIONS</p>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Check-ins &amp; check-outs</h1>
         <p className="text-sm text-ink-secondary mt-1.5">
           {formatFullDate(today)} ·{" "}
           {leftToday === 0

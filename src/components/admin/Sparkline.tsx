@@ -5,7 +5,7 @@
 export function Sparkline({ values, color, id }: { values: number[]; color: string; id: string }) {
   const usable = values.length >= 2 && Math.max(...values) > Math.min(...values);
   if (!usable) {
-    return <div className="h-10" />;
+    return <div className="h-12" />;
   }
 
   const max = Math.max(...values);
@@ -18,18 +18,31 @@ export function Sparkline({ values, color, id }: { values: number[]; color: stri
   });
 
   return (
-    <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="h-10 w-full">
+    <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="h-12 w-full">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.45" />
+          <stop offset="60%" stopColor={color} stopOpacity="0.12" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon fill={`url(#${id})`} points={`0,32 ${points.join(" ")} 100,32`} />
+      {/* Drawn twice: a wide, faint pass under the line reads as a glow, which
+          is what keeps a 1px stroke from disappearing on a dark card. */}
       <polyline
         fill="none"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth="5"
+        strokeOpacity="0.18"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+        points={points.join(" ")}
+      />
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="1.75"
         strokeLinejoin="round"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"

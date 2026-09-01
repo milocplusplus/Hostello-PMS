@@ -29,7 +29,10 @@ export function ChannelBadge({ source }: { source: string }) {
   return (
     <span
       className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white shrink-0"
-      style={{ backgroundColor: sourceColor(source) }}
+      style={{
+        backgroundColor: sourceColor(source),
+        boxShadow: `0 0 0 1px rgba(255,255,255,0.12), 0 0 8px -2px ${sourceColor(source)}`,
+      }}
       aria-hidden
     >
       {sourceInitial(source)}
@@ -52,7 +55,9 @@ export function BookingActivity({
 
   return (
     <>
-      <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Segmented control, not three loose buttons — the group reads as one
+          switch with a lit segment. */}
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-2/60 border border-border-hairline self-start">
         {TABS.map((t) => {
           const active = t.key === tab;
           return (
@@ -60,14 +65,14 @@ export function BookingActivity({
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
                 active
-                  ? "bg-hostello-purple-glow text-white"
-                  : "text-ink-secondary hover:text-ink-primary hover:bg-surface-2"
+                  ? "bg-gradient-to-b from-hostello-purple-glow to-hostello-purple-mid text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)]"
+                  : "text-ink-secondary hover:text-ink-primary hover:bg-surface-3/60"
               }`}
             >
               {t.label}
-              <span className={active ? "ml-1.5 text-white/70" : "ml-1.5 text-ink-muted"}>
+              <span className={`num ml-1.5 ${active ? "text-white/70" : "text-ink-muted"}`}>
                 {lists[t.key].length}
               </span>
             </button>
@@ -76,15 +81,15 @@ export function BookingActivity({
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-lg bg-surface-2/60 px-5 py-10 text-center text-sm text-ink-secondary">
+        <p className="tile px-5 py-10 text-center text-sm text-ink-secondary">
           {TABS.find((t) => t.key === tab)!.empty}
         </p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 stagger">
           {rows.map((b) => (
             <li
               key={b.id}
-              className="rounded-lg bg-surface-2/60 px-3 py-2.5 grid gap-3 items-center grid-cols-[1fr_auto] sm:grid-cols-[1.3fr_1fr_auto]"
+              className="tile tile-hover px-3 py-2.5 grid gap-3 items-center grid-cols-[1fr_auto] sm:grid-cols-[1.3fr_1fr_auto]"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar name={b.units || b.clientName} size={38} rounded="lg" />
