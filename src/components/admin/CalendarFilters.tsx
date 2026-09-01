@@ -4,7 +4,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
-  "field pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
+  "field shrink-0 pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
 
 const caret =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%237c7789' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>\")";
@@ -40,8 +40,10 @@ export function CalendarFilters({
     router.push(`${pathname}?${params.toString()}`);
   }
 
+  // One sideways-scrolling row on a phone — wrapping put four selects on two
+  // rows and pushed the board itself below the fold. Unchanged from md up.
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 min-w-0 overflow-x-auto md:flex-wrap md:overflow-visible">
       <select
         aria-label="Client"
         value={client}

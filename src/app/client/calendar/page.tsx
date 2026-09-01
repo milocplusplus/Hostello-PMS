@@ -367,7 +367,7 @@ export default async function ClientCalendarPage({
           {(["month", "week", "agenda"] as const).map((v) => (
             <Link
               key={v}
-              href={href({ view: v === "month" ? undefined : v, start: undefined })}
+              href={href({ view: v, start: undefined })}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
                 // With autoAgenda the phone is really on agenda and the desktop
                 // on month, so the highlight has to say so at each width. Each
@@ -388,10 +388,10 @@ export default async function ClientCalendarPage({
         </div>
       </div>
 
+      {/* Desk affordance — see the note on the admin board. On a phone the
+          swatches push the calendar itself below the fold. */}
       {view !== "agenda" && (
-        <div
-          className={`${autoAgenda ? "hidden md:flex" : "flex"} items-center gap-4 text-[11px] text-ink-secondary flex-wrap`}
-        >
+        <div className="hidden md:flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
           {legend.map((l) => (
             <span
               key={l.label}

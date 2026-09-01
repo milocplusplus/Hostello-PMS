@@ -245,7 +245,7 @@ export default async function ChannelInboxPage({
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="property_id" value={row.property_id} />
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label className={fieldLabel}>Guest name</label>
                     <input
@@ -308,7 +308,7 @@ export default async function ChannelInboxPage({
 
                 {/* The channel's own figures, for checking the sale price against
                     — never fed into the split, which payout.ts owns. */}
-                <div className="grid grid-cols-3 gap-3 border-t border-border-hairline pt-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border-hairline pt-3">
                   <Fact
                     label="Channel says guest paid"
                     value={parsed.gross ? formatPKR(parsed.gross) : "—"}
@@ -423,7 +423,7 @@ export default async function ChannelInboxPage({
             {(row.kind === "alteration" || row.kind === "payout") && row.status === "pending" && (
               <form action={markHandled} className="flex flex-col gap-3">
                 <input type="hidden" name="id" value={row.id} />
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <Fact label="Guest" value={parsed.guest_name ?? "—"} />
                   <Fact
                     label={row.kind === "alteration" ? "New dates" : "Dates"}

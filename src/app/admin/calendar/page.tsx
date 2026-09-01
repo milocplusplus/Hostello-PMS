@@ -533,7 +533,7 @@ export default async function CalendarPage({
             {(["month", "week", "agenda"] as const).map((v) => (
               <Link
                 key={v}
-                href={href({ view: v === "month" ? undefined : v, start: undefined })}
+                href={href({ view: v, start: undefined })}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
                   // With autoAgenda the phone is really on agenda and the desktop
                   // on month, so the highlight has to say so at each width. Each
@@ -555,7 +555,7 @@ export default async function CalendarPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full md:w-auto min-w-0">
           <CalendarFilters
             clients={scopeClients}
             client={scope.id}
@@ -575,10 +575,10 @@ export default async function CalendarPage({
         </div>
       </div>
 
+      {/* Six colour swatches cost a phone three rows above the board itself, and
+          every bar already carries its channel badge — this is a desk affordance. */}
       {view !== "agenda" && (
-        <div
-          className={`${autoAgenda ? "hidden md:flex" : "flex"} items-center gap-2 text-[11px] text-ink-secondary flex-wrap`}
-        >
+        <div className="hidden md:flex items-center gap-2 text-[11px] text-ink-secondary flex-wrap">
           {legend.map((l) => (
             <span
               key={l.label}

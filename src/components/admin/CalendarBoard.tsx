@@ -109,7 +109,7 @@ export function CalendarBoard({
           show as a flat patch over a gradient card face. */}
       <div
         ref={scroller}
-        className="card card-flat overflow-x-auto [--cal-name:124px] md:[--cal-name:200px]"
+        className="card card-flat overflow-x-auto [--cal-name:96px] md:[--cal-name:200px]"
       >
         <div style={{ minWidth }}>
           {/* Day header */}
@@ -151,9 +151,17 @@ export function CalendarBoard({
                 className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 flex flex-col justify-center border-r border-border-hairline"
                 style={{ gridColumn: 1, gridRow: `1 / -1` }}
               >
-                <p className="text-xs font-medium text-ink-primary truncate">{row.name}</p>
+                {/* A 96px column truncates most property names to nothing
+                    useful, and the lane is tall enough for two short lines. */}
+                <p className="text-[11px] leading-tight line-clamp-2 md:text-xs md:leading-normal md:line-clamp-none md:truncate font-medium text-ink-primary">
+                  {row.name}
+                </p>
+                {/* At 96px the subtext only ever renders as an ellipsis, and the
+                    row it costs is a row of calendar. Desks keep it. */}
                 {row.subtext && (
-                  <p className="text-[10px] text-ink-muted truncate mt-0.5">{row.subtext}</p>
+                  <p className="hidden md:block text-[10px] text-ink-muted truncate mt-0.5">
+                    {row.subtext}
+                  </p>
                 )}
               </div>
 
