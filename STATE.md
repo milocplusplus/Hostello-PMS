@@ -1191,7 +1191,9 @@ reassign the alias, so nothing broke.
     changes — the owner and clients read as themselves, and for ops the server
     reads with the service-role client. Without `SUPABASE_SERVICE_ROLE_KEY` ops
     can do everything **except save a booking**, and both the save error and a
-    banner on `/admin/staff` say exactly that.
+    banner on `/admin/staff` say exactly that. **The key is set in Vercel** —
+    confirmed 2026-09-01 from delivered push (see the Deployment section), so the
+    banner should never show; it stays as a tripwire if the key is rotated out.
   - `createBooking` now mints the booking id (`randomUUID`) instead of reading it
     back, and `markShareReceived` / `markBookingSettled` / `confirmPayout` /
     `rejectPayout` / `unconfirmPayout` gained `requireOwner()` — ops had no

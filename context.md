@@ -391,6 +391,11 @@ Pre-launch: real data has not been entered yet.
   other users' subscriptions, which no session may do). Without them `push.ts`
   does nothing and the settings panel says push is not configured — the bell,
   the feed and the realtime updates are unaffected. `VAPID_SUBJECT` is optional.
+  **All three are confirmed set in Vercel production** (2026-09-01): 15
+  `notification_recipients` rows carry a `pushed_at`, the last at 15:02 UTC that
+  day, and nothing in the database writes that column — only `push.ts`, past
+  both the VAPID guard and the service-role guard. `SUPABASE_SERVICE_ROLE_KEY`
+  is also what lets an ops login save a booking (see `payout-inputs.ts`).
 - **`notify_daily_stays()` runs on pg_cron at 02:00 UTC = 07:00 Karachi**
   (`cron.job`, name `hostello-daily-stays`). It writes today's arrival/departure
   notifications; the `event_key` makes a re-run a no-op. It cannot send push —
