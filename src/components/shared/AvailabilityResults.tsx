@@ -83,9 +83,12 @@ export function AvailabilityResults({
         <div className="flex flex-col gap-2">
           <div className="flex items-start gap-2">
             <TriangleAlert size={14} className="text-status-pending mt-0.5 shrink-0" />
+            {/* Three audiences read this — the owner, ops and the property's
+                owner — so it stays in nobody's voice. "Hostello has not
+                recorded it" is wrong in front of ops, who are Hostello. */}
             <p className="text-xs text-ink-secondary">
-              Free on those dates, but {canEditProperties ? "nobody has recorded" : "Hostello has not recorded"}{" "}
-              the figure your filter asked about, so these are not ranked with the rest.
+              Free on those dates, but nobody has recorded the figure your filter asked
+              about yet, so these are not ranked with the rest.
             </p>
           </div>
           <ul className="flex flex-col gap-2">
