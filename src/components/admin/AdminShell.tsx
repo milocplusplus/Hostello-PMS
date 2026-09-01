@@ -13,6 +13,7 @@ import {
   Bell,
   Sun,
   Inbox,
+  BedDouble,
   LogIn,
   Menu,
   X,
@@ -66,6 +67,7 @@ function navGroups(role: StaffRole): NavGroup[] {
       label: "Operations",
       items: [
         { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
+        { href: "/admin/availability", label: "Availability", icon: BedDouble, exact: false },
         { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: true },
         {
           href: "/admin/bookings",

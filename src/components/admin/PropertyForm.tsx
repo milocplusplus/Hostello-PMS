@@ -24,6 +24,9 @@ type PropertyFormProps = {
     status: string;
     stack_rate?: number | null;
     short_stay_stack_rate?: number | null;
+    max_guests?: number | null;
+    nightly_rate?: number | null;
+    short_stay_rate?: number | null;
   };
   error?: string;
   submitLabel: string;
@@ -145,6 +148,70 @@ export function PropertyForm({
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+      </div>
+
+      {/* What a guest is told, and what the availability finder searches on.
+          Kept apart from the stack rates below, which are deal terms and are
+          hidden from ops — confusing the two is the easy mistake here. */}
+      <div className="border-t border-border-hairline pt-4 mt-1">
+        <p className="eyebrow">WHAT WE QUOTE</p>
+        <p className="text-xs text-ink-muted mt-1">
+          Used by the availability finder. Leave blank if you don&apos;t know yet — the unit
+          still shows up, flagged as missing the figure.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="max_guests" className={fieldLabel}>
+            Sleeps (guests)
+          </label>
+          <input
+            id="max_guests"
+            name="max_guests"
+            type="number"
+            min="1"
+            placeholder="—"
+            defaultValue={defaultValues?.max_guests ?? ""}
+            className={fieldInput}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="nightly_rate" className={fieldLabel}>
+            Asking rate / night (PKR)
+          </label>
+          <input
+            id="nightly_rate"
+            name="nightly_rate"
+            type="number"
+            min="0"
+            step="500"
+            placeholder="—"
+            defaultValue={defaultValues?.nightly_rate ?? ""}
+            className={fieldInput}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="short_stay_rate" className={fieldLabel}>
+            Short stay (PKR, flat)
+          </label>
+          <input
+            id="short_stay_rate"
+            name="short_stay_rate"
+            type="number"
+            min="0"
+            step="500"
+            placeholder="—"
+            defaultValue={defaultValues?.short_stay_rate ?? ""}
+            className={fieldInput}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border-hairline pt-4 mt-1">
+        <p className="eyebrow">DEAL TERMS</p>
       </div>
 
       <div className="flex flex-col gap-1.5">

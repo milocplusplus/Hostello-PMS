@@ -1,6 +1,32 @@
-# State — updated 2026-09-01
+# State — updated 2026-09-02
 
 ## Done
+- **Availability finder** (2026-09-02). `npm run build` and `npm run lint` clean.
+  Answers "what's free on the 5th for four people under 30k?" instead of making
+  someone read the calendar grid. `/admin/availability` (admin *and* ops) and
+  `/client/availability` (the owner's own units, scoped by `properties_v`).
+  - Migration `add_property_capacity_and_asking_rates`: `properties.max_guests`,
+    `nightly_rate`, `short_stay_rate`, all nullable with check constraints, plus
+    `properties_v` recreated to pass them through. The rates are **not** blanked
+    for ops — they are asking prices, like `sale_price`, not deal terms.
+    `properties` has table-level grants, so the new columns needed no new grant.
+  - `src/lib/availability-search.ts` — `findAvailable()` + `readCriteria()`.
+    Built on `listUnavailable()` deliberately: the finder must not offer a stay
+    `findStayClash()` would then refuse. Overlap is `start <= last && end >= first`
+    over nights both ends inclusive, which is the form `listUnavailable` already
+    normalises the booking/block asymmetry into.
+  - Null rate or capacity is **not** treated as a miss. Those units come back in
+    a separate "free, but missing the figure you filtered on" group, with an
+    Add-details link for the owner — so thin data reads as thin data and shows
+    exactly which property needs filling in. Pre-launch this is most of them.
+  - Short stays are searchable and hold their whole date, matching how they are
+    stored and how `findStayClash` treats them. Their price is flat per window,
+    like `short_stay_stack_rate`.
+  - `PropertyForm` gained the three fields under a "What we quote" heading, kept
+    visually apart from the deal-term stack rates below it. Both new-booking
+    pages now accept `?checkout=` so a result hands over the whole stay.
+  - **Not verified in a browser**: no `.env.local` on this machine and no portal
+    credentials, so both pages were checked by build and lint only.
 - Phase 0 audit of the whole codebase (architecture, schema, reusable pieces, risks)
   — captured in `context.md`.
 - Phase 1 (design system + shell): tokens, grouped sidebar, top bar, global search
@@ -1222,6 +1248,14 @@ reassign the alias, so nothing broke.
     18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
+0a. **Fill in `max_guests` / `nightly_rate` on the real properties.** Until
+   someone does, every unit lands in the finder's "missing the figure" group and
+   a budget search ranks nothing. It is one pass through
+   `/admin/clients/<id>/properties/<id>/edit` per unit.
+0b. **Open both availability pages signed in** — as admin, as ops, and as an
+   owner. Three things only a real session answers: that ops sees the asking
+   rate and no split, that an owner sees only their own units, and that the
+   Book button carries the dates through to `BookingForm`.
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
    app can be trusted until that round trip works: the download, the "allow from
    this source" prompt, and — the one that silently fails — whether the app opens

@@ -249,6 +249,18 @@ export async function setClientPassword(formData: FormData) {
 
 // ── Properties ───────────────────────────────────────────
 
+/**
+ * Blank means "not recorded yet", and that is a null — not a zero. The
+ * availability finder tells the two apart: a null is listed as missing, a zero
+ * would read as a free unit that sleeps nobody.
+ */
+function optionalNumber(value: FormDataEntryValue | null, min = 0): number | null {
+  const raw = (value as string | null)?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= min ? n : null;
+}
+
 export async function createProperty(formData: FormData) {
   const client_id = formData.get("client_id") as string;
   const name = (formData.get("name") as string)?.trim();
@@ -259,6 +271,9 @@ export async function createProperty(formData: FormData) {
   const status = (formData.get("status") as string) || "active";
   const stack_rate = Number(formData.get("stack_rate")) || 0;
   const short_stay_stack_rate = Number(formData.get("short_stay_stack_rate")) || 0;
+  const max_guests = optionalNumber(formData.get("max_guests"), 1);
+  const nightly_rate = optionalNumber(formData.get("nightly_rate"));
+  const short_stay_rate = optionalNumber(formData.get("short_stay_rate"));
 
   if (!name || !location) {
     redirect(
@@ -281,6 +296,9 @@ export async function createProperty(formData: FormData) {
       status,
       stack_rate,
       short_stay_stack_rate,
+      max_guests,
+      nightly_rate,
+      short_stay_rate,
     })
     .select("id")
     .single();
@@ -316,6 +334,9 @@ export async function updateProperty(formData: FormData) {
   const status = (formData.get("status") as string) || "active";
   const stack_rate = Number(formData.get("stack_rate")) || 0;
   const short_stay_stack_rate = Number(formData.get("short_stay_stack_rate")) || 0;
+  const max_guests = optionalNumber(formData.get("max_guests"), 1);
+  const nightly_rate = optionalNumber(formData.get("nightly_rate"));
+  const short_stay_rate = optionalNumber(formData.get("short_stay_rate"));
 
   if (!name || !location) {
     redirect(
@@ -328,7 +349,19 @@ export async function updateProperty(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("properties")
-    .update({ name, location, province, city, type, status, stack_rate, short_stay_stack_rate })
+    .update({
+      name,
+      location,
+      province,
+      city,
+      type,
+      status,
+      stack_rate,
+      short_stay_stack_rate,
+      max_guests,
+      nightly_rate,
+      short_stay_rate,
+    })
     .eq("id", id);
 
   if (error) {

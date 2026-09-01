@@ -9,9 +9,9 @@ import type { DealModel, OtaModel } from "@/lib/payout";
 export default async function NewBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; property?: string; date?: string; client?: string }>;
+  searchParams: Promise<{ error?: string; property?: string; date?: string; checkout?: string; client?: string }>;
 }) {
-  const { error, property, date, client } = await searchParams;
+  const { error, property, date, checkout, client } = await searchParams;
 
   const supabase = await createClient();
   const showMoney = canSeeSplit((await currentProfile())?.role);
@@ -79,6 +79,7 @@ export default async function NewBookingPage({
           clients={clientTerms}
           initialPropertyId={initialPropertyId}
           initialDate={date}
+          initialCheckOut={checkout}
           unavailable={unavailable}
           showPayoutPreview={showMoney}
           error={error}

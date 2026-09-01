@@ -51,6 +51,14 @@ Pre-launch: real data has not been entered yet.
   blocked, what is stale, when to raise a clash) live in
   `sync_calendar_feed_apply()` in SQL, next to the data where cron can reach
   them; the function only fetches and parses.
+- `src/app/{admin,client}/availability/page.tsx` + `src/lib/availability-search.ts`
+  + `src/components/shared/{AvailabilityFinder,AvailabilityResults}.tsx` — the
+  **availability finder**: answers an enquiry (dates, guests, budget, location,
+  type) instead of a date. `findAvailable()` builds on `listUnavailable()` on
+  purpose, so what it offers is exactly what `findStayClash()` will accept on
+  save. Criteria live in the URL, so a result set is a shareable link.
+  Both staff roles get the admin one; nothing on it is a split figure. An owner
+  gets their own units — `properties_v`'s WHERE clause scopes that, not a filter.
 - `src/app/admin/clients/**` — client CRUD, and nested property CRUD under
   `clients/[id]/properties/**`
 - `src/app/admin/bookings/**` — booking list + create + `actions.ts`
@@ -150,12 +158,12 @@ Pre-launch: real data has not been entered yet.
   — the loading boundary for every route in both portals. It is also what makes
   `<Link>` prefetch work on these dynamic routes.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
-- `supabase/migrations/` — the live DB tracks 13 migrations; the repo only holds
-  `0001_init_core_schema.sql` (profiles / clients / properties / payout_rules) and
-  `20260825062223_restrict_security_definer_function_grants.sql`. The 11 in between
-  (bookings, booking_properties, calendar_blocks, notifications, the extra
-  `properties` columns) were applied straight to Supabase and never committed.
-  Read the live schema, not these files. `list_migrations` shows the real list.
+- `supabase/migrations/` — the live DB tracks **48** migrations; the repo holds
+  18 of them, and the filenames don't all match the versions Supabase recorded.
+  The gap is the early core work (bookings, booking_properties, calendar_blocks,
+  the extra `properties` columns) plus the whole ops-role and masked-view set,
+  all applied straight to Supabase. **Read the live schema, not these files** —
+  `list_migrations` shows the real list.
 - `AGENTS.md` — Next.js-generated agent rules, auto-re-added by `next dev`.
   `CLAUDE.md` imports it with `@AGENTS.md`; don't delete either.
 
@@ -165,8 +173,16 @@ Pre-launch: real data has not been entered yet.
   share_percent, deduct_percent
 - `properties` — client_id, name, location, city, province,
   type enum(`studio|1bhk|2bhk|3bhk|2_plus_kids|farmhouse|penthouse|villa|cottage`),
-  status enum(`active|inactive`), stack_rate, short_stay_stack_rate.
-  **No image_url, no bedrooms, no max_guests columns.**
+  status enum(`active|inactive`), stack_rate, short_stay_stack_rate,
+  max_guests, nightly_rate, short_stay_rate.
+  **Two kinds of money live here and they are not interchangeable.**
+  `stack_rate` / `short_stay_stack_rate` are *deal terms* — the owner's
+  guaranteed floor under the ads / fixed_stack models — and `properties_v`
+  blanks them for ops. `nightly_rate` / `short_stay_rate` are *asking prices*,
+  what a guest is quoted, and they are **not** blanked: ops answers enquiries.
+  All three of the new columns are nullable, and null means "not recorded yet";
+  the availability finder lists such a unit separately rather than guessing.
+  **No image_url and no bedrooms columns.**
 - `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
   is_short_stay, short_stay_start, short_stay_end,
   source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),
@@ -353,6 +369,10 @@ Pre-launch: real data has not been entered yet.
   has a `name` column, so an unqualified `name` inside a subquery that joins
   `clients` silently binds to *that* column and the policy denies everything.
   This bit the receipt policies once already.
+- **Don't quote a `stack_rate`.** It is the owner's floor in a stack deal, it is
+  blanked for ops, and it is not what a guest pays. The asking price is
+  `nightly_rate` (per night) / `short_stay_rate` (flat per window). The
+  availability finder reads only the latter pair.
 - Pricing / Expenses / Reports have **zero backing tables** — out of scope, no
   nav for them. Neither do guest messaging, housekeeping, maintenance or staff
   assignment, so there are no notifications for them either. Do not invent one;
