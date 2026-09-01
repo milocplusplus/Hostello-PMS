@@ -373,6 +373,20 @@ Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 Phase 2 + 3 shipped as `dpl_7JfmujCpqA8LueTG5gujr3VhiucB` (READY, production) on
 `hostello-pms.vercel.app`.
 
+**The ops role + the column-leak fix shipped 2026-09-01 as
+`dpl_AiAWRCWH3JR5t3q9fa2WJy5TiKxd`** (READY, production, commit `907fb26`).
+Verified live: `/` → 307 → `/login`, `/login` 200 with the form, manifest 200,
+no `DEPLOYMENT_PAUSED`.
+
+**A paused project does not build.** The project was paused while this work was
+done; the first push landed as a **BLOCKED** deployment
+(`dpl_3tqNL1s3wPNNAHajvXJkFtoqQ81f`) rather than building. Unpausing does not
+retry it — it took an empty commit to get a build. So the order is **unpause
+first, then push**, and note the consequence: for the minute between the two,
+production is serving the *previous* build. That mattered here because the
+migrations were already applied and the old code still read the money columns
+straight off `bookings`, which now refuses them.
+
 **The Supabase URL and anon key now live in `src/lib/supabase/config.ts`**, not in
 env vars. `server.ts`, `client.ts` and `middleware.ts` all read from there. An env
 var overrides the default only when set *and* made entirely of printable ASCII —
