@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import { formatDayMonth } from "@/lib/calendar";
@@ -141,7 +141,7 @@ export default async function ChannelInboxPage({
   const { error, notice } = await searchParams;
 
   const supabase = await createClient();
-  const user = await currentUser();
+  const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
   if (!user) redirect("/login");
 
   const [{ data: messages }, { data: props }] = await Promise.all([
@@ -159,7 +159,12 @@ export default async function ChannelInboxPage({
       .order("name"),
   ]);
 
-  const rows = (messages ?? []) as unknown as MessageRow[];
+  // A payout mail is the channel saying what it paid Hostello, and it is worked
+  // on "Owed to Hostello" — both the owner's. Ops never sees that queue.
+  const showMoney = canSeeSplit(profile?.role);
+  const rows = ((messages ?? []) as unknown as MessageRow[]).filter(
+    (r) => showMoney || r.kind !== "payout"
+  );
   const properties = (props ?? []) as unknown as PropertyRow[];
 
   const open = rows.filter((r) => OPEN_STATUSES.includes(r.status));

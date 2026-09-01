@@ -71,6 +71,7 @@ export function BookingForm({
   unavailable = [],
   submitLabel = "Save booking",
   allowReceipt = true,
+  showPayoutPreview = true,
   error,
 }: {
   action: (formData: FormData) => void;
@@ -86,6 +87,8 @@ export function BookingForm({
   submitLabel?: string;
   /** Token receipts are Hostello's to upload — off in the client portal. */
   allowReceipt?: boolean;
+  /** The live split. Off for ops, who fill the same form without seeing it. */
+  showPayoutPreview?: boolean;
   error?: string;
 }) {
   const sortedProperties = useMemo(
@@ -468,7 +471,7 @@ export function BookingForm({
         </div>
       )}
 
-      {preview && (
+      {preview && showPayoutPreview && (
         <div className="rounded-md border border-hostello-gold/40 bg-hostello-gold/5 p-4 flex flex-col gap-1.5 text-sm">
           <p className="text-ink-secondary">
             {shortStay

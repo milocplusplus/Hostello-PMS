@@ -17,8 +17,10 @@ import {
   Menu,
   X,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { StaffRole } from "@/lib/auth";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
@@ -37,31 +39,61 @@ type NavItem = {
 };
 type NavGroup = { label: string; items: NavItem[] };
 
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Overview",
-    items: [
-      { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-      { href: "/admin/today", label: "Today", icon: Sun, exact: false },
-      { href: "/admin/checkins", label: "Check-ins", icon: LogIn, exact: false },
-      { href: "/admin/notifications", label: "Activity", icon: Bell, exact: false },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
-      { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: true },
-      { href: "/admin/bookings", label: "Bookings & Payouts", icon: Wallet, exact: false },
-      { href: "/admin/payouts", label: "Owed to Hostello", icon: HandCoins, exact: false },
-      { href: "/admin/stats", label: "Stats", icon: BarChart3, exact: false },
-    ],
-  },
-  {
-    label: "Management",
-    items: [{ href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false }],
-  },
-];
+/**
+ * One portal, two names. The owner gets everything; ops gets the same stays
+ * without a single money page in reach — a nav that hides a route it can still
+ * open would only be decoration, so the owner-only routes guard themselves too
+ * (`requireOwner`).
+ */
+function navGroups(role: StaffRole): NavGroup[] {
+  const owner = role === "admin";
+
+  return [
+    {
+      label: "Overview",
+      items: [
+        { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { href: "/admin/today", label: "Today", icon: Sun, exact: false },
+        { href: "/admin/checkins", label: "Check-ins", icon: LogIn, exact: false },
+        // Notifications are fanned out to owners only, so an ops "Activity"
+        // page would always be empty.
+        ...(owner
+          ? [{ href: "/admin/notifications", label: "Activity", icon: Bell, exact: false }]
+          : []),
+      ],
+    },
+    {
+      label: "Operations",
+      items: [
+        { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
+        { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: true },
+        {
+          href: "/admin/bookings",
+          label: owner ? "Bookings & Payouts" : "Bookings",
+          icon: Wallet,
+          exact: false,
+        },
+        ...(owner
+          ? [
+              { href: "/admin/payouts", label: "Owed to Hostello", icon: HandCoins, exact: false },
+              { href: "/admin/stats", label: "Stats", icon: BarChart3, exact: false },
+            ]
+          : []),
+      ],
+    },
+    ...(owner
+      ? [
+          {
+            label: "Management",
+            items: [
+              { href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false },
+              { href: "/admin/staff", label: "Staff", icon: ShieldCheck, exact: false },
+            ],
+          },
+        ]
+      : []),
+  ];
+}
 
 function Logo() {
   return (
@@ -80,17 +112,19 @@ function Logo() {
 }
 
 function NavLinks({
+  role,
   pathname,
   unreadCount,
   onNavigate,
 }: {
+  role: StaffRole;
   pathname: string;
   unreadCount: number;
   onNavigate?: () => void;
 }) {
   return (
     <>
-      {NAV_GROUPS.map((group) => (
+      {navGroups(role).map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
           <p className="eyebrow px-3 pt-5 pb-2">{group.label}</p>
           {group.items.map((item) => {
@@ -144,9 +178,11 @@ function NavLinks({
 }
 
 function SidebarFooter({
+  roleLabel,
   userName,
   logoutAction,
 }: {
+  roleLabel: string;
   userName: string;
   logoutAction: () => Promise<void>;
 }) {
@@ -162,7 +198,7 @@ function SidebarFooter({
           </div>
           <div className="min-w-0 leading-tight">
             <p className="text-xs text-ink-primary truncate">{userName}</p>
-            <p className="text-[10px] text-ink-muted">Admin</p>
+            <p className="text-[10px] text-ink-muted">{roleLabel}</p>
           </div>
         </div>
         <form action={logoutAction}>
@@ -179,6 +215,7 @@ function SidebarFooter({
 }
 
 export function AdminShell({
+  role,
   userName,
   logoutAction,
   searchAction,
@@ -187,6 +224,7 @@ export function AdminShell({
   markAllReadAction,
   children,
 }: {
+  role: StaffRole;
   userName: string;
   logoutAction: () => Promise<void>;
   searchAction: (query: string) => Promise<SearchResult[]>;
@@ -197,6 +235,10 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  // The rename lives here: /admin serves both staff roles and says which one
+  // is looking at it.
+  const roleLabel = role === "ops" ? "Operations" : "Owners View";
+  const showBell = role === "admin";
 
   return (
     <div className="min-h-screen flex text-ink-primary">
@@ -207,22 +249,24 @@ export function AdminShell({
         </div>
 
         <nav className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto pb-4">
-          <NavLinks pathname={pathname} unreadCount={unreadCount} />
+          <NavLinks role={role} pathname={pathname} unreadCount={unreadCount} />
         </nav>
 
-        <SidebarFooter userName={userName} logoutAction={logoutAction} />
+        <SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />
       </aside>
 
       {/* Mobile top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 glass border-b border-border-hairline flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo />
         <div className="flex items-center gap-1">
-          <NotificationBell
-            items={notifications}
-            unreadCount={unreadCount}
-            allHref="/admin/notifications"
-            markAllAction={markAllReadAction}
-          />
+          {showBell && (
+            <NotificationBell
+              items={notifications}
+              unreadCount={unreadCount}
+              allHref="/admin/notifications"
+              markAllAction={markAllReadAction}
+            />
+          )}
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
@@ -256,12 +300,13 @@ export function AdminShell({
             </div>
             <nav className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto">
               <NavLinks
+                role={role}
                 pathname={pathname}
                 unreadCount={unreadCount}
                 onNavigate={() => setMenuOpen(false)}
               />
             </nav>
-            <SidebarFooter userName={userName} logoutAction={logoutAction} />
+            <SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />
           </div>
         </div>
       )}
@@ -275,13 +320,15 @@ export function AdminShell({
             <Plus size={15} strokeWidth={2.5} />
             Add booking
           </Link>
-          <NotificationBell
-            items={notifications}
-            unreadCount={unreadCount}
-            allHref="/admin/notifications"
-            markAllAction={markAllReadAction}
-          />
-          <UserMenu userName={userName} roleLabel="Admin" logoutAction={logoutAction} />
+          {showBell && (
+            <NotificationBell
+              items={notifications}
+              unreadCount={unreadCount}
+              allHref="/admin/notifications"
+              markAllAction={markAllReadAction}
+            />
+          )}
+          <UserMenu userName={userName} roleLabel={roleLabel} logoutAction={logoutAction} />
         </div>
 
         <div className="max-w-6xl w-full mx-auto px-4 md:px-8 safe-main flex-1">

@@ -19,6 +19,7 @@ export function BookingFilters({
   channel,
   status,
   settle,
+  showSettlement = true,
 }: {
   clients: ClientOption[];
   q: string;
@@ -26,6 +27,8 @@ export function BookingFilters({
   channel: string;
   status: string;
   settle: string;
+  /** Off for ops: settlement is the split's state, not the booking's. */
+  showSettlement?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -113,17 +116,19 @@ export function BookingFilters({
         <option value="cancelled">Cancelled only</option>
       </select>
 
-      <select
-        aria-label="Filter by settlement"
-        value={settle}
-        onChange={(e) => update("settle", e.target.value)}
-        className={selectClass}
-        style={{ backgroundImage: caret }}
-      >
-        <option value="">Any settlement</option>
-        <option value="awaiting">Owed to Hostello</option>
-        <option value="received">Share received</option>
-      </select>
+      {showSettlement && (
+        <select
+          aria-label="Filter by settlement"
+          value={settle}
+          onChange={(e) => update("settle", e.target.value)}
+          className={selectClass}
+          style={{ backgroundImage: caret }}
+        >
+          <option value="">Any settlement</option>
+          <option value="awaiting">Owed to Hostello</option>
+          <option value="received">Share received</option>
+        </select>
+      )}
     </div>
   );
 }

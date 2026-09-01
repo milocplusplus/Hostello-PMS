@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { DealModel, OtaModel } from "@/lib/payout";
@@ -37,6 +38,38 @@ export const currentProfile = cache(async (): Promise<CurrentProfile | null> => 
     .single();
   return data;
 });
+
+/**
+ * Who works for Hostello, and what they are allowed to see.
+ *
+ * `admin` is the owner — the whole business, money included. `ops` is the
+ * operations team: the same stays, dates and guests, but never the split. Both
+ * live under `/admin`; the portal is *labelled* by role, and the one rule that
+ * matters is `canSeeSplit`. Anything that renders `hostello_share`,
+ * `client_payout`, `net_sale`, a deal model or a settlement state is behind it.
+ * Sale price and the advance are not — ops takes the money at the door.
+ */
+export type StaffRole = "admin" | "ops";
+
+export function isStaffRole(role: string | undefined | null): role is StaffRole {
+  return role === "admin" || role === "ops";
+}
+
+/** The owner's own view. Ops sees the same stay without the money on it. */
+export function canSeeSplit(role: string | undefined | null): boolean {
+  return role === "admin";
+}
+
+/**
+ * Guard for a page only the owner may open. Ops is sent to their dashboard
+ * rather than the login screen — they are signed in, just not for this.
+ */
+export async function requireOwner(): Promise<CurrentProfile> {
+  const profile = await currentProfile();
+  if (!profile) redirect("/login");
+  if (profile.role !== "admin") redirect("/admin");
+  return profile;
+}
 
 export type CurrentClient = {
   id: string;

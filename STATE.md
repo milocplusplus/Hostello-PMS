@@ -1129,6 +1129,43 @@ reassign the alias, so nothing broke.
     to answer: whether the board's sticky property column holds inside the
     horizontal scroller under Safari, and whether the installed PWA actually
     takes a push subscription.
+- **Operations team login, and the Admin → Owners View rename** (2026-09-01).
+  A third role, so staff can run stays without seeing what anyone earns.
+  - `user_role` gains **`ops`**. `is_admin()` is untouched and still means the
+    owner alone; `is_ops()` / `is_staff()` are new. Ops access was added as
+    *extra* permissive policies rather than by rewriting the admin ones, so no
+    existing policy loosened: ALL on bookings, booking_properties,
+    booking_guest_ids, calendar_blocks, calendar_feeds, calendar_exports;
+    SELECT+UPDATE on ota_messages; **SELECT only** on clients and properties.
+    `client_payouts`, `client_payout_allocations`, `payout_rules` and
+    `booking_receipts` have **no ops policy at all**. `emit_notification` now
+    authorises on `is_staff()` so an ops booking can announce itself.
+  - **One portal, two names.** `/admin` serves both staff roles and calls itself
+    "Owners View" or "Operations"; the URLs did not move. `canSeeSplit(role)` in
+    `src/lib/auth.ts` is the single rule every money-bearing branch reads, and
+    `requireOwner()` guards the owner-only segments through a `layout.tsx` in
+    each of `payouts/`, `stats/`, `clients/`, `notifications/`, `staff/` — so a
+    hidden nav link is never the only thing keeping ops out.
+  - **Ops sees** sale price, advance, balance due, guests, dates, the calendar,
+    check-ins and the channel inbox. **Ops never sees** hostello_share,
+    client_payout, net_sale, deal terms, settlement state, revenue KPIs, the
+    revenue chart, token receipts, payout-kind channel mail, or Staff.
+    Notifications fan out to owners only, so ops has no bell and no Activity.
+  - **Staff page** (`/admin/staff`, owner-only) creates and manages ops logins
+    through `create_ops_login` / `set_ops_password` / `set_ops_access` /
+    `list_ops_logins` — SECURITY DEFINER, owner-checked, mirroring the existing
+    `create_client_login`. **No service-role key needed.** Removing access bans
+    the auth user rather than deleting it, so `entered_by` history survives.
+  - Verified against the live DB in rolled-back transactions: as the owner,
+    create + list work; as ops, bookings 18 / clients 5 but client_payouts,
+    payout_rules and booking_receipts all return **0 rows**, `create_ops_login`
+    and `set_ops_access` raise, `list_ops_logins` returns nothing, and a
+    self-promote `update profiles set role='admin'` changes nothing. No probe
+    rows were committed. `npm run build` and `npm run lint` clean.
+  - **Known limit:** RLS is row-level, so an ops session that queried the REST
+    API directly could still read the money *columns* on `bookings` and the deal
+    terms on `clients` — the app never renders or asks for them, but the column
+    is not itself denied. Closing that needs owner-only views or column grants.
 
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the

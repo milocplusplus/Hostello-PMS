@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isStaffRole } from "@/lib/auth";
 
 export async function login(formData: FormData) {
   const email = (formData.get("email") as string)?.trim();
@@ -40,7 +41,9 @@ export async function login(formData: FormData) {
     .eq("id", user!.id)
     .single();
 
-  if (profile?.role === "admin") {
+  // Both staff roles land in the same portal; it renames itself for whoever
+  // opened it, and hides the split from ops.
+  if (isStaffRole(profile?.role)) {
     redirect("/admin");
   }
 

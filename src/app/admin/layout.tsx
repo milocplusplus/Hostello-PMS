@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { currentProfile, currentUser } from "@/lib/auth";
+import { currentProfile, currentUser, isStaffRole } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { NotificationLive } from "@/components/shared/NotificationLive";
@@ -29,12 +29,14 @@ export default async function AdminLayout({
     readNotificationPreferences(user.id),
   ]);
 
-  if (profile?.role !== "admin") redirect("/client");
+  if (!profile || !isStaffRole(profile.role)) redirect("/client");
+  const role = profile.role;
 
   return (
     <>
       <AdminShell
-        userName={profile?.full_name ?? "Admin"}
+        role={role}
+        userName={profile.full_name ?? (role === "ops" ? "Operations" : "Owner")}
         logoutAction={logout}
         searchAction={searchAdmin}
         notifications={notifications}
@@ -43,12 +45,16 @@ export default async function AdminLayout({
       >
         {children}
       </AdminShell>
-      <NotificationLive
-        userId={user.id}
-        portal="admin"
-        soundEnabled={preferences.soundEnabled}
-        mutedCategories={preferences.mutedCategories}
-      />
+      {/* Events fan out to owners only, so there is nothing for an ops session
+          to listen for. */}
+      {role === "admin" && (
+        <NotificationLive
+          userId={user.id}
+          portal="admin"
+          soundEnabled={preferences.soundEnabled}
+          mutedCategories={preferences.mutedCategories}
+        />
+      )}
     </>
   );
 }

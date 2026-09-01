@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { canSeeSplit, currentProfile } from "@/lib/auth";
 import type { SearchResult } from "@/lib/search";
 
 /**
@@ -14,6 +15,13 @@ export async function searchAdmin(query: string): Promise<SearchResult[]> {
 
   const supabase = await createClient();
   const like = `%${q}%`;
+
+  // Clients & Properties is the owner's. A client or property hit still means
+  // something to ops — it means "show me that client's calendar" — so it goes
+  // there instead of at a page they would be bounced off.
+  const showMoney = canSeeSplit((await currentProfile())?.role);
+  const clientHref = (id: string) =>
+    showMoney ? `/admin/clients/${id}` : `/admin/calendar?client=${id}`;
 
   const [clientsRes, propertiesRes, bookingsRes] = await Promise.all([
     supabase.from("clients").select("id, name").ilike("name", like).limit(5),
@@ -39,7 +47,7 @@ export async function searchAdmin(query: string): Promise<SearchResult[]> {
       id: c.id,
       title: c.name,
       subtitle: "Client",
-      href: `/admin/clients/${c.id}`,
+      href: clientHref(c.id),
     });
   }
 
@@ -50,7 +58,7 @@ export async function searchAdmin(query: string): Promise<SearchResult[]> {
       id: p.id,
       title: p.name,
       subtitle: `Property · ${clientName}`,
-      href: `/admin/clients/${p.client_id}`,
+      href: clientHref(p.client_id),
     });
   }
 

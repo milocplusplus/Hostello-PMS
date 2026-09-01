@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight, Clock, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
@@ -44,8 +44,12 @@ export default async function BookingsPage({
   } = await searchParams;
 
   const supabase = await createClient();
-  const user = await currentUser();
+  const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
   if (!user) redirect("/login");
+
+  // Ops runs the same list of stays; the split, the settlement state and the
+  // four money tiles are the owner's. Sale price stays — ops takes the payment.
+  const showMoney = canSeeSplit(profile?.role);
 
   const { year, month0 } = parseMonthParam(monthParam);
   const grid = getMonthGrid(year, month0);
@@ -67,7 +71,7 @@ export default async function BookingsPage({
   filter = status ? filter.eq("status", status) : filter.neq("status", "cancelled");
   if (client) filter = filter.eq("client_id", client);
   if (channel) filter = filter.eq("source", channel);
-  if (settle) filter = filter.eq("share_received", settle === "received");
+  if (settle && showMoney) filter = filter.eq("share_received", settle === "received");
 
   const query = searching
     ? filter.ilike("guest_name", "%" + term + "%").order("check_in", { ascending: false })
@@ -112,8 +116,10 @@ export default async function BookingsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="eyebrow">Finance</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Bookings &amp; Payouts</h1>
+        <p className="eyebrow">{showMoney ? "Finance" : "Operations"}</p>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">
+          {showMoney ? "Bookings & Payouts" : "Bookings"}
+        </h1>
       </div>
 
       <div className="card p-3 flex items-center gap-3 flex-wrap justify-between">
@@ -124,6 +130,7 @@ export default async function BookingsPage({
           channel={channel}
           status={status}
           settle={settle}
+          showSettlement={showMoney}
         />
         {!searching && (
           <div className="flex items-center gap-0.5 p-1 rounded-xl bg-surface-2/60 border border-border-hairline shrink-0">
@@ -148,6 +155,7 @@ export default async function BookingsPage({
         )}
       </div>
 
+      {showMoney && (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
         {/* Each tile is lit by the colour of the figure it carries, so the two
             that matter — what is owed and what is in hand — read first. */}
@@ -199,6 +207,7 @@ export default async function BookingsPage({
           </div>
         ))}
       </div>
+      )}
 
       {rows.length === 0 && (
         <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
@@ -229,8 +238,14 @@ export default async function BookingsPage({
                   <th className="px-4 py-3 font-normal">Guest</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Channel</th>
-                  <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Hostello</th>
-                  <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Client</th>
+                  {showMoney ? (
+                    <>
+                      <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Hostello</th>
+                      <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Client</th>
+                    </>
+                  ) : (
+                    <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Total</th>
+                  )}
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Status</th>
                   {/* Fixed layout on a phone: this width is what leaves the guest
                       column the rest of the card instead of overflowing it. */}
@@ -265,17 +280,25 @@ export default async function BookingsPage({
                           "text-status-pending border-status-pending/40 bg-status-pending/10",
                           "bg-status-pending"
                         )
-                      : b.share_received
+                      : // Settled / awaiting is the split's own story. Ops sees the
+                        // booking's state instead.
+                        !showMoney
                         ? pill(
-                            "Received",
-                            "text-hostello-gold border-hostello-gold/40 bg-hostello-gold/10",
-                            "bg-hostello-gold"
+                            "Confirmed",
+                            "text-positive border-positive/40 bg-positive/10",
+                            "bg-positive"
                           )
-                        : pill(
-                            "Awaiting",
-                            "text-ink-secondary border-border-hairline bg-surface-3/60",
-                            "bg-ink-muted"
-                          );
+                        : b.share_received
+                          ? pill(
+                              "Received",
+                              "text-hostello-gold border-hostello-gold/40 bg-hostello-gold/10",
+                              "bg-hostello-gold"
+                            )
+                          : pill(
+                              "Awaiting",
+                              "text-ink-secondary border-border-hairline bg-surface-3/60",
+                              "bg-ink-muted"
+                            );
                   return (
                     <tr
                       key={b.id}
@@ -310,7 +333,9 @@ export default async function BookingsPage({
                                       b.check_out
                                     )} (${nights}n)`}
                               </span>
-                              <span className="text-financial">{formatPKR(b.hostello_share)}</span>
+                              <span className="text-financial">
+                                {formatPKR(showMoney ? b.hostello_share : b.sale_price)}
+                              </span>
                               {statusNode}
                             </span>
                           </span>
@@ -333,12 +358,20 @@ export default async function BookingsPage({
                           {sourceLabel(b.source) ?? b.source}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-financial whitespace-nowrap hidden md:table-cell">
-                        {formatPKR(b.hostello_share)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-ink-secondary whitespace-nowrap hidden md:table-cell">
-                        {formatPKR(b.client_payout)}
-                      </td>
+                      {showMoney ? (
+                        <>
+                          <td className="px-4 py-3 text-right text-financial whitespace-nowrap hidden md:table-cell">
+                            {formatPKR(b.hostello_share)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-ink-secondary whitespace-nowrap hidden md:table-cell">
+                            {formatPKR(b.client_payout)}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-4 py-3 text-right text-ink-primary whitespace-nowrap hidden md:table-cell">
+                          {formatPKR(b.sale_price)}
+                        </td>
+                      )}
                       <td className="px-4 py-3 hidden md:table-cell">{statusNode}</td>
                       <td className="px-4 py-3 text-right">
                         {cancelled ? (
@@ -350,17 +383,19 @@ export default async function BookingsPage({
                           </Link>
                         ) : (
                           <div className="flex flex-col items-end gap-1.5 md:flex-row md:items-center md:justify-end md:gap-2">
-                            <form action={markShareReceived}>
-                              <input type="hidden" name="id" value={b.id} />
-                              <input
-                                type="hidden"
-                                name="received"
-                                value={(!b.share_received).toString()}
-                              />
-                              <button type="submit" className="btn btn-ghost btn-sm">
-                                {b.share_received ? "Mark unpaid" : "Mark received"}
-                              </button>
-                            </form>
+                            {showMoney && (
+                              <form action={markShareReceived}>
+                                <input type="hidden" name="id" value={b.id} />
+                                <input
+                                  type="hidden"
+                                  name="received"
+                                  value={(!b.share_received).toString()}
+                                />
+                                <button type="submit" className="btn btn-ghost btn-sm">
+                                  {b.share_received ? "Mark unpaid" : "Mark received"}
+                                </button>
+                              </form>
+                            )}
                             <form action={cancelBooking}>
                               <input type="hidden" name="id" value={b.id} />
                               <button

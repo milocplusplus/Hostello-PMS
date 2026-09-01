@@ -11,7 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentProfile, currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { sourceLabel } from "@/lib/block-sources";
 import {
@@ -310,6 +310,10 @@ export default async function AdminDashboard({
     ...checkoutsToday.map((b) => ({ kind: "Check-out", b })),
   ];
 
+  // Ops gets the same day, minus the earnings: no revenue headline, no share
+  // awaiting settlement, no route into client deal terms.
+  const showMoney = canSeeSplit(profile?.role);
+
   return (
     <div className="flex flex-col gap-5 animate-in">
       {/* Hero. The one place on the page that carries the brand at full
@@ -340,11 +344,15 @@ export default async function AdminDashboard({
           </p>
         </div>
         <div className="relative shrink-0">
-          <AddBookingMenu />
+          <AddBookingMenu isOwner={showMoney} />
         </div>
       </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 stagger">
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 gap-4 stagger ${
+          showMoney ? "xl:grid-cols-4" : "xl:grid-cols-3"
+        }`}
+      >
         <Kpi
           label="Properties"
           value={String(activeCount)}
@@ -352,7 +360,7 @@ export default async function AdminDashboard({
           tint="var(--color-hostello-purple-glow)"
           series={propertySeries}
           sparkId="spark-properties"
-          href="/admin/clients"
+          href={showMoney ? "/admin/clients" : undefined}
         >
           <p className="text-[11px] text-ink-muted mt-1">
             {addedThisMonth > 0 ? `+${addedThisMonth} this month` : "None added this month"}
@@ -387,18 +395,20 @@ export default async function AdminDashboard({
           </p>
         </Kpi>
 
-        <Kpi
-          label={`Revenue (${formatMonthLabel(year, month0).split(" ")[0]})`}
-          value={formatPKR(grossThisMonth)}
-          icon={CircleDollarSign}
-          tint="var(--color-hostello-gold)"
-          iconInk="text-surface-0"
-          series={revenueSeries}
-          sparkId="spark-revenue"
-          href="/admin/bookings"
-        >
-          <Delta current={grossThisMonth} previous={grossLastMonth} />
-        </Kpi>
+        {showMoney && (
+          <Kpi
+            label={`Revenue (${formatMonthLabel(year, month0).split(" ")[0]})`}
+            value={formatPKR(grossThisMonth)}
+            icon={CircleDollarSign}
+            tint="var(--color-hostello-gold)"
+            iconInk="text-surface-0"
+            series={revenueSeries}
+            sparkId="spark-revenue"
+            href="/admin/bookings"
+          >
+            <Delta current={grossThisMonth} previous={grossLastMonth} />
+          </Kpi>
+        )}
       </div>
 
       <div className="grid xl:grid-cols-2 gap-4 items-start">
@@ -467,6 +477,7 @@ export default async function AdminDashboard({
         </div>
 
         <div className="flex flex-col gap-4">
+          {showMoney && (
           <section className="card p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-[15px] font-semibold tracking-tight">Revenue overview</h2>
@@ -491,6 +502,7 @@ export default async function AdminDashboard({
               <RevenueChart dates={period.days} series={periodSeries} />
             )}
           </section>
+          )}
 
           <section className="card p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -559,7 +571,7 @@ export default async function AdminDashboard({
               </ul>
             )}
 
-            {awaiting > 0 && (
+            {showMoney && awaiting > 0 && (
               <p className="text-xs text-ink-muted border-t border-border-hairline pt-3">
                 <span className="text-status-pending font-medium">{formatPKR(awaiting)}</span> in Hostello
                 share still awaiting settlement this month.

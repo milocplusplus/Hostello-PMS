@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { currentProfile, currentUser } from "@/lib/auth";
+import { currentProfile, currentUser, isStaffRole } from "@/lib/auth";
 
 export default async function Home() {
   const user = await currentUser();
@@ -10,5 +10,5 @@ export default async function Home() {
 
   const profile = await currentProfile();
 
-  redirect(profile?.role === "admin" ? "/admin" : "/client");
+  redirect(isStaffRole(profile?.role) ? "/admin" : "/client");
 }

@@ -7,10 +7,11 @@ import { Plus, ChevronDown, Lock, CalendarDays, Users } from "lucide-react";
 const MENU = [
   { href: "/admin/calendar/block", label: "Block dates", icon: Lock },
   { href: "/admin/calendar", label: "Check calendar", icon: CalendarDays },
-  { href: "/admin/clients/new", label: "Add client", icon: Users },
+  { href: "/admin/clients/new", label: "Add client", icon: Users, ownerOnly: true },
 ];
 
-export function AddBookingMenu() {
+export function AddBookingMenu({ isOwner = true }: { isOwner?: boolean }) {
+  const menu = MENU.filter((m) => isOwner || !m.ownerOnly);
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -50,7 +51,7 @@ export function AddBookingMenu() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-52 rounded-xl bg-surface-2 border border-border-strong shadow-[var(--shadow-pop)] p-1.5 z-20 animate-in">
-          {MENU.map((m) => (
+          {menu.map((m) => (
             <Link
               key={m.href}
               href={m.href}

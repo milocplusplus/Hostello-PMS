@@ -2,10 +2,12 @@
 
 ## What this is
 Hostello PMS — a property management system for a short-term-rental management
-company. Two audiences: **admins** (Hostello staff — manage clients, properties,
-bookings, calendar blocks, payouts) and **clients** (property owners — view their
-own calendar, bookings, blocks, notifications). Brand colors: purple, gold, black,
-white; dark-only theme. Pre-launch: real data has not been entered yet.
+company. Three audiences: **admin** (the Hostello owner — everything, money
+included; the portal calls itself "Owners View"), **ops** (the operations team —
+the same stays, dates and guests with every earning figure removed) and
+**clients** (property owners — view their own calendar, bookings, blocks,
+notifications). Brand colors: purple, gold, black, white; dark-only theme.
+Pre-launch: real data has not been entered yet.
 
 ## Stack
 - Next.js 16.3.2 (App Router), React 19.2.8, TypeScript
@@ -15,7 +17,8 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
 - `lucide-react` for icons
 - Supabase: `@supabase/supabase-js` + `@supabase/ssr`, project `vucfpfqcankyztzvmyht`
 - Auth: Supabase email/password. `profiles` extends `auth.users` with role enum
-  (`admin` | `client`). `src/middleware.ts` gates `/admin` and `/client`.
+  (`admin` | `ops` | `client`). `src/middleware.ts` gates `/admin` and `/client`;
+  `/admin` then sorts staff by role itself (see **Roles** below).
 - **No REST/GraphQL layer and no route handlers.** Server Components read,
   Server Actions (`actions.ts`, `"use server"`) write. The only client-side
   Supabase use is auth (`src/lib/supabase/client.ts`).
@@ -261,7 +264,19 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
    pass-through — the whole net goes to the owner whatever the deal model says.
    `isPassThroughSource()` in `payout.ts` is the one list; never re-spell it.
 4. **Auth/role routing** — Supabase Auth (`app/login/actions.ts`) → `profiles.role` →
-   `src/middleware.ts` gates `/admin` vs `/client`.
+   `src/middleware.ts` gates `/admin` vs `/client`. Both staff roles land on
+   `/admin`; `admin/layout.tsx` rejects anyone else.
+5. **Roles** — `admin` is the owner, `ops` the operations team, and they share
+   `/admin`. **`canSeeSplit(role)` in `src/lib/auth.ts` is the one rule**: every
+   branch that renders `hostello_share`, `client_payout`, `net_sale`, a deal
+   model, a settlement state, a revenue figure or a token receipt reads it. Sale
+   price and the advance are *not* behind it — ops takes the money at the door.
+   `requireOwner()` guards the owner-only segments via a `layout.tsx` in each of
+   `payouts/`, `stats/`, `clients/`, `notifications/`, `staff/`; never rely on a
+   hidden nav link alone. In SQL the pair is `is_admin()` (owner, unchanged) and
+   `is_ops()` / `is_staff()`. Ops logins are made on `/admin/staff` through
+   `create_ops_login` / `set_ops_password` / `set_ops_access` /
+   `list_ops_logins`, the same SECURITY DEFINER pattern as `create_client_login`.
 
 ## Conventions
 - Server Components read, Server Actions write. Never add API route handlers.
@@ -283,7 +298,11 @@ white; dark-only theme. Pre-launch: real data has not been entered yet.
   it would serve one signed-in account's pages to another. Static assets only.
 - Phone padding goes through `.safe-topbar` / `.safe-panel` / `.safe-main` in
   `globals.css`, not hardcoded `env(safe-area-inset-*)` in a component.
-- Never ship dead nav links or broken routes.
+- Never ship dead nav links or broken routes. That includes links an ops session
+  would be bounced off — branch the href on `canSeeSplit`, don't leave it.
+- Anything new that shows what Hostello or an owner earns goes behind
+  `canSeeSplit(role)`, and any new owner-only route gets a `requireOwner()`
+  layout. Adding a money page without both is how ops ends up seeing the split.
 
 ## Gotchas
 - **The database is in Sydney (`ap-southeast-2`) and `vercel.json` pins the

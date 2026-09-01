@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { createBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
@@ -13,6 +14,7 @@ export default async function NewBookingPage({
   const { error, property, date, client } = await searchParams;
 
   const supabase = await createClient();
+  const showMoney = canSeeSplit((await currentProfile())?.role);
 
   const { data: clients } = await supabase
     .from("clients")
@@ -78,6 +80,7 @@ export default async function NewBookingPage({
           initialPropertyId={initialPropertyId}
           initialDate={date}
           unavailable={unavailable}
+          showPayoutPreview={showMoney}
           error={error}
         />
       )}

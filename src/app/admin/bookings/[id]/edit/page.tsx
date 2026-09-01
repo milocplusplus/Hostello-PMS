@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { updateBooking } from "../../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
@@ -18,6 +19,7 @@ export default async function EditBookingPage({
   const { error } = await searchParams;
 
   const supabase = await createClient();
+  const showMoney = canSeeSplit((await currentProfile())?.role);
 
   const { data: booking } = await supabase
     .from("bookings")
@@ -114,6 +116,7 @@ export default async function EditBookingPage({
           shortStay: rowShortStay(booking),
         }}
         submitLabel="Save changes"
+        showPayoutPreview={showMoney}
         error={error}
       />
     </div>

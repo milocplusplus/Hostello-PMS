@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CalendarDays, Phone, Users, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { DEAL_MODELS, formatPKR, isOtaSource, isPassThroughSource, nightsBetween } from "@/lib/payout";
@@ -50,8 +50,10 @@ export default async function BookingDetailPage({
   const { receipt_error, id_error } = await searchParams;
 
   const supabase = await createClient();
-  const user = await currentUser();
+  const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
   if (!user) redirect("/login");
+
+  const showMoney = canSeeSplit(profile?.role);
 
   const { data: booking } = await supabase
     .from("bookings")
@@ -80,6 +82,7 @@ export default async function BookingDetailPage({
   const gross = Number(booking.sale_price ?? 0);
   const deductPct = Number(booking.deduct_percent_snapshot ?? 0);
   const deduction = gross - Number(booking.net_sale ?? gross);
+  const advance = Number(booking.advance_received ?? 0);
   // OTA bookings settle on their own per-client terms, not the deal model.
   const otaSnapshot = isOtaSource(booking.source) ? booking.ota_model_snapshot : null;
   const dealLabel = isPassThroughSource(booking.source)
@@ -140,19 +143,32 @@ export default async function BookingDetailPage({
 
           <div className="mt-3 flex flex-col gap-1.5">
             {units.length === 0 && <p className="text-xs text-ink-muted">No units linked.</p>}
-            {units.map((u) => (
-              <Link
-                key={u.id}
-                href={`/admin/clients/${booking.client_id}/properties/${u.id}/edit`}
-                className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
-              >
-                {u.name}
-                <span className="text-ink-muted">
-                  {[propertyTypeLabel(u.type), u.city].filter(Boolean).length > 0 &&
-                    ` — ${[propertyTypeLabel(u.type), u.city].filter(Boolean).join(" · ")}`}
-                </span>
-              </Link>
-            ))}
+            {units.map((u) => {
+              const label = (
+                <>
+                  {u.name}
+                  <span className="text-ink-muted">
+                    {[propertyTypeLabel(u.type), u.city].filter(Boolean).length > 0 &&
+                      ` — ${[propertyTypeLabel(u.type), u.city].filter(Boolean).join(" · ")}`}
+                  </span>
+                </>
+              );
+              // Editing the unit lives under Clients & Properties, which is the
+              // owner's. Ops reads the same line without a link into it.
+              return showMoney ? (
+                <Link
+                  key={u.id}
+                  href={`/admin/clients/${booking.client_id}/properties/${u.id}/edit`}
+                  className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
+                >
+                  {label}
+                </Link>
+              ) : (
+                <p key={u.id} className="text-xs text-ink-secondary">
+                  {label}
+                </p>
+              );
+            })}
           </div>
 
           <div className="mt-4 flex flex-col gap-1.5 text-xs text-ink-secondary">
@@ -171,6 +187,16 @@ export default async function BookingDetailPage({
           </div>
         </div>
 
+        {/* Ops is told what the guest owes and what they have paid — the split
+            behind it, and the deal that produced it, are the owner's. */}
+        {!showMoney ? (
+          <div className="card p-5">
+            <h2 className="eyebrow mb-3">Payment</h2>
+            <Line label="Sale price" value={formatPKR(gross)} />
+            <Line label="Advance received" value={formatPKR(booking.advance_received)} />
+            <Line label="Balance due" value={formatPKR(Math.max(0, gross - advance))} gold />
+          </div>
+        ) : (
         <div className="card p-5">
           <h2 className="eyebrow mb-1.5">Payout</h2>
           <p className="text-[11px] text-ink-muted mb-3">{dealLabel} — terms as of booking</p>
@@ -206,6 +232,7 @@ export default async function BookingDetailPage({
             }
           />
         </div>
+        )}
       </div>
 
       {booking.status !== "cancelled" && (
@@ -217,13 +244,16 @@ export default async function BookingDetailPage({
         />
       )}
 
-      <BookingReceipts
-        bookingId={booking.id}
-        receipts={receipts}
-        uploadAction={uploadBookingReceipt}
-        deleteAction={deleteBookingReceipt}
-        error={receipt_error}
-      />
+      {/* A hostello_to_client receipt *is* the split, in a screenshot. */}
+      {showMoney && (
+        <BookingReceipts
+          bookingId={booking.id}
+          receipts={receipts}
+          uploadAction={uploadBookingReceipt}
+          deleteAction={deleteBookingReceipt}
+          error={receipt_error}
+        />
+      )}
 
       <GuestIdCards
         bookingId={booking.id}
@@ -252,6 +282,8 @@ export default async function BookingDetailPage({
           </Link>
           {/* Clearing the share here is the case where Hostello kept its cut out
               of money it already held, so the owner never has to send it. */}
+          {showMoney && (
+          <>
           <form action={markShareReceived}>
             <input type="hidden" name="id" value={booking.id} />
             <input type="hidden" name="received" value={(!booking.share_received).toString()} />
@@ -273,6 +305,8 @@ export default async function BookingDetailPage({
               {booking.settled ? "Payout not sent" : "Mark payout sent"}
             </button>
           </form>
+          </>
+          )}
           <form action={cancelBooking}>
             <input type="hidden" name="id" value={booking.id} />
             <ConfirmDeleteButton
