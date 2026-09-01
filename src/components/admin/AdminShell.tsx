@@ -27,7 +27,14 @@ import { UserMenu } from "@/components/shared/UserMenu";
 import type { NotificationItem } from "@/lib/notifications";
 import type { SearchResult } from "@/lib/search";
 
-type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; exact: boolean };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+  /** Reachable, but not yet fed by real channel mail — say so rather than imply it works. */
+  soon?: boolean;
+};
 type NavGroup = { label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -44,7 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
-      { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false },
+      { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: true },
       { href: "/admin/bookings", label: "Bookings & Payouts", icon: Wallet, exact: false },
       { href: "/admin/payouts", label: "Owed to Hostello", icon: HandCoins, exact: false },
       { href: "/admin/stats", label: "Stats", icon: BarChart3, exact: false },
@@ -120,6 +127,11 @@ function NavLinks({
                 {badge > 0 && (
                   <span className="num text-[10px] font-semibold text-surface-0 rounded-full min-w-[18px] h-[18px] px-1.5 flex items-center justify-center gradient-gold">
                     {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
+                {item.soon && (
+                  <span className="text-[9px] uppercase tracking-[0.12em] text-ink-muted border border-border-hairline rounded-full px-1.5 py-0.5 shrink-0">
+                    Soon
                   </span>
                 )}
               </Link>

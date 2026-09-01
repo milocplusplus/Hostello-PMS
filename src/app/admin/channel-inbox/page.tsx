@@ -174,7 +174,12 @@ export default async function ChannelInboxPage({
         >
           ← Channel calendars
         </Link>
-        <h1 className="text-xl font-medium mt-1">Channel inbox</h1>
+        <div className="flex items-center gap-2 mt-1">
+          <h1 className="text-xl font-medium">Channel inbox</h1>
+          <span className="text-[9px] uppercase tracking-[0.12em] text-ink-muted border border-border-hairline rounded-full px-1.5 py-0.5">
+            Soon
+          </span>
+        </div>
         <p className="text-sm text-ink-secondary mt-1">
           Reservation emails forwarded from Airbnb and Booking.com, read automatically. A
           calendar link carries only dates, so this is where the guest&apos;s name and the
@@ -182,6 +187,12 @@ export default async function ChannelInboxPage({
           until you approve it below.
         </p>
       </div>
+
+      <p className={noticeBanner}>
+        Coming soon — the forwarding address that feeds this inbox isn&apos;t live yet, so
+        nothing arrives here on its own. Until it is, enter channel reservations through
+        Bookings.
+      </p>
 
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}
@@ -191,8 +202,8 @@ export default async function ChannelInboxPage({
           <Inbox className="w-5 h-5 text-ink-muted" aria-hidden />
           <p className="text-sm text-ink-secondary">Nothing waiting.</p>
           <p className="text-xs text-ink-muted">
-            Forward a channel&apos;s reservation email to the inbox address and it will appear
-            here within a few seconds.
+            Once the forwarding address is live, a channel&apos;s reservation email will appear
+            here within a few seconds of being sent.
           </p>
         </div>
       )}
