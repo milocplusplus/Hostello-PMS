@@ -22,6 +22,7 @@ import {
   regenerateCalendarExport,
   removeCalendarExport,
   removeCalendarFeed,
+  setListingRef,
   syncAllCalendarFeeds,
   syncCalendarFeed,
 } from "./actions";
@@ -31,6 +32,7 @@ type FeedRow = {
   url: string;
   source: string;
   label: string | null;
+  listing_ref: string | null;
   last_synced_at: string | null;
   last_error: string | null;
   last_event_count: number | null;
@@ -83,7 +85,7 @@ export default async function CalendarFeedsPage({
       .order("name"),
     supabase
       .from("calendar_feeds")
-      .select("id, url, source, label, last_synced_at, last_error, last_event_count, properties(name, clients(name))")
+      .select("id, url, source, label, listing_ref, last_synced_at, last_error, last_event_count, properties(name, clients(name))")
       .order("created_at", { ascending: false }),
     supabase
       .from("calendar_exports")
@@ -165,6 +167,27 @@ export default async function CalendarFeedsPage({
           <input id="label" name="label" placeholder="e.g. Airbnb listing — Studio A" className={fieldInput} />
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="listing_ref" className={fieldLabel}>
+            Listing name on the channel (optional)
+          </label>
+          <input
+            id="listing_ref"
+            name="listing_ref"
+            placeholder="e.g. Gulberg Heights Loft"
+            className={fieldInput}
+          />
+          <p className="text-xs text-ink-muted">
+            Only used by the{" "}
+            <Link href="/admin/channel-inbox" className="text-hostello-gold hover:underline">
+              channel inbox
+            </Link>
+            , to route this listing&apos;s reservation emails to this property. A distinctive
+            fragment is enough — it is matched inside the channel&apos;s own title, which is
+            usually longer marketing copy.
+          </p>
+        </div>
+
         <button type="submit" className={`mt-1 ${primaryButton}`} style={primaryButtonStyle}>
           Connect calendar
         </button>
@@ -211,6 +234,18 @@ export default async function CalendarFeedsPage({
                     {feed.label ?? sourceLabel(feed.source) ?? "External calendar"} — {syncedAgo(feed.last_synced_at)}
                     {feed.last_event_count !== null && `, ${feed.last_event_count} dates held`}
                   </p>
+                  <form action={setListingRef} className="flex items-center gap-1.5 mt-1.5">
+                    <input type="hidden" name="id" value={feed.id} />
+                    <input
+                      name="listing_ref"
+                      defaultValue={feed.listing_ref ?? ""}
+                      placeholder="Listing name for reservation emails"
+                      className={`${fieldInput} text-xs py-1 flex-1 min-w-0`}
+                    />
+                    <button type="submit" className={secondaryButton}>
+                      Save
+                    </button>
+                  </form>
                   {feed.last_error && (
                     <p className="text-xs text-status-booked mt-1">{feed.last_error}</p>
                   )}

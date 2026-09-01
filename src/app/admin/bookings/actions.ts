@@ -46,6 +46,9 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  // Only ever set by the channel inbox: the OTA's own confirmation code, which
+  // is how a later cancellation email finds this row again.
+  const ota_ref = (formData.get("ota_ref") as string)?.trim() || null;
 
   const { shortStay, error: shortStayError } = readShortStay(formData);
   if (shortStayError) return { error: shortStayError };
@@ -149,6 +152,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
       notes,
+      ota_ref,
       entered_by: user?.id ?? null,
     })
     .select("id")
@@ -212,10 +216,18 @@ export async function createBooking(formData: FormData) {
   redirect(`/admin/clients/${result.clientId}`);
 }
 
-/** Same write, but for the calendar's quick-add modal: it stays on the page. */
+/**
+ * Same write, but for callers that stay on the page: the calendar's quick-add
+ * modal, and the channel inbox approving a reservation an OTA emailed in.
+ *
+ * The ids come back because the inbox has to record which booking its message
+ * became; the modal ignores them.
+ */
 export async function createBookingInline(formData: FormData) {
   const result = await saveBooking(formData);
-  return "error" in result ? { error: result.error } : { error: null };
+  return "error" in result
+    ? { error: result.error, bookingId: null, clientId: null }
+    : { error: null, bookingId: result.bookingId, clientId: result.clientId };
 }
 
 /**

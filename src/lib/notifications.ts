@@ -7,6 +7,7 @@ import {
   CalendarX2,
   HandCoins,
   Home,
+  Inbox,
   Lock,
   LockOpen,
   LogIn,
@@ -54,6 +55,14 @@ const KIND_ICON: Record<string, LucideIcon> = {
   payout_confirmed: BadgeCheck,
   payout_rejected: BadgeX,
   share_received: Wallet,
+  // A channel emailed us about a reservation. Admin-only, every one of them:
+  // until an admin approves it nothing has happened, so there is nothing to
+  // tell an owner. Their notice is the ordinary `booking_created` on approval.
+  ota_reservation_received: Inbox,
+  ota_reservation_cancelled: CalendarX2,
+  ota_reservation_changed: CalendarCog,
+  ota_payout_reported: Wallet,
+  ota_email_unmatched: TriangleAlert,
   dates_blocked: Lock,
   dates_unblocked: LockOpen,
   calendar_conflict: TriangleAlert,
@@ -90,6 +99,10 @@ export function notificationHref(
   if (row.kind?.startsWith("payout_")) {
     return portal === "admin" ? "/admin/payouts" : "/client/payouts";
   }
+  // A channel email is a thing to review, not a booking to look at — even when
+  // it has already found the booking it is about.
+  if (row.kind?.startsWith("ota_")) return "/admin/channel-inbox";
+
   if (portal === "admin") {
     if (row.booking_id) return `/admin/bookings/${row.booking_id}`;
     if (row.property_id) return `/admin/calendar?property=${row.property_id}`;

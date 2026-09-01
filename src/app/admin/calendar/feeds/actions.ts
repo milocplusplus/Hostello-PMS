@@ -55,6 +55,9 @@ export async function addCalendarFeed(formData: FormData) {
   const url = ((formData.get("url") as string) || "").trim();
   const source = ((formData.get("source") as string) || "airbnb").trim();
   const label = ((formData.get("label") as string) || "").trim() || null;
+  // Routes this channel's reservation emails to this property — see the
+  // channel inbox. Optional: the calendar link works without it.
+  const listing_ref = ((formData.get("listing_ref") as string) || "").trim() || null;
 
   if (!property_id) redirect(backTo({ error: "Pick a property." }));
   if (!url) redirect(backTo({ error: "Paste the calendar link." }));
@@ -67,7 +70,7 @@ export async function addCalendarFeed(formData: FormData) {
 
   const { data: feed, error } = await supabase
     .from("calendar_feeds")
-    .insert({ property_id, url, source, label, created_by: user?.id ?? null })
+    .insert({ property_id, url, source, label, listing_ref, created_by: user?.id ?? null })
     .select("id")
     .single();
 
@@ -123,6 +126,36 @@ export async function syncAllCalendarFeeds() {
     result.error
       ? backTo({ error: result.error })
       : backTo({ notice: syncNotice(result, `Synced ${result.feeds} calendars`) })
+  );
+}
+
+/**
+ * Set (or correct) the listing name that routes this channel's reservation
+ * emails here. Separate from the rest of the feed because it is the one field
+ * an admin discovers they got wrong *after* an email fails to match.
+ */
+export async function setListingRef(formData: FormData) {
+  const id = (formData.get("id") as string) || "";
+  const listing_ref = ((formData.get("listing_ref") as string) || "").trim() || null;
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("calendar_feeds")
+    .update({ listing_ref })
+    .eq("id", id);
+
+  if (error) redirect(backTo({ error: error.message }));
+
+  revalidatePath("/admin/calendar/feeds");
+  revalidatePath("/admin/channel-inbox");
+
+  redirect(
+    backTo({
+      notice: listing_ref
+        ? `Reservation emails naming "${listing_ref}" will route to this property.`
+        : "Listing name cleared — this channel's emails will need assigning by hand.",
+    })
   );
 }
 
