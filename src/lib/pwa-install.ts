@@ -101,6 +101,17 @@ function isIos(): boolean {
   );
 }
 
+/**
+ * iOS allows web push only in an installed app — never in a Safari tab, where
+ * `Notification` is not even defined. Asked before any capability check, because
+ * the capability check is exactly what gets this wrong: it reports "this browser
+ * can't", when the truth is "not yet, and here is the one step".
+ */
+export function iosNeedsInstallForPush(): boolean {
+  if (typeof window === "undefined") return false;
+  return isIos() && !isStandalone();
+}
+
 export function subscribeInstall(listener: () => void): () => void {
   listeners.add(listener);
   return () => {

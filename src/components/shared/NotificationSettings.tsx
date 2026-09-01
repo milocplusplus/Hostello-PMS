@@ -9,6 +9,7 @@ import {
 } from "@/app/notifications/actions";
 import { CATEGORIES, type NotificationPreferences } from "@/lib/notifications";
 import { playNotificationSound } from "@/lib/notification-sounds";
+import { iosNeedsInstallForPush } from "@/lib/pwa-install";
 import { secondaryButton } from "@/lib/form-styles";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -24,7 +25,15 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-type PushState = "checking" | "unsupported" | "unconfigured" | "no-sw" | "denied" | "on" | "off";
+type PushState =
+  | "checking"
+  | "unsupported"
+  | "ios-install"
+  | "unconfigured"
+  | "no-sw"
+  | "denied"
+  | "on"
+  | "off";
 
 function PushDeviceToggle() {
   const [state, setState] = useState<PushState>("checking");
@@ -35,8 +44,13 @@ function PushDeviceToggle() {
 
     async function read(): Promise<PushState> {
       if (typeof window === "undefined") return "checking";
+      // Before the capability checks, not after: in a Safari tab iOS exposes
+      // neither PushManager nor Notification, so every check below reports a
+      // browser that can never do this — when it can, once installed.
+      if (iosNeedsInstallForPush()) return "ios-install";
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
       if (!VAPID_PUBLIC_KEY) return "unconfigured";
+      if (typeof Notification === "undefined") return "unsupported";
       if (Notification.permission === "denied") return "denied";
 
       const registration = await navigator.serviceWorker.getRegistration();
@@ -117,6 +131,8 @@ function PushDeviceToggle() {
   const message: Partial<Record<PushState, string>> = {
     checking: "Checking this device…",
     unsupported: "This browser can't receive push notifications.",
+    "ios-install":
+      "On iPhone and iPad, add Hostello to your Home Screen first — iOS only gives notifications to installed apps. Use Get the app in the sidebar.",
     unconfigured: "Push isn't configured on the server yet.",
     "no-sw": "Install Hostello (or open the deployed app) to turn push on for this device.",
     denied: "Notifications are blocked for this site in your browser settings.",
