@@ -1,4 +1,4 @@
-# State — updated 2026-08-27
+# State — updated 2026-09-01
 
 ## Done
 - Phase 0 audit of the whole codebase (architecture, schema, reusable pieces, risks)
@@ -1049,6 +1049,86 @@ reassign the alias, so nothing broke.
   - **The UI itself has still never been rendered signed in** — no `.env.local`
     on this machine, so the pages, the upload and the notifications are unproven
     in a browser.
+
+> **Gap in this log.** Four commits between 2026-08-29 and 2026-09-01 shipped
+> without an entry here — `ffda3e0` (hours as well as nights, and settling what
+> owners owe), `f865b0c` (two-way channel calendar sync), `3623a4b` (guest ID
+> cards, and earning only on stays Hostello sold) and `6902f73` (reading a
+> channel's confirmation mail into a proposed booking). Their commit messages
+> are the record; nothing below reconstructs them, because guessing at detail
+> would be worse than the gap. The three entries that follow were added on
+> 2026-09-01.
+
+- **The design foundation** (2026-09-01, deployed as
+  `dpl_GFYTgejwBxGBSpZVaa3uzmKPneG4`, READY, production). Commit `db4953c`.
+  Summarised from its commit message — that session's own record, not re-derived.
+  - `globals.css` rebuilt and left to cascade: surfaces carry more brand purple
+    as they rise, a fixed three-radial wash sits behind the page, cards gain a
+    gradient face and a hairline top highlight, and chrome (sidebars, top bars,
+    drawers) is glass. Outfit joins as the display face, bound once to h1/h2/h3.
+  - The component layer is `btn` / `field` / `tile` / `card` / `data-table` /
+    `eyebrow`, **all inside `@layer components`** — deliberately, because rules
+    written outside a layer outrank Tailwind's utilities, so an unlayered
+    `.btn { padding }` would quietly beat a `py-2.5` beside it. `form-styles.ts`
+    maps onto these. Worth knowing before adding a rule to that file: the
+    unlayered blocks near the top (the `100dvh` override, the 16px form-control
+    rule) are unlayered *on purpose*, because they have to win.
+  - `card-flat` exists for the calendar board alone: its property column is
+    sticky and opaque and would otherwise show as a flat patch on the gradient.
+  - Verified by rendering the compiled CSS at three widths; not against live data.
+
+- **The calendar opens on a phone, and fits there** (2026-09-01, deployed as
+  `dpl_G1eq1YEhGBwRZiGd26tkbgzVBdvw`, READY, production). Commit `0b8fd4a`.
+  `npm run build` and `npm run lint` clean.
+  - **Month view could not be selected on a phone at all.** The tab linked to
+    `view: undefined`, which is the "let the width decide" state, and under `md`
+    that resolves to the agenda — so tapping Month re-rendered the agenda and
+    nothing appeared to happen. `?view=month`, the one state that shows the board
+    at every width, was unreachable from the UI though the comment above it
+    already claimed otherwise. The tab now links to it. Same fix in both portals.
+  - **The chrome then buried the board.** At 375x812 it began 550px down the page
+    with 6 of 30 days showing. The legend is `hidden md:flex` now (six swatches
+    over three rows, and every bar already carries its channel badge); the four
+    filter selects are one sideways-scrolling row instead of wrapping to two,
+    with nothing removed; `--cal-name` is 96px under `md` and the property
+    subtext drops, since at that width it only ever rendered as an ellipsis; the
+    name wraps to two lines rather than truncating. Board now starts at 393px
+    with 7.3 columns. Desktop is untouched and was asserted so at 1280px.
+  - `/admin/channel-inbox` was the other page that had never had a phone pass —
+    555 lines, no breakpoints. Its approval form laid two date inputs and a price
+    into a rigid two-column grid at ~160px each; now `grid-cols-1 sm:grid-cols-2`,
+    and the two fact rows `grid-cols-2 sm:grid-cols-3`.
+  - **How it was verified, since there is still no `.env.local`:** the real
+    component markup was rendered against the compiled Tailwind in a scratchpad
+    harness at 375, 393 and 1280. The layout numbers above are measured; the data
+    behind them is invented. Nothing was seen signed in.
+
+- **iPhone push says what is actually wrong** (2026-09-01, deployed as
+  `dpl_4mXwMqMUhDxVF6c5i8g9Dfj1iWMu`, READY, production). Commit `60bddae`.
+  `npm run build` and `npm run lint` clean.
+  - The toggle read `Notification.permission` first. **In a Safari tab iOS does
+    not define `Notification` at all** — push there exists only once the site is
+    on the Home Screen. The read threw, the promise's error handler swallowed it
+    as `unsupported`, and every iPhone was told "This browser can't receive push
+    notifications." False, and a dead end: the install was one step away.
+  - The iOS check now runs *before* the capability checks, because those checks
+    are exactly what gets this wrong — iOS withholds both `PushManager` and
+    `Notification` until installed, which is indistinguishable from a browser
+    that will never have them. `iosNeedsInstallForPush()` joins
+    `isIos()` / `isStandalone()` in `pwa-install.ts`, the file that already owns
+    platform detection, so there is no second copy of the sniffing.
+  - **The rest of the iOS surface was already right** and is unchanged — worth
+    knowing so it is not "fixed" again: `min-h-screen` → `100dvh` under
+    `@supports`, the `env(safe-area-inset-*)` helpers with `viewportFit: cover`,
+    `-webkit-backdrop-filter` beside `backdrop-filter` on `.glass`, and the
+    `font-size: 16px !important` rule under 768px that stops Safari zooming the
+    page when a field is focused. That last one covers the calendar filter
+    selects added in the previous commit: `text-xs` in source, 16px computed.
+  - **Unproven against real WebKit.** Both this and the commit before it were
+    checked in Chromium at iPhone dimensions. Two things a real iPhone still has
+    to answer: whether the board's sticky property column holds inside the
+    horizontal scroller under Safari, and whether the installed PWA actually
+    takes a push subscription.
 
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the
