@@ -76,7 +76,7 @@ export async function findStayClash(
   if (bookingIds.length === 0) return null;
 
   const { data: clashes } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("check_in, check_out")
     .in("id", bookingIds)
     .neq("status", "cancelled")

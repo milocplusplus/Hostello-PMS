@@ -40,7 +40,7 @@ export default async function ClientBookingsPage({
   const monthEnd = visibleDates[visibleDates.length - 1];
 
   const { data: bookings } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, booking_properties(properties(name))"
     )

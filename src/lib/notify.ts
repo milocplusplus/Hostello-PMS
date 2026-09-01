@@ -75,7 +75,7 @@ function unitLabel(unitNames: string[]) {
 }
 
 async function clientName(supabase: SupabaseClient, clientId: string): Promise<string | null> {
-  const { data } = await supabase.from("clients").select("name").eq("id", clientId).maybeSingle();
+  const { data } = await supabase.from("clients_v").select("name").eq("id", clientId).maybeSingle();
   return (data?.name as string | undefined) ?? null;
 }
 

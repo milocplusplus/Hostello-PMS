@@ -48,7 +48,7 @@ export default async function ClientTodayPage() {
 
   const [{ data: stays }, { data: unsettled }, { data: blocks }] = await Promise.all([
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(fields)
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
@@ -56,7 +56,7 @@ export default async function ClientTodayPage() {
       .gte("check_out", today)
       .order("check_in"),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")

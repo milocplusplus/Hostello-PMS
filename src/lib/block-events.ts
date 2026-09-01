@@ -56,7 +56,7 @@ export async function announceBlockCreated(
   if (bookingIds.length === 0) return;
 
   const { data: clashes } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("id, guest_name, check_in, check_out")
     .in("id", bookingIds)
     .neq("status", "cancelled")

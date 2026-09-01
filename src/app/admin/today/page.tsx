@@ -68,26 +68,26 @@ export default async function AdminTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, clients(name), booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, clients:clients_v(name), booking_properties(properties:properties_v(name))";
 
   const [{ data: stays }, { data: pending }, { data: blocks }] = await Promise.all([
     // check_out is exclusive, so a stay covering tonight has check_out > today —
     // but today's departures (check_out = today) belong on this sheet too.
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(fields)
       .neq("status", "cancelled")
       .lte("check_in", today)
       .gte("check_out", today)
       .order("check_in"),
     supabase
-      .from("bookings")
-      .select("id, guest_name, check_in, check_out, sale_price, advance_received, clients(name)")
+      .from("bookings_v")
+      .select("id, guest_name, check_in, check_out, sale_price, advance_received, clients:clients_v(name)")
       .eq("status", "confirmed")
       .order("check_in"),
     supabase
       .from("calendar_blocks")
-      .select("id, start_date, end_date, block_type, notes, properties(name, clients(name))")
+      .select("id, start_date, end_date, block_type, notes, properties:properties_v(name, clients:clients_v(name))")
       .lte("start_date", today)
       .gte("end_date", today),
   ]);

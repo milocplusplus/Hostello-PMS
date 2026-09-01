@@ -56,9 +56,9 @@ export default async function BookingDetailPage({
   const showMoney = canSeeSplit(profile?.role);
 
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, share_received, share_received_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients(name), booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, share_received, share_received_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();

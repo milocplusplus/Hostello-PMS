@@ -43,7 +43,7 @@ export default async function ClientCheckInsPage() {
   const until = addDaysISO(today, LOOKAHEAD_DAYS);
 
   const { data } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))"
     )

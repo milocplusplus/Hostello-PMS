@@ -30,14 +30,14 @@ export default async function ClientStatsPage({
   // a tentative stay is not money made, so Stats is stricter than the dashboards.
   const [{ data: bookings }, { data: prevBookings }] = await Promise.all([
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("check_in, check_out, source, sale_price, hostello_share, client_payout")
       .eq("client_id", clientRecord.id)
       .eq("status", "confirmed")
       .lte("check_in", period.end)
       .gte("check_out", period.start),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("sale_price")
       .eq("client_id", clientRecord.id)
       .eq("status", "confirmed")

@@ -22,7 +22,7 @@ export default async function EditBookingPage({
   const showMoney = canSeeSplit((await currentProfile())?.role);
 
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "id, client_id, guest_name, guest_phone, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
     )
@@ -41,12 +41,12 @@ export default async function EditBookingPage({
 
   const [{ data: clientRecord }, { data: properties }] = await Promise.all([
     supabase
-      .from("clients")
+      .from("clients_v")
       .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
       .eq("id", booking.client_id)
       .single(),
     supabase
-      .from("properties")
+      .from("properties_v")
       .select("id, name, stack_rate, short_stay_stack_rate, client_id, status")
       .eq("client_id", booking.client_id)
       .order("name"),

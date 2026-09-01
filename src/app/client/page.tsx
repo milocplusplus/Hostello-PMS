@@ -102,21 +102,21 @@ export default async function ClientDashboard({
       .eq("client_id", clientRecord.id)
       .eq("status", "active"),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(bookingFields)
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", monthEnd)
       .gte("check_out", monthStart),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("sale_price, client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", prevEnd)
       .gte("check_out", prevStart),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(bookingFields)
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
@@ -129,14 +129,14 @@ export default async function ClientDashboard({
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("check_in, client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", period.end)
       .gte("check_out", period.start),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")

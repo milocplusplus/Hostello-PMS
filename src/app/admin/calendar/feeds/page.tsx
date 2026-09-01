@@ -79,17 +79,17 @@ export default async function CalendarFeedsPage({
 
   const [{ data: properties }, { data: feeds }, { data: exports }] = await Promise.all([
     supabase
-      .from("properties")
-      .select("id, name, clients(name)")
+      .from("properties_v")
+      .select("id, name, clients:clients_v(name)")
       .eq("status", "active")
       .order("name"),
     supabase
       .from("calendar_feeds")
-      .select("id, url, source, label, listing_ref, last_synced_at, last_error, last_event_count, properties(name, clients(name))")
+      .select("id, url, source, label, listing_ref, last_synced_at, last_error, last_event_count, properties:properties_v(name, clients:clients_v(name))")
       .order("created_at", { ascending: false }),
     supabase
       .from("calendar_exports")
-      .select("id, token, last_fetched_at, fetch_count, properties(name, clients(name))")
+      .select("id, token, last_fetched_at, fetch_count, properties:properties_v(name, clients:clients_v(name))")
       .eq("active", true)
       .order("created_at", { ascending: false }),
   ]);

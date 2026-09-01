@@ -53,7 +53,7 @@ export default async function ClientBookingDetailPage({
   if (!clientRecord) redirect("/client");
 
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )

@@ -147,7 +147,7 @@ export default async function ClientCalendarPage({
 
   if (bookingIds.length > 0) {
     const { data } = await supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(
         "id, check_in, check_out, source, status, guest_name, client_payout, is_short_stay, short_stay_start, short_stay_end"
       )

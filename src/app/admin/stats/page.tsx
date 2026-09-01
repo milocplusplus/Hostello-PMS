@@ -27,13 +27,13 @@ export default async function AdminStatsPage({
   // The same overlap window every other money page uses. Confirmed only, though —
   // a tentative stay is not money made, so Stats is stricter than the dashboards.
   let windowQuery = supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("check_in, check_out, source, sale_price, hostello_share, client_payout")
     .eq("status", "confirmed")
     .lte("check_in", period.end)
     .gte("check_out", period.start);
   let prevQuery = supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("sale_price")
     .eq("status", "confirmed")
     .lte("check_in", period.prevEnd)

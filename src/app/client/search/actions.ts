@@ -18,7 +18,7 @@ export async function searchClient(query: string): Promise<SearchResult[]> {
   const [propertiesRes, bookingsRes] = await Promise.all([
     supabase.from("properties").select("id, name, city").ilike("name", like).limit(5),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("id, guest_name, check_in, check_out, status")
       .ilike("guest_name", like)
       .order("check_in", { ascending: false })

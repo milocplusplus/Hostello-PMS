@@ -148,13 +148,13 @@ export default async function ChannelInboxPage({
     supabase
       .from("ota_messages")
       .select(
-        "id, subject, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, admin_note, raw_text, properties(name, clients(name))"
+        "id, subject, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, admin_note, raw_text, properties:properties_v(name, clients:clients_v(name))"
       )
       .order("received_at", { ascending: false })
       .limit(60),
     supabase
-      .from("properties")
-      .select("id, name, clients(name)")
+      .from("properties_v")
+      .select("id, name, clients:clients_v(name)")
       .eq("status", "active")
       .order("name"),
   ]);

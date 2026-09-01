@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -26,6 +27,8 @@ import {
   notifyPayoutSettled,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
+import { requireOwner } from "@/lib/auth";
+import { payoutReader } from "@/lib/payout-inputs";
 import { readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { describeBookingChanges } from "@/lib/booking-changes";
 
@@ -82,7 +85,12 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
 
   // Never trust client-submitted split numbers — recompute authoritatively
   // from the client's current deal terms and the selected properties' stack rates.
-  const { data: clientRecord } = await supabase
+  // An ops session may not read either, so the lookup goes through the server's
+  // own credentials; the math below is unchanged.
+  const reader = await payoutReader(supabase);
+  if (!reader.ok) return { error: reader.error };
+
+  const { data: clientRecord } = await reader.client
     .from("clients")
     .select("deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .eq("id", client_id)
@@ -92,7 +100,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     return { error: "Client not found." };
   }
 
-  const { data: properties } = await supabase
+  const { data: properties } = await reader.client
     .from("properties")
     .select("id, name, stack_rate, short_stay_stack_rate")
     .in("id", property_ids);
@@ -127,9 +135,15 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     status: status as "confirmed" | "tentative" | "cancelled",
   });
 
-  const { data: newBooking, error } = await supabase
+  // The id is minted here rather than read back: an ops session can write a
+  // booking but cannot SELECT the table, so `.select()` on the insert would
+  // return nothing for them.
+  const bookingId = randomUUID();
+
+  const { error } = await supabase
     .from("bookings")
     .insert({
+      id: bookingId,
       client_id,
       guest_name,
       guest_phone,
@@ -154,16 +168,14 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       notes,
       ota_ref,
       entered_by: user?.id ?? null,
-    })
-    .select("id")
-    .single();
+    });
 
-  if (error || !newBooking) {
-    return { error: error?.message ?? "Could not save booking." };
+  if (error) {
+    return { error: error.message };
   }
 
   const linkRows = property_ids.map((property_id) => ({
-    booking_id: newBooking.id,
+    booking_id: bookingId,
     property_id,
   }));
   await supabase.from("booking_properties").insert(linkRows);
@@ -172,7 +184,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   // a receipt can always be attached again from the booking page.
   if (receipt) {
     await attachReceipt(supabase, {
-      bookingId: newBooking.id,
+      bookingId: bookingId,
       file: receipt,
       kind: receiptKind(formData),
       amount: advance_received,
@@ -181,14 +193,14 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   }
 
   await attachGuestIds(supabase, {
-    bookingId: newBooking.id,
+    bookingId: bookingId,
     files: guestIds,
     uploadedBy: user?.id ?? null,
   });
 
   await notifyBookingCreated(supabase, {
     clientId: client_id,
-    bookingId: newBooking.id,
+    bookingId: bookingId,
     unitNames: (properties ?? []).map((p) => p.name),
     checkIn: check_in,
     checkOut: check_out,
@@ -203,7 +215,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   revalidatePath(`/admin/clients/${client_id}`);
   revalidatePath("/client", "layout");
 
-  return { clientId: client_id, bookingId: newBooking.id };
+  return { clientId: client_id, bookingId: bookingId };
 }
 
 export async function createBooking(formData: FormData) {
@@ -270,8 +282,13 @@ export async function updateBooking(id: string, formData: FormData) {
 
   const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("bookings")
+  // The snapshots are payout inputs, so this read goes through the same trusted
+  // route as the terms — an ops session sees them masked everywhere else.
+  const reader = await payoutReader(supabase);
+  if (!reader.ok) back(reader.error);
+
+  const { data: existing } = await reader.client
+    .from("bookings_v")
     .select(
       "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
     )
@@ -291,7 +308,7 @@ export async function updateBooking(id: string, formData: FormData) {
   });
   if (clash) back(clash);
 
-  const { data: properties } = await supabase
+  const { data: properties } = await reader.client
     .from("properties")
     .select("id, name, stack_rate, short_stay_stack_rate, client_id")
     .in("id", property_ids);
@@ -439,7 +456,7 @@ export async function uploadBookingReceipt(formData: FormData) {
   // Proof that money moved is the one booking change the owner most wants told.
   if (receiptId) {
     const { data: booking } = await supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_id, guest_name")
       .eq("id", bookingId)
       .single();
@@ -539,6 +556,8 @@ export async function deleteGuestId(formData: FormData) {
 }
 
 export async function markBookingSettled(formData: FormData) {
+  // The owner-owes-the-owner direction: ops never sees it and cannot set it.
+  await requireOwner();
   const id = formData.get("id") as string;
   const settled = formData.get("settled") === "true";
 
@@ -556,7 +575,7 @@ export async function markBookingSettled(formData: FormData) {
   // Only notify on settle, not on un-settle (that's a correction, not news).
   if (settled) {
     const { data: booking } = await supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_id, client_payout, booking_properties(properties(name))")
       .eq("id", id)
       .single();
@@ -598,8 +617,8 @@ export async function markStayProgress(formData: FormData) {
   // Only the doing is news; un-ticking is a correction.
   if (done) {
     const { data: booking } = await supabase
-      .from("bookings")
-      .select("client_id, guest_name, booking_properties(properties(name))")
+      .from("bookings_v")
+      .select("client_id, guest_name, booking_properties(properties:properties_v(name))")
       .eq("id", id)
       .single();
 
@@ -630,8 +649,8 @@ export async function cancelBooking(formData: FormData) {
 
   // Read details before cancelling so the notification can describe what changed.
   const { data: booking } = await supabase
-    .from("bookings")
-    .select("client_id, check_in, check_out, source, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))")
+    .from("bookings_v")
+    .select("client_id, check_in, check_out, source, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties:properties_v(name))")
     .eq("id", id)
     .single();
 

@@ -56,12 +56,12 @@ export default async function CalendarPage({
   // payout preview. Neither depends on the other.
   const [{ data: allProperties }, { data: clientTerms }] = await Promise.all([
     supabase
-      .from("properties")
-      .select("id, name, type, city, stack_rate, short_stay_stack_rate, client_id, clients(name)")
+      .from("properties_v")
+      .select("id, name, type, city, stack_rate, short_stay_stack_rate, client_id, clients:clients_v(name)")
       .eq("status", "active")
       .order("name"),
     supabase
-      .from("clients")
+      .from("clients_v")
       .select("id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
       .order("name"),
   ]);
@@ -212,7 +212,7 @@ export default async function CalendarPage({
 
   if (bookingIds.length > 0) {
     let query = supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(
         "id, check_in, check_out, source, status, guest_name, sale_price, is_short_stay, short_stay_start, short_stay_end"
       )

@@ -66,7 +66,7 @@ export default async function ClientDetailPage({
         .eq("client_id", id)
         .order("name"),
       supabase
-        .from("bookings")
+        .from("bookings_v")
         .select(
           "id, guest_name, check_in, check_out, source, status, hostello_share, client_payout, share_received, booking_properties(properties(name))"
         )
@@ -76,7 +76,7 @@ export default async function ClientDetailPage({
         .limit(6),
       // Only open stays — a bounded set, so the "awaiting" figure is a real total.
       supabase
-        .from("bookings")
+        .from("bookings_v")
         .select("hostello_share, share_received")
         .eq("client_id", id)
         .neq("status", "cancelled")

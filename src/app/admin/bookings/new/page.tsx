@@ -17,13 +17,13 @@ export default async function NewBookingPage({
   const showMoney = canSeeSplit((await currentProfile())?.role);
 
   const { data: clients } = await supabase
-    .from("clients")
+    .from("clients_v")
     .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
     .order("name");
 
   const { data: properties } = await supabase
-    .from("properties")
-    .select("id, name, stack_rate, short_stay_stack_rate, client_id, clients(name)")
+    .from("properties_v")
+    .select("id, name, stack_rate, short_stay_stack_rate, client_id, clients:clients_v(name)")
     .eq("status", "active")
     .order("name");
 

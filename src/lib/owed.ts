@@ -108,7 +108,7 @@ export async function loadOwed(
 
   const [{ data: bookings }, { data: allocations }, { data: pendingRows }] = await Promise.all([
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(
         "id, guest_name, check_in, check_out, source, hostello_share, booking_properties(properties(name))"
       )
@@ -165,7 +165,7 @@ export type ClientBalance = {
 export async function loadOwedByClient(supabase: SupabaseClient): Promise<ClientBalance[]> {
   const [{ data: bookings }, { data: allocations }, { data: clients }] = await Promise.all([
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("id, client_id, hostello_share")
       .eq("status", "confirmed")
       .eq("share_received", false)

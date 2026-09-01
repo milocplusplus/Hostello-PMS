@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { opsCanPriceBookings } from "@/lib/payout-inputs";
 import { Avatar } from "@/components/shared/Avatar";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import {
@@ -54,6 +55,7 @@ export default async function StaffPage({
   const supabase = await createClient();
   const { data, error: listError } = await supabase.rpc("list_ops_logins");
   const staff = (data ?? []) as StaffRow[];
+  const canPrice = opsCanPriceBookings();
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -71,6 +73,18 @@ export default async function StaffPage({
 
       {listError && (
         <p className={errorBanner}>The list of accounts could not be read: {listError.message}</p>
+      )}
+
+      {/* An ops login is denied the deal terms outright, so the server has to
+          look them up on its behalf to work out a booking's split. Without the
+          key it can't, and saving a booking is the one thing ops loses. */}
+      {!canPrice && (
+        <p className={errorBanner}>
+          Operations accounts can see and run everything, but <strong>cannot save bookings</strong>{" "}
+          until <code>SUPABASE_SERVICE_ROLE_KEY</code> is set on this deployment. Working out a
+          booking&apos;s split needs the deal terms, which an operations login is not allowed to
+          read, so the server reads them instead.
+        </p>
       )}
 
       <section className="card p-6 flex flex-col gap-4">

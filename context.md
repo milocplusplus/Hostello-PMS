@@ -277,6 +277,16 @@ Pre-launch: real data has not been entered yet.
    `is_ops()` / `is_staff()`. Ops logins are made on `/admin/staff` through
    `create_ops_login` / `set_ops_password` / `set_ops_access` /
    `list_ops_logins`, the same SECURITY DEFINER pattern as `create_client_login`.
+6. **Reading money** — **`bookings_v` / `clients_v` / `properties_v` are how the
+   money is read.** They run as their owner (`security_invoker = false`), so RLS
+   never fires on them and their `where` clause *is* the access rule — mirroring
+   the base policies — while `case when not is_ops()` blanks the split, the deal
+   terms and the stack rates for ops. `bookings`' thirteen money columns are
+   revoked from `authenticated` at the column level, so the base table cannot
+   serve them to anyone with a JWT. **Read money from the views; write to the
+   base tables.** Ops keeps SELECT on `bookings` deliberately: Postgres applies
+   SELECT policies to an `UPDATE … WHERE`, and without it ops cannot edit, check
+   in or cancel.
 
 ## Conventions
 - Server Components read, Server Actions write. Never add API route handlers.
@@ -303,6 +313,11 @@ Pre-launch: real data has not been entered yet.
 - Anything new that shows what Hostello or an owner earns goes behind
   `canSeeSplit(role)`, and any new owner-only route gets a `requireOwner()`
   layout. Adding a money page without both is how ops ends up seeing the split.
+- **A new query that needs a money column reads `bookings_v`, not `bookings`** —
+  the column is revoked on the base table and the query will fail with `42501`.
+  Embeds keep their names by aliasing: `clients:clients_v(name)`.
+- A money-mutating Server Action starts with `requireOwner()`. Hiding the button
+  is not access control.
 
 ## Gotchas
 - **The database is in Sydney (`ap-southeast-2`) and `vercel.json` pins the

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireOwner } from "@/lib/auth";
 import { loadOwed } from "@/lib/owed";
 import { notifyPayoutConfirmed, notifyPayoutRejected, notifyShareReceived } from "@/lib/notify";
 
@@ -25,6 +26,9 @@ function revalidateMoney() {
  * payment would leave the balance lying about itself.
  */
 export async function confirmPayout(formData: FormData) {
+  // Money moves are the owner's alone. Ops has no button for these, which is
+  // not the same as being unable to POST to them.
+  await requireOwner();
   const id = formData.get("id") as string;
 
   const supabase = await createClient();
@@ -57,6 +61,9 @@ export async function confirmPayout(formData: FormData) {
  * as rejected so the owner can see why and correct it.
  */
 export async function rejectPayout(formData: FormData) {
+  // Money moves are the owner's alone. Ops has no button for these, which is
+  // not the same as being unable to POST to them.
+  await requireOwner();
   const id = formData.get("id") as string;
   const reason = (formData.get("reason") as string)?.trim() || null;
 
@@ -102,6 +109,9 @@ export async function rejectPayout(formData: FormData) {
 
 /** Confirmed by mistake. Pulls the allocations back off the bookings they cleared. */
 export async function unconfirmPayout(formData: FormData) {
+  // Money moves are the owner's alone. Ops has no button for these, which is
+  // not the same as being unable to POST to them.
+  await requireOwner();
   const id = formData.get("id") as string;
 
   const supabase = await createClient();
@@ -117,13 +127,16 @@ export async function unconfirmPayout(formData: FormData) {
  * nothing for the owner to send. Clears one booking without a payment against it.
  */
 export async function markShareReceived(formData: FormData) {
+  // Money moves are the owner's alone. Ops has no button for these, which is
+  // not the same as being unable to POST to them.
+  await requireOwner();
   const id = formData.get("id") as string;
   const received = formData.get("received") === "true";
   const from = (formData.get("from") as string) || null;
 
   const supabase = await createClient();
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("id, client_id, hostello_share, booking_properties(properties(name))")
     .eq("id", id)
     .single();

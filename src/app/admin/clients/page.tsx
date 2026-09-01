@@ -46,7 +46,7 @@ export default async function ClientsListPage({
   const [{ data: clients }, { data: openBookings }] = await Promise.all([
     clientQuery,
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_id, hostello_share, share_received")
       .neq("status", "cancelled")
       .gte("check_out", today),

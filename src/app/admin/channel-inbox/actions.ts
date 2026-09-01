@@ -93,7 +93,7 @@ export async function approveReservation(formData: FormData) {
   if (!property_id) redirect(backTo({ error: "Pick the property this reservation is for." }));
 
   const { data: property } = await supabase
-    .from("properties")
+    .from("properties_v")
     .select("client_id, name")
     .eq("id", property_id)
     .maybeSingle();

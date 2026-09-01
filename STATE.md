@@ -1162,10 +1162,48 @@ reassign the alias, so nothing broke.
     and `set_ops_access` raise, `list_ops_logins` returns nothing, and a
     self-promote `update profiles set role='admin'` changes nothing. No probe
     rows were committed. `npm run build` and `npm run lint` clean.
-  - **Known limit:** RLS is row-level, so an ops session that queried the REST
-    API directly could still read the money *columns* on `bookings` and the deal
-    terms on `clients` — the app never renders or asks for them, but the column
-    is not itself denied. Closing that needs owner-only views or column grants.
+- **Closing the ops column leak** (2026-09-01). The UI hid the money; the REST
+  API still handed it over to an ops JWT. Now the database refuses it.
+  - **Three masked views** — `bookings_v`, `clients_v`, `properties_v`. Each is
+    `security_invoker = false`, so it runs as its owner and **RLS never fires on
+    it**: the `where` clause *is* the access rule and mirrors the base policies
+    (staff, or the client's owner). Columns are wrapped in
+    `case when not is_ops() then … end`, so ops gets the row without the money.
+    Supabase's linter flags all three as `security_definer_view` **ERROR** — that
+    is the mechanism, not a mistake, but it does mean the `where` gate is
+    load-bearing. Verified: a stranger and `anon` get nothing.
+  - **`clients` / `properties`:** ops's SELECT policies were dropped outright.
+    Names now reach ops only through the views.
+  - **`bookings`:** ops keeps SELECT, because **Postgres applies SELECT policies
+    to an `UPDATE … WHERE`** — with the read policy dropped, ops could not edit,
+    check in or cancel (the update matched 0 rows). Instead the thirteen money
+    columns are revoked at the *column* level. A table-level `GRANT` outranks
+    column grants, so `select` was revoked from `authenticated`/`anon` and
+    re-granted as an explicit 21-column list.
+  - **Every read of those columns now goes through `bookings_v`** — both portals,
+    `owed.ts` included. Writes still go to the base tables. Embeds are aliased
+    (`clients:clients_v(name)`) so response shapes are unchanged; PostgREST
+    resolves relationships through views, including view→view, which was probed
+    against the live API before any of this was written.
+  - **`src/lib/payout-inputs.ts` — `payoutReader()`.** Ops is denied deal terms,
+    but a booking's split has to be computed from them. **`payout.ts` does not
+    move and is still the only revenue math**; only *who reads the inputs*
+    changes — the owner and clients read as themselves, and for ops the server
+    reads with the service-role client. Without `SUPABASE_SERVICE_ROLE_KEY` ops
+    can do everything **except save a booking**, and both the save error and a
+    banner on `/admin/staff` say exactly that.
+  - `createBooking` now mints the booking id (`randomUUID`) instead of reading it
+    back, and `markShareReceived` / `markBookingSettled` / `confirmPayout` /
+    `rejectPayout` / `unconfirmPayout` gained `requireOwner()` — ops had no
+    button, which is not the same as being unable to POST.
+  - Verified in rolled-back transactions. **Ops:** base bookings/clients/
+    properties = 0 rows for clients+properties; `hostello_share` from base
+    `bookings` → *permission denied*; views give 18/5/31 rows with split, terms
+    and stack rates all **0 of N non-null**, sale price **18 of 18**; insert,
+    edit and check-in all succeed. **Owner:** 18 rows / 18 split, terms and rates
+    intact. **Client (Murree Spring):** 12 rows, payout total **420600.00** —
+    identical to the base table before the change. No probe rows committed;
+    18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
 0. **Deploy, then install the APK on a real Android phone.** Nothing about the

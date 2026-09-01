@@ -112,7 +112,7 @@ export default async function AdminDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients(name), booking_properties(property_id, properties(name))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients:clients_v(name), booking_properties(property_id, properties:properties_v(name))";
 
   const [
     profile,
@@ -129,45 +129,45 @@ export default async function AdminDashboard({
   ] = await Promise.all([
     // Already fetched by the layout this request — the cache makes it free.
     currentProfile(),
-    supabase.from("properties").select("id, created_at").eq("status", "active"),
+    supabase.from("properties_v").select("id, created_at").eq("status", "active"),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(bookingFields)
       .neq("status", "cancelled")
       .lte("check_in", monthEnd)
       .gte("check_out", monthStart),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("sale_price")
       .neq("status", "cancelled")
       .lte("check_in", prevEnd)
       .gte("check_out", prevStart),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select(bookingFields)
       .neq("status", "cancelled")
       .gte("check_out", today)
       .lte("check_in", in30)
       .order("check_in"),
-    supabase.from("bookings").select(bookingFields).order("created_at", { ascending: false }).limit(6),
+    supabase.from("bookings_v").select(bookingFields).order("created_at", { ascending: false }).limit(6),
     supabase
       .from("calendar_blocks")
       .select("property_id, start_date, end_date, block_type")
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
-    supabase.from("bookings").select("sale_price, advance_received").eq("status", "confirmed"),
+    supabase.from("bookings_v").select("sale_price, advance_received").eq("status", "confirmed"),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("*", { count: "exact", head: true })
       .gte("created_at", `${today}T00:00:00Z`),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("check_in, sale_price")
       .neq("status", "cancelled")
       .lte("check_in", period.end)
       .gte("check_out", period.start),
     supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("sale_price")
       .neq("status", "cancelled")
       .lte("check_in", period.prevEnd)

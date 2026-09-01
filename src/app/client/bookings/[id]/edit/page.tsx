@@ -24,7 +24,7 @@ export default async function EditClientBookingPage({
   const supabase = await createClient();
 
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "id, client_id, guest_name, guest_phone, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
     )

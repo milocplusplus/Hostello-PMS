@@ -241,7 +241,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
   if (!ownClient) back("You can only edit your own bookings.");
 
   const { data: existing } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
       "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
     )
@@ -449,7 +449,7 @@ export async function markClientStayProgress(formData: FormData) {
   // Only the doing is news; un-ticking is a correction.
   if (done) {
     const { data: booking } = await supabase
-      .from("bookings")
+      .from("bookings_v")
       .select("client_id, guest_name, booking_properties(properties(name))")
       .eq("id", id)
       .single();
@@ -481,7 +481,7 @@ export async function cancelClientBooking(formData: FormData) {
 
   // Read details before cancelling so the notification can describe what changed.
   const { data: booking } = await supabase
-    .from("bookings")
+    .from("bookings_v")
     .select("client_id, check_in, check_out, source, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))")
     .eq("id", id)
     .single();

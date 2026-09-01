@@ -22,14 +22,14 @@ export default async function BlockDatesPage({
   const monthStr = formatMonthParam(year, month0);
 
   const { data: properties } = await supabase
-    .from("properties")
-    .select("id, name, client_id, clients(name)")
+    .from("properties_v")
+    .select("id, name, client_id, clients:clients_v(name)")
     .eq("status", "active")
     .order("name");
 
   const { data: blocks } = await supabase
     .from("calendar_blocks")
-    .select("id, property_id, start_date, end_date, notes, properties(name)")
+    .select("id, property_id, start_date, end_date, notes, properties:properties_v(name)")
     // Imported channel dates are managed on /admin/calendar/feeds — unblocking
     // one here would only bring it back on the next sync.
     .is("feed_id", null)

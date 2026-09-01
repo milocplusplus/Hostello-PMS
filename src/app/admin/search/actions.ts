@@ -24,15 +24,15 @@ export async function searchAdmin(query: string): Promise<SearchResult[]> {
     showMoney ? `/admin/clients/${id}` : `/admin/calendar?client=${id}`;
 
   const [clientsRes, propertiesRes, bookingsRes] = await Promise.all([
-    supabase.from("clients").select("id, name").ilike("name", like).limit(5),
+    supabase.from("clients_v").select("id, name").ilike("name", like).limit(5),
     supabase
-      .from("properties")
-      .select("id, name, client_id, clients(name)")
+      .from("properties_v")
+      .select("id, name, client_id, clients:clients_v(name)")
       .ilike("name", like)
       .limit(5),
     supabase
-      .from("bookings")
-      .select("id, guest_name, check_in, check_out, client_id, clients(name)")
+      .from("bookings_v")
+      .select("id, guest_name, check_in, check_out, client_id, clients:clients_v(name)")
       .ilike("guest_name", like)
       .neq("status", "cancelled")
       .order("check_in", { ascending: false })

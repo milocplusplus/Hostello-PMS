@@ -63,9 +63,9 @@ export default async function BookingsPage({
   const searching = term.length > 0;
 
   let filter = supabase
-    .from("bookings")
+    .from("bookings_v")
     .select(
-      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, net_sale, hostello_share, client_payout, settled, share_received, clients(name), booking_properties(properties(name))"
+      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, net_sale, hostello_share, client_payout, settled, share_received, clients:clients_v(name), booking_properties(properties:properties_v(name))"
     );
 
   filter = status ? filter.eq("status", status) : filter.neq("status", "cancelled");
@@ -79,7 +79,7 @@ export default async function BookingsPage({
 
   const [{ data: bookings }, { data: clientOptions }] = await Promise.all([
     query,
-    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("clients_v").select("id, name").order("name"),
   ]);
 
   const rows = bookings ?? [];
