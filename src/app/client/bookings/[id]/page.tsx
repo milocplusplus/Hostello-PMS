@@ -209,6 +209,7 @@ export default async function ClientBookingDetailPage({
             <ConfirmDeleteButton
               confirmText="Cancel this booking? The dates free up on your calendar."
               label="Cancel booking"
+              busy="Cancelling the booking…"
               className="text-xs text-ink-muted hover:text-status-booked transition-colors px-1"
             />
           </form>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 import { PERIODS, type PeriodKey } from "@/lib/period";
 
 const selectClass =
@@ -24,6 +25,7 @@ export function PeriodSelect({ value }: { value: PeriodKey }) {
         if (e.target.value === "this_month") params.delete("period");
         else params.set("period", e.target.value);
         const query = params.toString();
+        startNavProgress();
         router.push(query ? `${pathname}?${query}` : pathname);
       }}
       className={selectClass}

@@ -12,7 +12,8 @@ import {
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
-import { secondaryButton, errorBanner, noticeBanner, fieldLabel, fieldInput, primaryButton, primaryButtonStyle } from "@/lib/form-styles";
+import { secondaryButton, errorBanner, noticeBanner, fieldLabel, fieldInput, primaryButton } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 import { PROPERTY_TYPES } from "@/lib/property-types";
 import { DEAL_MODELS, formatPKR, nightsBetween } from "@/lib/payout";
 import { formatDayMonth, todayISO } from "@/lib/calendar";
@@ -135,6 +136,7 @@ export default async function ClientDetailPage({
             <input type="hidden" name="id" value={id} />
             <ConfirmDeleteButton
               confirmText={`Delete ${clientRecord.name}? This will also delete all of their properties. This cannot be undone.`}
+              busy="Deleting the client and their properties…"
               className="text-xs text-status-booked border border-status-booked/30 rounded-md px-3 py-1.5 hover:bg-status-booked/10 transition-colors"
             />
           </form>
@@ -207,9 +209,9 @@ export default async function ClientDetailPage({
                   className={`${fieldInput} w-full sm:w-48`}
                 />
               </div>
-              <button type="submit" className={`${secondaryButton} py-2`}>
+              <SubmitButton className={`${secondaryButton} py-2`} busy="Setting the password…">
                 Set password
-              </button>
+              </SubmitButton>
             </form>
           </div>
         ) : (
@@ -241,9 +243,14 @@ export default async function ClientDetailPage({
                 className={`${fieldInput} w-full sm:w-48`}
               />
             </div>
-            <button type="submit" className={`${primaryButton} text-xs py-2`} style={primaryButtonStyle}>
+            <SubmitButton
+              className={`${primaryButton} text-xs py-2`}
+              blocking
+              busy="Creating the login…"
+              note="Setting up their account and linking it to this client."
+            >
               Create login
-            </button>
+            </SubmitButton>
           </form>
         )}
       </div>
@@ -306,6 +313,7 @@ export default async function ClientDetailPage({
                     <ConfirmDeleteButton
                       confirmText={`Delete ${p.name}? This cannot be undone.`}
                       label="Delete property"
+                      busy="Deleting the property…"
                       className="p-1.5 rounded-md text-ink-muted hover:text-status-booked hover:bg-status-booked/10 transition-colors"
                     >
                       <Trash2 size={14} />

@@ -180,6 +180,7 @@ export default async function ClientPayoutsPage({
                     <ConfirmDeleteButton
                       confirmText="Withdraw this payment entry?"
                       label="Withdraw"
+                      busy="Withdrawing the entry…"
                       className="text-xs text-ink-muted hover:text-status-booked transition-colors"
                     />
                   </form>

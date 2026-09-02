@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { fieldLabel, fieldInput, primaryButton, primaryButtonStyle, errorBanner } from "@/lib/form-styles";
+import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
+import { BusyScreen } from "@/components/shared/Busy";
 
 type Phase = "checking" | "ready" | "saving" | "invalid";
 
@@ -172,10 +173,15 @@ export function ResetPasswordForm() {
         type="submit"
         disabled={phase === "saving"}
         className={`mt-1 ${primaryButton} disabled:opacity-60`}
-        style={primaryButtonStyle}
       >
         {phase === "saving" ? "Saving…" : "Save and sign in"}
       </button>
+
+      <BusyScreen
+        show={phase === "saving"}
+        label="Saving your new password…"
+        note="You will be signed in as soon as it is set."
+      />
     </form>
   );
 }

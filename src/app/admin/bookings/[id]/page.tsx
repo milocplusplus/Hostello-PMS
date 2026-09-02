@@ -12,6 +12,7 @@ import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { SubmitButton } from "@/components/shared/Busy";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
 import { GuestIdCards } from "@/components/shared/GuestIdCards";
@@ -288,22 +289,26 @@ export default async function BookingDetailPage({
             <input type="hidden" name="id" value={booking.id} />
             <input type="hidden" name="received" value={(!booking.share_received).toString()} />
             <input type="hidden" name="from" value={`/admin/bookings/${booking.id}`} />
-            <button
-              type="submit"
+            <SubmitButton
               className="btn btn-ghost btn-sm"
+              busy={
+                booking.share_received
+                  ? "Marking the share not received…"
+                  : "Marking the share received…"
+              }
             >
               {booking.share_received ? "Share not received" : "Mark share received"}
-            </button>
+            </SubmitButton>
           </form>
           <form action={markBookingSettled}>
             <input type="hidden" name="id" value={booking.id} />
             <input type="hidden" name="settled" value={(!booking.settled).toString()} />
-            <button
-              type="submit"
+            <SubmitButton
               className="btn btn-ghost btn-sm"
+              busy={booking.settled ? "Marking the payout unsent…" : "Marking the payout sent…"}
             >
               {booking.settled ? "Payout not sent" : "Mark payout sent"}
-            </button>
+            </SubmitButton>
           </form>
           </>
           )}
@@ -312,6 +317,7 @@ export default async function BookingDetailPage({
             <ConfirmDeleteButton
               confirmText="Cancel this booking? The dates free up and the client is notified."
               label="Cancel booking"
+              busy="Cancelling the booking…"
               className="text-xs text-ink-muted hover:text-status-booked transition-colors px-1"
             />
           </form>

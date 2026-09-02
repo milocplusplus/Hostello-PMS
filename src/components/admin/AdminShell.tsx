@@ -27,6 +27,7 @@ import { HostelloMark } from "@/components/shared/HostelloMark";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { UserMenu } from "@/components/shared/UserMenu";
+import { SubmitButton } from "@/components/shared/Busy";
 import type { NotificationItem } from "@/lib/notifications";
 import type { SearchResult } from "@/lib/search";
 
@@ -204,12 +205,14 @@ function SidebarFooter({
           </div>
         </div>
         <form action={logoutAction}>
-          <button
-            type="submit"
+          <SubmitButton
             className="text-[11px] text-ink-muted hover:text-ink-primary transition-colors shrink-0 px-1"
+            blocking
+            busy="Signing you out…"
+            note="Closing your session."
           >
             Sign out
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </>

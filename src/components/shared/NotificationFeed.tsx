@@ -8,6 +8,7 @@ import {
 } from "@/lib/notifications";
 import { markAllNotificationsRead, markNotificationRead } from "@/app/notifications/actions";
 import { secondaryButton } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /**
  * The notification list, shared by both portals. The only differences between
@@ -110,12 +111,12 @@ export function NotificationFeed({
                 {n.unread && (
                   <form action={markNotificationRead} className="shrink-0">
                     <input type="hidden" name="id" value={n.id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="text-[11px] text-ink-muted hover:text-ink-primary transition-colors"
+                      busy="Marking it read…"
                     >
                       Mark read
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </div>
@@ -132,9 +133,9 @@ export function MarkAllReadButton({ unreadCount }: { unreadCount: number }) {
   if (unreadCount === 0) return null;
   return (
     <form action={markAllNotificationsRead}>
-      <button type="submit" className={secondaryButton}>
+      <SubmitButton className={secondaryButton} busy="Marking everything read…">
         Mark all read
-      </button>
+      </SubmitButton>
     </form>
   );
 }

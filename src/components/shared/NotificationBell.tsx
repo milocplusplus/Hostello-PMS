@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Bell } from "lucide-react";
 import { notificationIcon, type NotificationItem } from "@/lib/notifications";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /**
  * Top-bar bell. Items and the unread count come from the server; the only
@@ -50,12 +51,12 @@ export function NotificationBell({
               <p className="text-sm font-medium">Notifications</p>
               {unreadCount > 0 && (
                 <form action={markAllAction}>
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+                    busy="Marking everything read…"
                   >
                     Mark all read
-                  </button>
+                  </SubmitButton>
                 </form>
               )}
             </div>

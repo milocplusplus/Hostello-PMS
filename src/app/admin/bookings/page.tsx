@@ -11,6 +11,7 @@ import { markShareReceived } from "../payouts/actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingFilters } from "@/components/admin/BookingFilters";
+import { SubmitButton } from "@/components/shared/Busy";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -391,19 +392,26 @@ export default async function BookingsPage({
                                   name="received"
                                   value={(!b.share_received).toString()}
                                 />
-                                <button type="submit" className="btn btn-ghost btn-sm">
+                                <SubmitButton
+                                  className="btn btn-ghost btn-sm"
+                                  busy={
+                                    b.share_received
+                                      ? "Marking the share unpaid…"
+                                      : "Marking the share received…"
+                                  }
+                                >
                                   {b.share_received ? "Mark unpaid" : "Mark received"}
-                                </button>
+                                </SubmitButton>
                               </form>
                             )}
                             <form action={cancelBooking}>
                               <input type="hidden" name="id" value={b.id} />
-                              <button
-                                type="submit"
+                              <SubmitButton
                                 className="text-xs text-ink-muted hover:text-negative transition-colors px-1"
+                                busy="Cancelling the booking…"
                               >
                                 Cancel
-                              </button>
+                              </SubmitButton>
                             </form>
                           </div>
                         )}

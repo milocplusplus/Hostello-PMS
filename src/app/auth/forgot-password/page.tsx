@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { requestPasswordReset } from "../actions";
-import { fieldLabel, fieldInput, primaryButton, primaryButtonStyle, errorBanner } from "@/lib/form-styles";
+import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 
 export default async function ForgotPasswordPage({
@@ -57,9 +58,13 @@ export default async function ForgotPasswordPage({
 
             {error && <p className={errorBanner}>{error}</p>}
 
-            <button type="submit" className={`mt-1 ${primaryButton}`} style={primaryButtonStyle}>
+            <SubmitButton
+              className={`mt-1 ${primaryButton}`}
+              blocking
+              busy="Sending the reset link…"
+            >
               Send reset link
-            </button>
+            </SubmitButton>
           </form>
         )}
 

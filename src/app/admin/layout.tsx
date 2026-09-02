@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { currentProfile, currentUser, isStaffRole } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { NavProgress } from "@/components/shared/NavProgress";
 import { NotificationLive } from "@/components/shared/NotificationLive";
 import { searchAdmin } from "@/app/admin/search/actions";
 import { markAllNotificationsRead } from "@/app/notifications/actions";
@@ -34,6 +36,10 @@ export default async function AdminLayout({
 
   return (
     <>
+      {/* Reads the query string, so it needs its own boundary. */}
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       <AdminShell
         role={role}
         userName={profile.full_name ?? (role === "ops" ? "Operations" : "Owner")}

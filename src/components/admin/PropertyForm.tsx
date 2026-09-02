@@ -7,9 +7,9 @@ import {
   fieldLabel,
   fieldInput,
   primaryButton,
-  primaryButtonStyle,
   errorBanner,
 } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 
 type PropertyFormProps = {
   action: (formData: FormData) => void;
@@ -246,9 +246,14 @@ export function PropertyForm({
 
       {error && <p className={errorBanner}>{error}</p>}
 
-      <button type="submit" className={`mt-2 ${primaryButton}`} style={primaryButtonStyle}>
+      <SubmitButton
+        className={`mt-2 ${primaryButton}`}
+        blocking
+        busy="Saving the property…"
+        pendingLabel="Saving…"
+      >
         {submitLabel}
-      </button>
+      </SubmitButton>
     </form>
   );
 }

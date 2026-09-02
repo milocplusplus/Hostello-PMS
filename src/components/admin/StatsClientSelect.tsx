@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 
 const selectClass =
   "field pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
@@ -29,6 +30,7 @@ export function StatsClientSelect({
         if (e.target.value) params.set("client", e.target.value);
         else params.delete("client");
         const query = params.toString();
+        startNavProgress();
         router.push(query ? `${pathname}?${query}` : pathname);
       }}
       className={selectClass}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
@@ -37,6 +38,7 @@ export function CalendarFilters({
     else params.delete(key);
     // A different client has different properties; the old pick can't survive.
     if (key === "client") params.delete("property");
+    startNavProgress();
     router.push(`${pathname}?${params.toString()}`);
   }
 

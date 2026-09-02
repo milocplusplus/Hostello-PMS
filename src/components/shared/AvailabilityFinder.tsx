@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 import { Search, X } from "lucide-react";
 import { PROVINCES, CITIES_BY_PROVINCE } from "@/lib/pakistan-locations";
 import { PROPERTY_TYPES } from "@/lib/property-types";
@@ -54,6 +55,7 @@ export function AvailabilityFinder({
     ] as const) {
       if (value) params.set(key, value);
     }
+    startNavProgress();
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -237,6 +239,7 @@ export function AvailabilityFinder({
             setProvince("");
             setCity("");
             setType("");
+            startNavProgress();
             router.push(pathname);
           }}
           className="btn btn-ghost btn-sm"

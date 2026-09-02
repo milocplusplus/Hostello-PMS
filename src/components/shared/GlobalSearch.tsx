@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 import { Search, Users, Building2, CalendarClock, Loader2 } from "lucide-react";
 import type { SearchResult } from "@/lib/search";
 
@@ -69,6 +70,7 @@ export function GlobalSearch({
   function go(href: string) {
     setOpen(false);
     setQuery("");
+    startNavProgress();
     router.push(href);
   }
 

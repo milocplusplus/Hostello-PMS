@@ -3,6 +3,7 @@ import { formatDayMonth } from "@/lib/calendar";
 import { GUEST_ID_ACCEPT, MAX_GUEST_IDS_PER_UPLOAD, type GuestId } from "@/lib/guest-ids";
 import { fieldInput, fieldLabel, errorBanner, secondaryButton } from "@/lib/form-styles";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /**
  * Guest ID cards on a booking. Read-only unless an upload action is passed in.
@@ -100,9 +101,14 @@ export function GuestIdCards({
 
           {error && <p className={errorBanner}>{error}</p>}
 
-          <button type="submit" className={`${secondaryButton} self-start`}>
+          <SubmitButton
+            className={`${secondaryButton} self-start`}
+            busy="Uploading the ID cards…"
+            blocking
+            note="Several scans can take a while. They upload together — closing now loses all of them."
+          >
             Attach ID cards
-          </button>
+          </SubmitButton>
         </form>
       )}
     </div>

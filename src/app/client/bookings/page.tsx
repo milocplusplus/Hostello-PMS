@@ -10,6 +10,7 @@ import { cancelClientBooking } from "./actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
+import { SubmitButton } from "@/components/shared/Busy";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -217,12 +218,12 @@ export default async function ClientBookingsPage({
                     <td className="px-4 py-3 text-right">
                       <form action={cancelClientBooking}>
                         <input type="hidden" name="id" value={b.id} />
-                        <button
-                          type="submit"
+                        <SubmitButton
                           className="text-xs text-ink-muted hover:text-status-booked transition-colors"
+                          busy="Cancelling the booking…"
                         >
                           Cancel
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   </tr>

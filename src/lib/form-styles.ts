@@ -12,13 +12,6 @@ export const fieldInput = "field";
 
 export const primaryButton = "btn btn-gold";
 
-/**
- * Retained so existing `style={primaryButtonStyle}` call sites keep compiling.
- * `.btn-gold` already paints the gradient, so this adds nothing — drop the prop
- * when you next touch one of those call sites.
- */
-export const primaryButtonStyle = {};
-
 export const secondaryButton = "btn btn-ghost btn-sm";
 
 export const errorBanner =

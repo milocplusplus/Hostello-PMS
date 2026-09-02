@@ -1,6 +1,46 @@
-# State — updated 2026-09-02
+# State — updated 2026-09-03
 
 ## Done
+- **Busy states everywhere** (2026-09-03). `npm run build` and `npm run lint` clean.
+  Every write said nothing while it ran; an upload just sat there. Now each one
+  names what it is doing.
+  - `src/components/shared/Busy.tsx` — `SubmitButton` (the whole change at a call
+    site is one line), plus `BusyOverlay` / `BusyToast` / `BusyScreen` / `Spinner`.
+    `useFormStatus` drives it, so the button disables itself and the words appear
+    together. `blocking` dims the screen for an upload or a slow save; without it
+    a strip sits at the bottom, because a modal that flashes for 300ms is worse
+    than nothing. `whenAction` exists for the one form with two buttons (confirm /
+    reject on the payout queue) so only the pressed one speaks.
+  - Wired through every form in both portals — the four upload paths first
+    (`BookingReceipts`, `GuestIdCards`, `RecordPayoutForm`, `BookingForm`), then
+    channel sync, blocks, the channel inbox, staff, clients, notifications,
+    sign-out, login. `ConfirmDeleteButton` carries its own. `ResetPasswordForm`
+    runs in the browser, not a Server Action, so it uses `BusyScreen`.
+  - **No upload percentage.** A Server Action cannot report upload progress, so
+    the pop-up says what is happening and spins. A real bar would mean moving all
+    four uploads to a direct browser→Storage `XHR` and new RLS policies.
+  - `src/components/shared/NavProgress.tsx` — a hairline across the top from the
+    click until the route lands, mounted in both layouts. Anchors are caught on
+    `document` so no link opts in; `startNavProgress()` is for the selects that
+    navigate with `router.push`. Two gotchas, both now commented in the file:
+    `<Link>` calls `preventDefault()`, so skipping `defaultPrevented` skipped
+    every link; and `useSearchParams` updates when the URL changes, ~100ms before
+    the page does, so the "landed" signal is `useDeferredValue` lagging the
+    transition, not the URL.
+  - `loading.tsx` for the 12 heavy sub-routes, on two new shapes in
+    `PageSkeleton.tsx` — `ListSkeleton` and `CalendarSkeleton`. The dashboard
+    skeleton leads with four KPI tiles that none of those pages have.
+  - **Root-cause fix in `globals.css`:** `body > * { position: relative }` sat
+    outside every layer, so it beat Tailwind's `fixed` on any direct child of
+    body. It is now in `@layer base`. This was silently flattening
+    `NotificationLive`'s toast and `PwaSetup`'s install prompt into the flow too —
+    both are direct children of body. Ordinary children still get the rule.
+  - `primaryButtonStyle` is gone from `form-styles.ts`. It was a no-op kept for
+    call sites; every one of them was touched here, which is what its own comment
+    asked for.
+  - **Not verified against a signed-in portal**: no `.env.local` on this machine.
+    The overlay, the toast and the bar were checked in a browser on a temporary
+    route with a slow Server Action, then that route was deleted.
 - **Availability finder** (2026-09-02). `npm run build` and `npm run lint` clean.
   Answers "what's free on the 5th for four people under 30k?" instead of making
   someone read the calendar grid. `/admin/availability` (admin *and* ops) and

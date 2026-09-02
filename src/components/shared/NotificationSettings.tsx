@@ -11,6 +11,7 @@ import { CATEGORIES, type NotificationPreferences } from "@/lib/notifications";
 import { playNotificationSound } from "@/lib/notification-sounds";
 import { iosNeedsInstallForPush } from "@/lib/pwa-install";
 import { secondaryButton } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -242,9 +243,9 @@ export function NotificationSettings({
         </div>
 
         <div>
-          <button type="submit" className={secondaryButton}>
+          <SubmitButton className={secondaryButton} busy="Saving your preferences…">
             Save preferences
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </section>

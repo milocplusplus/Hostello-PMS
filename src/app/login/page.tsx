@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { login } from "./actions";
 import { HostelloMark } from "@/components/shared/HostelloMark";
+import { SubmitButton } from "@/components/shared/Busy";
 
 export default async function LoginPage({
   searchParams,
@@ -62,12 +63,14 @@ export default async function LoginPage({
             </p>
           )}
 
-          <button
-            type="submit"
+          <SubmitButton
             className="btn btn-gold mt-2 w-full py-2.5"
+            blocking
+            busy="Signing you in…"
+            note="Checking your details and opening your portal."
           >
             Sign in
-          </button>
+          </SubmitButton>
 
           <Link
             href="/auth/forgot-password"

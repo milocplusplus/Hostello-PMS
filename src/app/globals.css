@@ -147,10 +147,15 @@ body::before {
     radial-gradient(60rem 45rem at 50% 115%, rgba(108, 74, 182, 0.12), transparent 60%);
 }
 
-/* Everything the app renders sits above that wash */
-body > * {
-  position: relative;
-  z-index: 1;
+/* Everything the app renders sits above that wash.
+   In `base` so a utility still wins: unlayered, this beat every `fixed` on a
+   direct child of body — the toasts, the install prompt, anything portalled
+   out — and quietly dropped them back into the flow. */
+@layer base {
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Stop iOS inflating body text when a phone turns landscape */
@@ -614,6 +619,38 @@ h1,
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* The navigation bar across the top of the app. It creeps toward full and
+   stops short of it: the route landing is what removes the bar, so the
+   animation must never claim to have finished on its own. */
+/* Starts already a tenth of the way across — a bar that begins at zero width
+   shows nothing at all for the first moments, which is the exact stretch it
+   exists to cover. It never reaches the right edge: the route landing is what
+   removes it, so it must not claim to have finished on its own. */
+@keyframes nav-progress {
+  0% {
+    transform: translateX(-90%);
+  }
+  25% {
+    transform: translateX(-55%);
+  }
+  60% {
+    transform: translateX(-30%);
+  }
+  100% {
+    transform: translateX(-8%);
+  }
+}
+
+.nav-progress {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-hostello-purple-mid) 35%,
+    var(--color-hostello-gold) 100%
+  );
+  animation: nav-progress 6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
 /* Route-level loading skeletons. Every navigation here waits on a database on
    another continent; painting the page's shape immediately is what makes the
    app feel instant instead of frozen. A sweep reads as loading where a fading
@@ -651,6 +688,17 @@ h1,
   .skeleton,
   .animate-pulse-dot {
     animation: none;
+  }
+
+  /* These two are the only sign that the app is working, so they hold a
+     visible state rather than vanishing with the rest of the motion. */
+  .nav-progress {
+    animation: none;
+    transform: translateX(-55%);
+  }
+
+  .animate-spin {
+    animation-duration: 2.4s;
   }
 
   .card-hover:hover,

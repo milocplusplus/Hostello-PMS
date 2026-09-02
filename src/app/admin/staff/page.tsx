@@ -12,6 +12,7 @@ import {
   errorBanner,
   noticeBanner,
 } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 import { inviteOpsUser, resetOpsPassword, setOpsAccess } from "./actions";
 
 /**
@@ -129,9 +130,14 @@ export default async function StaffPage({
               and they can change it once they are in.
             </p>
           </div>
-          <button type="submit" className={primaryButton}>
+          <SubmitButton
+            className={primaryButton}
+            blocking
+            busy="Creating the account…"
+            note="Setting up their login and their operations role."
+          >
             Create account
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -180,22 +186,23 @@ export default async function StaffPage({
                     className={fieldInput}
                   />
                 </div>
-                <button type="submit" className={secondaryButton}>
+                <SubmitButton className={secondaryButton} busy="Setting the password…">
                   Set
-                </button>
+                </SubmitButton>
               </form>
 
               <form action={setOpsAccess} className="ml-auto">
                 <input type="hidden" name="id" value={s.id} />
                 <input type="hidden" name="blocked" value={(!s.blocked).toString()} />
                 {s.blocked ? (
-                  <button type="submit" className={secondaryButton}>
+                  <SubmitButton className={secondaryButton} busy="Restoring access…">
                     Restore access
-                  </button>
+                  </SubmitButton>
                 ) : (
                   <ConfirmDeleteButton
                     confirmText={`Remove ${s.full_name ?? s.email}'s access? They stay on past bookings they entered, and you can restore them here.`}
                     label="Remove access"
+                    busy="Removing their access…"
                     className="text-xs text-ink-muted hover:text-negative transition-colors px-1"
                   />
                 )}

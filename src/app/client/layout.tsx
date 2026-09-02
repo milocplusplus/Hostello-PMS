@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { currentClient, currentProfile, currentUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { ClientShell } from "@/components/client/ClientShell";
+import { NavProgress } from "@/components/shared/NavProgress";
+import { SubmitButton } from "@/components/shared/Busy";
 import { NotificationLive } from "@/components/shared/NotificationLive";
 import { searchClient } from "@/app/client/search/actions";
 import { markAllNotificationsRead } from "@/app/notifications/actions";
@@ -33,12 +36,12 @@ export default async function ClientLayout({
             Your account isn&apos;t linked to a client record yet. Contact Hostello to get set up.
           </p>
           <form action={logout} className="mt-4">
-            <button
-              type="submit"
+            <SubmitButton
               className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-border-strong transition-colors"
+              busy="Signing you out…"
             >
               Sign out
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>
@@ -53,6 +56,10 @@ export default async function ClientLayout({
 
   return (
     <>
+      {/* Reads the query string, so it needs its own boundary. */}
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       <ClientShell
         userName={profile?.full_name ?? clientRecord.name}
         clientName={clientRecord.name}

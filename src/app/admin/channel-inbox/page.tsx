@@ -21,11 +21,11 @@ import {
   fieldLabel,
   fieldInput,
   primaryButton,
-  primaryButtonStyle,
   secondaryButton,
   errorBanner,
   noticeBanner,
 } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 import {
   approveReservation,
   applyCancellation,
@@ -351,14 +351,15 @@ export default async function ChannelInboxPage({
                 </p>
 
                 <div className="flex gap-2">
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className={primaryButton}
-                    style={primaryButtonStyle}
                     disabled={problems.length > 0}
+                    blocking
+                    busy="Adding the booking…"
+                    note="Checking the dates are still free, then writing the stay and its payout."
                   >
                     Approve and add booking
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             )}
@@ -383,9 +384,9 @@ export default async function ChannelInboxPage({
                   <Fact label="Guest" value={parsed.guest_name ?? "—"} />
                 </div>
                 <div className="flex gap-2">
-                  <button type="submit" className={primaryButton} style={primaryButtonStyle}>
+                  <SubmitButton className={primaryButton} busy="Mapping the listing…">
                     Map to this property
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             )}
@@ -423,14 +424,15 @@ export default async function ChannelInboxPage({
                   </p>
                 )}
                 <div className="flex gap-2">
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className={primaryButton}
-                    style={primaryButtonStyle}
                     disabled={!row.booking_id}
+                    blocking
+                    busy="Cancelling the booking…"
+                    note="Freeing the dates and notifying the client."
                   >
                     Cancel the booking
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             )}
@@ -498,9 +500,9 @@ export default async function ChannelInboxPage({
                   className={fieldInput}
                 />
                 <div className="flex gap-2">
-                  <button type="submit" className={secondaryButton}>
+                  <SubmitButton className={secondaryButton} busy="Marking it handled…">
                     Mark handled
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             )}
@@ -524,9 +526,9 @@ export default async function ChannelInboxPage({
                 placeholder="Why (optional)"
                 className={`${fieldInput} flex-1`}
               />
-              <button type="submit" className={secondaryButton}>
+              <SubmitButton className={secondaryButton} busy="Dismissing the message…">
                 Dismiss
-              </button>
+              </SubmitButton>
             </form>
           </div>
         );

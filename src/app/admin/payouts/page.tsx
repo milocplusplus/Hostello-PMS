@@ -8,6 +8,7 @@ import { listClientPayouts, loadOwedByClient } from "@/lib/owed";
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
 import { Avatar } from "@/components/shared/Avatar";
 import { errorBanner, fieldInput } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 import { confirmPayout, rejectPayout, unconfirmPayout } from "./actions";
 
 export default async function AdminPayoutsPage({
@@ -103,12 +104,13 @@ export default async function AdminPayoutsPage({
               // has to sit in the same form to reach it.
               <form action={confirmPayout} className="flex flex-wrap items-center gap-2 w-full">
                 <input type="hidden" name="id" value={e.id} />
-                <button
-                  type="submit"
+                <SubmitButton
                   className="btn btn-gold btn-sm"
+                  busy="Confirming the payment…"
+                  whenAction={confirmPayout}
                 >
                   Mark received
-                </button>
+                </SubmitButton>
                 <input
                   name="reason"
                   type="text"
@@ -116,13 +118,14 @@ export default async function AdminPayoutsPage({
                   placeholder="Why not? (optional)"
                   className={`${fieldInput} text-xs py-1.5 flex-1 min-w-[160px]`}
                 />
-                <button
-                  type="submit"
+                <SubmitButton
                   formAction={rejectPayout}
+                  whenAction={rejectPayout}
+                  busy="Sending it back to the client…"
                   className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-status-booked hover:text-status-booked transition-colors"
                 >
                   Not received
-                </button>
+                </SubmitButton>
               </form>
             )}
           />
@@ -178,12 +181,12 @@ export default async function AdminPayoutsPage({
             e.status === "received" ? (
               <form action={unconfirmPayout}>
                 <input type="hidden" name="id" value={e.id} />
-                <button
-                  type="submit"
+                <SubmitButton
                   className="text-xs text-ink-muted hover:text-status-booked transition-colors"
+                  busy="Un-confirming the payment…"
                 >
                   Un-confirm
-                </button>
+                </SubmitButton>
               </form>
             ) : null
           }

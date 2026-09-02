@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
 import {
   calculatePayout,
   isOtaSource,
@@ -24,9 +23,9 @@ import {
   fieldLabel,
   fieldInput,
   primaryButton,
-  primaryButtonStyle,
   errorBanner,
 } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 
 type PropertyOption = {
   id: string;
@@ -528,23 +527,15 @@ export function BookingForm({
       {error && <p className={errorBanner}>{error}</p>}
 
       <SubmitButton
-        label={submitLabel}
+        className={`mt-2 ${primaryButton}`}
         disabled={!checkIn || !checkOut || rangeBlocked || badWindow || missingShortStayRate}
-      />
+        blocking
+        busy="Saving the booking…"
+        pendingLabel="Saving…"
+        note="Any receipt or ID card you picked is uploading with it."
+      >
+        {submitLabel}
+      </SubmitButton>
     </form>
-  );
-}
-
-function SubmitButton({ label, disabled }: { label: string; disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending || disabled}
-      className={`mt-2 ${primaryButton} disabled:opacity-60`}
-      style={primaryButtonStyle}
-    >
-      {pending ? "Saving…" : label}
-    </button>
   );
 }

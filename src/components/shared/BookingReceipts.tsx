@@ -4,6 +4,7 @@ import { formatDayMonth } from "@/lib/calendar";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS, receiptKindLabel, type Receipt } from "@/lib/receipts";
 import { fieldInput, fieldLabel, errorBanner, secondaryButton } from "@/lib/form-styles";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /**
  * Token receipts on a booking. Read-only unless an upload action is passed in,
@@ -126,9 +127,14 @@ export function BookingReceipts({
 
           {error && <p className={errorBanner}>{error}</p>}
 
-          <button type="submit" className={`${secondaryButton} self-start`}>
+          <SubmitButton
+            className={`${secondaryButton} self-start`}
+            busy="Uploading the receipt…"
+            blocking
+            note="The photo is on its way to storage. This takes a moment on a slow connection."
+          >
             Attach receipt
-          </button>
+          </SubmitButton>
         </form>
       )}
     </div>

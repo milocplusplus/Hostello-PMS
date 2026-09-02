@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
+import { SubmitButton } from "@/components/shared/Busy";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 import { BOOKING_SOURCES, sourceColor, sourceLabel } from "@/lib/block-sources";
 import { SUPABASE_URL } from "@/lib/supabase/config";
@@ -11,7 +12,6 @@ import {
   fieldLabel,
   fieldInput,
   primaryButton,
-  primaryButtonStyle,
   secondaryButton,
   errorBanner,
   noticeBanner,
@@ -188,9 +188,14 @@ export default async function CalendarFeedsPage({
           </p>
         </div>
 
-        <button type="submit" className={`mt-1 ${primaryButton}`} style={primaryButtonStyle}>
+        <SubmitButton
+          className={`mt-1 ${primaryButton}`}
+          blocking
+          busy="Reading the channel calendar…"
+          note="Fetching the link and importing every date it holds."
+        >
           Connect calendar
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="card p-6">
@@ -198,10 +203,15 @@ export default async function CalendarFeedsPage({
           <h2 className="text-sm font-medium text-ink-secondary">Connected</h2>
           {rows.length > 0 && (
             <form action={syncAllCalendarFeeds}>
-              <button type="submit" className={`${secondaryButton} inline-flex items-center gap-1.5`}>
+              <SubmitButton
+                className={`${secondaryButton} inline-flex items-center gap-1.5`}
+                blocking
+                busy="Syncing every calendar…"
+                note="Each channel is fetched in turn — this is the slow one."
+              >
                 <RefreshCw size={12} aria-hidden />
                 Sync all
-              </button>
+              </SubmitButton>
             </form>
           )}
         </div>
@@ -242,9 +252,9 @@ export default async function CalendarFeedsPage({
                       placeholder="Listing name for reservation emails"
                       className={`${fieldInput} text-xs py-1 flex-1 min-w-0`}
                     />
-                    <button type="submit" className={secondaryButton}>
+                    <SubmitButton className={secondaryButton} busy="Saving the listing name…">
                       Save
-                    </button>
+                    </SubmitButton>
                   </form>
                   {feed.last_error && (
                     <p className="text-xs text-status-booked mt-1">{feed.last_error}</p>
@@ -254,18 +264,21 @@ export default async function CalendarFeedsPage({
                 <div className="flex items-center gap-3 shrink-0">
                   <form action={syncCalendarFeed}>
                     <input type="hidden" name="id" value={feed.id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+                      blocking
+                      busy="Syncing this calendar…"
+                      note="Fetching the channel's link and updating the dates it holds."
                     >
                       Sync now
-                    </button>
+                    </SubmitButton>
                   </form>
                   <form action={removeCalendarFeed}>
                     <input type="hidden" name="id" value={feed.id} />
                     <ConfirmDeleteButton
                       confirmText="Disconnect this calendar? The dates it imported will be removed."
                       label="Disconnect"
+                      busy="Disconnecting the calendar…"
                       className="text-xs text-ink-muted hover:text-status-booked transition-colors"
                     />
                   </form>
@@ -299,9 +312,9 @@ export default async function CalendarFeedsPage({
               ))}
             </select>
           </div>
-          <button type="submit" className={`${primaryButton} shrink-0`} style={primaryButtonStyle}>
+          <SubmitButton className={`${primaryButton} shrink-0`} busy="Creating the link…">
             Create link
-          </button>
+          </SubmitButton>
         </form>
 
         {exportRows.length === 0 && (
@@ -331,6 +344,7 @@ export default async function CalendarFeedsPage({
                         <ConfirmDeleteButton
                           confirmText="Issue a new link? The current one stops working immediately, and you will have to paste the new one into every channel using it."
                           label="New link"
+                          busy="Issuing a new link…"
                           className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
                         />
                       </form>
@@ -339,6 +353,7 @@ export default async function CalendarFeedsPage({
                         <ConfirmDeleteButton
                           confirmText="Delete this link? Any channel pointed at it will stop receiving updates."
                           label="Delete"
+                          busy="Deleting the link…"
                           className="text-xs text-ink-muted hover:text-status-booked transition-colors"
                         />
                       </form>

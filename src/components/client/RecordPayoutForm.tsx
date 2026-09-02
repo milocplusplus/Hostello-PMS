@@ -5,12 +5,12 @@ import Link from "next/link";
 import { formatPKR } from "@/lib/payout";
 import { PAYOUT_METHODS, methodNeedsReceipt, type PayoutMethod } from "@/lib/owed";
 import { RECEIPT_ACCEPT } from "@/lib/receipts";
+import { SubmitButton } from "@/components/shared/Busy";
 import {
   errorBanner,
   fieldInput,
   fieldLabel,
   primaryButton,
-  primaryButtonStyle,
 } from "@/lib/form-styles";
 
 /**
@@ -137,14 +137,19 @@ export function RecordPayoutForm({
       {error && <p className={errorBanner}>{error}</p>}
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
+        <SubmitButton
           disabled={claimable <= 0 && !editing}
-          className={`${primaryButton} disabled:opacity-40`}
-          style={primaryButtonStyle}
+          className={primaryButton}
+          blocking
+          busy={needsReceipt ? "Uploading the screenshot…" : "Recording the payment…"}
+          note={
+            needsReceipt
+              ? "The screenshot goes up with the payment. Both are saved together or not at all."
+              : "Sending this to Hostello for confirmation."
+          }
         >
           {editing ? "Resubmit for confirmation" : "Record payment"}
-        </button>
+        </SubmitButton>
         {editing && (
           <Link href="/client/payouts" className="text-xs text-ink-secondary hover:text-ink-primary">
             Cancel

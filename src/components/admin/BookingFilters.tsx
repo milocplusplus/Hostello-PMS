@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { startNavProgress } from "@/components/shared/NavProgress";
 import { Search, X } from "lucide-react";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
@@ -38,6 +39,7 @@ export function BookingFilters({
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    startNavProgress();
     router.push(`${pathname}?${params.toString()}`);
   }
 

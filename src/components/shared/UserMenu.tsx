@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /** Top-bar avatar + sign-out. Shared by both shells. */
 export function UserMenu({
@@ -37,13 +38,15 @@ export function UserMenu({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-2 w-44 card p-1.5 z-50 animate-in">
             <form action={logoutAction}>
-              <button
-                type="submit"
+              <SubmitButton
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
+                blocking
+                busy="Signing you out…"
+                note="Closing your session."
               >
                 <LogOut size={14} />
                 Sign out
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </>

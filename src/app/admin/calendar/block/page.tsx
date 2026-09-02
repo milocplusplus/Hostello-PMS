@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { createCalendarBlock, deleteCalendarBlock } from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { fieldLabel, fieldInput, primaryButton, primaryButtonStyle, errorBanner } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
+import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
 import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
 
 export default async function BlockDatesPage({
@@ -88,9 +89,9 @@ export default async function BlockDatesPage({
 
         {error && <p className={errorBanner}>{error}</p>}
 
-        <button type="submit" className={`mt-1 ${primaryButton}`} style={primaryButtonStyle}>
+        <SubmitButton className={`mt-1 ${primaryButton}`} busy="Blocking the dates…">
           Block these dates
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="card p-6">
@@ -119,6 +120,7 @@ export default async function BlockDatesPage({
                     <ConfirmDeleteButton
                       confirmText="Remove this block? The dates will become available again."
                       label="Unblock"
+                      busy="Freeing the dates…"
                       className="text-xs text-ink-muted hover:text-status-booked shrink-0 transition-colors"
                     />
                   </form>

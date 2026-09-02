@@ -1,4 +1,5 @@
 import { Check, LogIn, LogOut } from "lucide-react";
+import { SubmitButton } from "@/components/shared/Busy";
 
 /**
  * Ticking an arrival or a departure off. Each portal passes its own write —
@@ -33,10 +34,12 @@ export function StayTick({
       <input type="hidden" name="id" value={bookingId} />
       <input type="hidden" name="step" value={step} />
       <input type="hidden" name="done" value={(!done).toString()} />
-      <button
-        type="submit"
+      <SubmitButton
         title={done ? `Undo — marked ${label(step)}` : `Mark ${label(step)}`}
-        aria-label={done ? `Undo — marked ${label(step)}` : `Mark ${label(step)}`}
+        ariaLabel={done ? `Undo — marked ${label(step)}` : `Mark ${label(step)}`}
+        busy={done ? `Undoing ${label(step)}…` : `Marking ${label(step)}…`}
+        /* Empty, so the spinner takes the tick's place rather than crowding it. */
+        pendingLabel=""
         className={`w-8 h-8 rounded-full border flex items-center justify-center transition-colors ${
           done
             ? "border-positive bg-positive/15 text-positive"
@@ -44,7 +47,7 @@ export function StayTick({
         }`}
       >
         <Check size={15} />
-      </button>
+      </SubmitButton>
     </form>
   );
 }

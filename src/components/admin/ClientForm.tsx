@@ -6,9 +6,9 @@ import {
   fieldLabel,
   fieldInput,
   primaryButton,
-  primaryButtonStyle,
   errorBanner,
 } from "@/lib/form-styles";
+import { SubmitButton } from "@/components/shared/Busy";
 
 type ClientFormProps = {
   action: (formData: FormData) => void;
@@ -259,9 +259,14 @@ export function ClientForm({ action, clientId, defaultValues, error, submitLabel
 
       {error && <p className={errorBanner}>{error}</p>}
 
-      <button type="submit" className={`mt-2 ${primaryButton}`} style={primaryButtonStyle}>
+      <SubmitButton
+        className={`mt-2 ${primaryButton}`}
+        blocking
+        busy="Saving the client…"
+        pendingLabel="Saving…"
+      >
         {submitLabel}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
