@@ -1,6 +1,29 @@
 # State — updated 2026-09-03
 
 ## Done
+- **Maintenance block type** (2026-09-03). `npm run build` and `npm run lint`
+  clean. Migration `add_maintenance_calendar_block_type`, **applied to the live
+  DB**: `calendar_block_type` gains `maintenance`. It was previously free text
+  in the notes, which could not be coloured or told apart from an owner hold.
+  - **Availability, clash-checking and the iCal export needed no change at all.**
+    Every reader treats "not `booked`" as unavailable, so maintenance falls
+    through the branch `blocked` already took. **Verified on the live DB with a
+    rolled-back probe**: a maintenance block comes out of
+    `ical_export_document` as `SUMMARY:Hostello - Blocked` over the right dates,
+    so a unit with a broken boiler does not stay sellable on Airbnb. Nothing
+    survived the rollback.
+  - The enum add is its own migration and uses the value nowhere — Postgres
+    refuses to reference a new enum value in the transaction that adds it.
+  - `block-sources.ts` gained `blockTypeLabel` / `blockTypeColor` and
+    `MANUAL_BLOCK_TYPES`. Both calendars, both block forms, both "recent blocks"
+    lists and both day sheets now go through them instead of branching on
+    `=== "booked"` — which is why the whole change was labels and one colour.
+  - **`booked` is not offered on the block form.** It is what a channel sync
+    writes for an imported reservation; a stay someone books here is a booking.
+    `isManualBlockType()` enforces that server-side, not just in the select.
+  - New `--color-status-maintenance` token. A maintenance notification leads with
+    "<Property> out of service" rather than "Dates blocked" — the title is what
+    an OS banner shows, so the difference belongs there.
 - **A booking is the stay, not the ledger** (2026-09-03). `npm run build` and
   `npm run lint` clean. The booking pages and Settlements were telling the same
   money story twice; the booking pages now carry the stay and the tools, and the

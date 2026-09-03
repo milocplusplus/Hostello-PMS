@@ -30,6 +30,9 @@
   --color-status-available: #3b6d11;
   --color-status-booked: #993c1d;
   --color-status-blocked: #5f5e5a;
+  /* Amber-brown: reads as "work happening here", not as booked (red) or as an
+     owner hold (grey). Same lightness as its neighbours so no bar shouts. */
+  --color-status-maintenance: #7a5a12;
   --color-status-pending: #854f0b;
 
   /* Channel colors */
@@ -99,6 +102,7 @@
   --color-status-available: var(--color-status-available);
   --color-status-booked: var(--color-status-booked);
   --color-status-blocked: var(--color-status-blocked);
+  --color-status-maintenance: var(--color-status-maintenance);
   --color-status-pending: var(--color-status-pending);
 
   --color-channel-airbnb: var(--color-channel-airbnb);

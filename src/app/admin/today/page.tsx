@@ -1,3 +1,4 @@
+import { blockTypeLabel } from "@/lib/block-sources";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, BedDouble, Clock, Lock } from "lucide-react";
@@ -250,7 +251,7 @@ export default async function AdminTodayPage() {
                     </p>
                   </div>
                   <span className="text-[11px] text-ink-muted shrink-0 capitalize">
-                    {bl.block_type}
+                    {blockTypeLabel(bl.block_type)}
                   </span>
                 </li>
               );

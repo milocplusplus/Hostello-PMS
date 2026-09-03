@@ -474,13 +474,20 @@ export async function notifyDatesBlocked(
     startDate: string;
     endDate: string;
     reason?: string | null;
+    blockType?: string | null;
   }
 ) {
+  // A unit out of service is not the same news as an owner keeping it, and the
+  // title is what an OS banner shows — so the difference goes there, not in the
+  // body where it would be cut off.
+  const maintenance = args.blockType === "maintenance";
   await emit(supabase, {
     kind: "dates_blocked",
     category: "calendar",
     audience: "both",
-    title: `Dates blocked on ${args.propertyName}`,
+    title: maintenance
+      ? `${args.propertyName} out of service`
+      : `Dates blocked on ${args.propertyName}`,
     body: `${dateRange(args.startDate, args.endDate)}${args.reason ? ` · ${args.reason}` : ""}`,
     clientId: args.clientId,
     propertyId: args.propertyId,

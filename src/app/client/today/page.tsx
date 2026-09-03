@@ -1,3 +1,4 @@
+import { blockTypeLabel } from "@/lib/block-sources";
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, BedDouble, Wallet, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -188,7 +189,7 @@ export default async function ClientTodayPage() {
                   </p>
                 </div>
                 <span className="text-[11px] text-ink-muted shrink-0 capitalize">
-                  {bl.block_type}
+                  {blockTypeLabel(bl.block_type)}
                 </span>
               </li>
             ))}

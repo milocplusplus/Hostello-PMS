@@ -33,7 +33,7 @@ async function propertyContext(supabase: SupabaseClient, propertyId: string) {
  */
 export async function announceBlockCreated(
   supabase: SupabaseClient,
-  args: BlockShape & { reason?: string | null }
+  args: BlockShape & { reason?: string | null; blockType?: string | null }
 ) {
   const property = await propertyContext(supabase, args.property_id);
   if (!property) return;
@@ -45,6 +45,7 @@ export async function announceBlockCreated(
     startDate: args.start_date,
     endDate: args.end_date,
     reason: args.reason ?? null,
+    blockType: args.blockType ?? null,
   });
 
   const { data: links } = await supabase

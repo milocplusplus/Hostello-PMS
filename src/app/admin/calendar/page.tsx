@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft, CalendarSync } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
-import { sourceColor } from "@/lib/block-sources";
+import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
 import { createBookingInline } from "@/app/admin/bookings/actions";
@@ -295,7 +295,9 @@ export default async function CalendarPage({
       // calendar_blocks.end_date is inclusive.
       const pos = place(bl.start_date, bl.end_date);
       if (!pos) continue;
-      const booked = bl.block_type === "booked";
+      // Colour and word both come from block-sources, so a new block type
+      // needs nothing here.
+
       segments.push({
         key: `k-${bl.id}`,
         kind: "block",
@@ -303,9 +305,9 @@ export default async function CalendarPage({
         lane: 0,
         startDate: bl.start_date,
         endDate: bl.end_date,
-        color: booked ? "var(--color-status-booked)" : "var(--color-status-blocked)",
+        color: blockTypeColor(bl.block_type),
         source: bl.feed_id ? bl.source : null,
-        title: bl.notes ?? (booked ? "Booked" : "Blocked"),
+        title: bl.notes ?? blockTypeLabel(bl.block_type),
         dateRange: `${formatDayMonth(bl.start_date)} – ${formatDayMonth(bl.end_date)}`,
         hours: null,
         amount: null,
@@ -511,7 +513,8 @@ export default async function CalendarPage({
     { label: "Booking.com", color: sourceColor("booking_com") },
     { label: "Hostello Direct", color: sourceColor("hostello") },
     { label: "Client (self-sourced)", color: sourceColor("client") },
-    { label: "Blocked", color: "var(--color-status-blocked)" },
+    { label: "Blocked", color: blockTypeColor("blocked") },
+    { label: "Maintenance", color: blockTypeColor("maintenance") },
   ];
 
   return (

@@ -1,0 +1,20 @@
+-- Maintenance blocks ---------------------------------------------------------
+--
+-- A unit out of service is not the same as an owner keeping it for themselves,
+-- and "maintenance" typed into the notes could not be coloured, counted or told
+-- apart from a personal hold.
+--
+-- Availability needs no change and deliberately gets none: everything that
+-- reads a block treats "not 'booked'" as unavailable, so maintenance blocks the
+-- dates by falling through the same branch `blocked` already takes. That
+-- includes `ical_export_document`, which publishes it to the channels as
+-- "Hostello - Blocked" -- a unit with a broken boiler must not stay sellable on
+-- Airbnb. Verified against the live DB with a rolled-back probe.
+--
+-- `sync_calendar_feed_apply` still writes only 'blocked'/'booked' for imported
+-- dates, and only ever touches rows carrying its own feed_id, so it cannot
+-- overwrite a maintenance block a person made.
+--
+-- This migration is on its own and uses the new value nowhere: Postgres will
+-- not let a new enum value be referenced in the transaction that adds it.
+alter type public.calendar_block_type add value if not exists 'maintenance';

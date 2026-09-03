@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { announceBlockCreated, announceBlockRemoved } from "@/lib/block-events";
+import { isManualBlockType } from "@/lib/block-sources";
 
 function backTo(month: string, extra?: string) {
   const params = new URLSearchParams({ month });
@@ -17,6 +18,10 @@ export async function createClientCalendarBlock(formData: FormData) {
   const start_date = formData.get("start_date") as string;
   const end_date = formData.get("end_date") as string;
   const reason = (formData.get("reason") as string)?.trim() || null;
+  // Anything but a type a person is allowed to pick falls back to a plain
+  // block. `booked` is the sync's to write, never a form's.
+  const blockTypeInput = formData.get("block_type");
+  const block_type = isManualBlockType(blockTypeInput) ? (blockTypeInput as string) : "blocked";
 
   if (!property_id) {
     redirect(backTo(month, "Pick a property."));
@@ -49,7 +54,7 @@ export async function createClientCalendarBlock(formData: FormData) {
     property_id,
     start_date,
     end_date,
-    block_type: "blocked",
+    block_type,
     notes: reason,
     created_by: user?.id ?? null,
   });
@@ -63,6 +68,7 @@ export async function createClientCalendarBlock(formData: FormData) {
     start_date,
     end_date,
     reason,
+    blockType: block_type,
   });
 
   revalidatePath("/client/calendar");

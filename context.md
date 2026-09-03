@@ -415,7 +415,15 @@ Pre-launch: real data has not been entered yet.
   again, which `findStayClash` / `listUnavailable` already allow for.
 - `calendar_blocks.end_date` is **inclusive**; booking `check_out` is **exclusive**.
   Easiest off-by-one bug in this codebase.
-- No "maintenance" block type (`blocked|booked` only) — adding one needs a migration.
+- `calendar_block_type` is `blocked|maintenance|booked`. **Only the first two are
+  offered to a person** (`MANUAL_BLOCK_TYPES`) — `booked` is what a channel sync
+  writes for an imported reservation, and a stay someone books here is a
+  booking, not a block. Everything that reads a block treats "not `booked`" as
+  unavailable, so `maintenance` blocks dates, refuses bookings and publishes to
+  the channels through exactly the branch `blocked` already took; the only code
+  that had to know about it was labels and colours (`blockTypeLabel` /
+  `blockTypeColor` in `block-sources.ts`). Adding a fourth type is the same
+  shape: an enum value, two switch arms, one colour token.
 - In a `storage.objects` policy, write `objects.name`, never bare `name`. `clients`
   has a `name` column, so an unqualified `name` inside a subquery that joins
   `clients` silently binds to *that* column and the policy denies everything.

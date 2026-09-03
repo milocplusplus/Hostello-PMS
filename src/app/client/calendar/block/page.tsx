@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { SubmitButton } from "@/components/shared/Busy";
 import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
 import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
+import { MANUAL_BLOCK_TYPES, blockTypeLabel } from "@/lib/block-sources";
 
 export default async function ClientBlockDatesPage({
   searchParams,
@@ -34,7 +35,7 @@ export default async function ClientBlockDatesPage({
 
   const { data: blocks } = await supabase
     .from("calendar_blocks")
-    .select("id, property_id, start_date, end_date, notes, properties(name)")
+    .select("id, property_id, start_date, end_date, block_type, notes, properties(name)")
     .in("property_id", (properties ?? []).map((p) => p.id))
     .order("start_date", { ascending: false })
     .limit(50);
@@ -82,11 +83,32 @@ export default async function ClientBlockDatesPage({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="reason" className={fieldLabel}>
-            Reason (optional)
-          </label>
-          <input id="reason" name="reason" placeholder="e.g. Personal use" className={fieldInput} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="block_type" className={fieldLabel}>
+              Why
+            </label>
+            {/* `booked` is not offered: that is what a channel sync writes for
+                an imported reservation, not something anyone picks here. */}
+            <select id="block_type" name="block_type" defaultValue="blocked" className={fieldInput}>
+              {MANUAL_BLOCK_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="reason" className={fieldLabel}>
+              Note (optional)
+            </label>
+            <input
+              id="reason"
+              name="reason"
+              placeholder="e.g. Personal use, boiler replacement"
+              className={fieldInput}
+            />
+          </div>
         </div>
 
         {error && <p className={errorBanner}>{error}</p>}
@@ -112,7 +134,10 @@ export default async function ClientBlockDatesPage({
                     <p className="text-ink-primary">
                       {propName} — {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
                     </p>
-                    {b.notes && <p className="text-xs text-ink-muted truncate">{b.notes}</p>}
+                    <p className="text-xs text-ink-muted truncate">
+                      {blockTypeLabel(b.block_type)}
+                      {b.notes ? ` · ` : ""}
+                    </p>
                   </div>
                   <form action={deleteClientCalendarBlock}>
                     <input type="hidden" name="id" value={b.id} />
