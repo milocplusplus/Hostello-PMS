@@ -43,10 +43,10 @@ export default async function ClientBookingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ id_error?: string }>;
+  searchParams: Promise<{ id_error?: string; tool_error?: string }>;
 }) {
   const { id } = await params;
-  const { id_error } = await searchParams;
+  const { id_error, tool_error } = await searchParams;
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -216,6 +216,7 @@ export default async function ClientBookingDetailPage({
           currentUnitIds={units.map((u) => u.id)}
           changeDatesAction={changeClientBookingDates}
           moveUnitsAction={moveClientBookingUnits}
+          error={tool_error}
         />
       )}
 

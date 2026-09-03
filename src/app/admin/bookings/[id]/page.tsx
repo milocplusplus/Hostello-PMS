@@ -45,10 +45,10 @@ export default async function BookingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ receipt_error?: string; id_error?: string }>;
+  searchParams: Promise<{ receipt_error?: string; id_error?: string; tool_error?: string }>;
 }) {
   const { id } = await params;
-  const { receipt_error, id_error } = await searchParams;
+  const { receipt_error, id_error, tool_error } = await searchParams;
 
   const supabase = await createClient();
   const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
@@ -243,6 +243,7 @@ export default async function BookingDetailPage({
           currentUnitIds={units.map((u) => u.id)}
           changeDatesAction={changeBookingDates}
           moveUnitsAction={moveBookingUnits}
+          error={tool_error}
         />
       )}
 

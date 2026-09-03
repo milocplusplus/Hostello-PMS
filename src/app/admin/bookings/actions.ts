@@ -256,8 +256,17 @@ export async function createBookingInline(formData: FormData) {
 export async function updateBooking(id: string, formData: FormData) {
   // Annotated on the const, not just the arrow: that is what lets TypeScript
   // treat a `back(...)` call as terminating and narrow what follows it.
+  // A quick tool on the booking page wants its clash reported where it was
+  // pressed, not by throwing the reader into the full edit form. It says so
+  // with a flag, never a URL — a redirect target read out of a form field is
+  // an open redirect waiting to happen. Both paths here are built from `id`.
+  const inline = formData.get("error_inline") === "1";
   const back: (message: string) => never = (message) =>
-    redirect(`/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`);
+    redirect(
+      inline
+        ? `/admin/bookings/${id}?tool_error=${encodeURIComponent(message)}`
+        : `/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`
+    );
 
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
@@ -693,6 +702,10 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
     form.set("short_stay_start", hhmm(row.short_stay_start as string));
     form.set("short_stay_end", hhmm(row.short_stay_end as string));
   }
+
+  // A clash belongs on the booking page, next to the tool that caused it —
+  // not in the full edit form the reader never opened.
+  form.set("error_inline", "1");
 
   change(form);
   await updateBooking(id, form);

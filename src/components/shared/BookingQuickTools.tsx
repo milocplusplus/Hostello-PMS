@@ -1,6 +1,6 @@
 import { CalendarCog, Replace } from "lucide-react";
 import { SubmitButton } from "@/components/shared/Busy";
-import { fieldInput, fieldLabel } from "@/lib/form-styles";
+import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 
 type UnitOption = { id: string; name: string };
 
@@ -26,6 +26,7 @@ export function BookingQuickTools({
   currentUnitIds,
   changeDatesAction,
   moveUnitsAction,
+  error,
 }: {
   bookingId: string;
   checkIn: string;
@@ -37,12 +38,18 @@ export function BookingQuickTools({
   currentUnitIds: string[];
   changeDatesAction: (formData: FormData) => void;
   moveUnitsAction: (formData: FormData) => void;
+  /** A clash or a refused change, reported here rather than in the edit form. */
+  error?: string;
 }) {
   return (
     <div className="card p-5 flex flex-col gap-3">
       <h2 className="eyebrow">Manage this booking</h2>
 
-      <details className="group">
+      {error && <p className={errorBanner}>{error}</p>}
+
+      {/* Both sections start open when something was refused, so the reader
+          lands on the form they just used rather than a collapsed row. */}
+      <details className="group" open={Boolean(error)}>
         <summary className="flex items-center gap-2 text-sm text-ink-secondary hover:text-ink-primary cursor-pointer list-none transition-colors">
           <CalendarCog size={14} className="text-ink-muted" />
           {isShortStay ? "Move to another date" : "Change dates or extend"}
@@ -86,7 +93,7 @@ export function BookingQuickTools({
         </p>
       </details>
 
-      <details className="group border-t border-border-hairline pt-3">
+      <details className="group border-t border-border-hairline pt-3" open={Boolean(error)}>
         <summary className="flex items-center gap-2 text-sm text-ink-secondary hover:text-ink-primary cursor-pointer list-none transition-colors">
           <Replace size={14} className="text-ink-muted" />
           Move to a different unit

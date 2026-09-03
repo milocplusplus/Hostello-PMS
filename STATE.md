@@ -35,6 +35,13 @@
     already runs. Dates and units both move the payout (nights, stack rates), and
     a shortcut that skipped the recalculation would leave the split quietly
     wrong. `<details>`, not a modal — nothing here needs to run in the browser.
+    A clash is reported **inline on the booking page**, not by throwing the
+    reader into the edit form they never opened: the quick actions set
+    `error_inline=1` and `updateBooking`'s `back()` branches on it to
+    `?tool_error=`, which `BookingQuickTools` renders and which opens both
+    sections so the form they just used is in front of them. It is a **flag,
+    never a URL** — a redirect target read out of a form field is an open
+    redirect, and both paths here are built from `id`.
   - The day sheet and both check-in boards now show "· arriving 14:00" on a
     night stay. That was the whole point of the field.
   - **Not verified in a browser**: no `.env.local` on this machine. Build, lint,
