@@ -1,6 +1,48 @@
-# State — updated 2026-09-03
+# State — updated 2026-09-04
 
 ## Done
+- **Sending money feels like sending money** (2026-09-04). `npm run build` and
+  `npm run lint` clean. No schema change, no new RPC, no revenue or settlement
+  maths touched — `payout.ts`, `owed.ts`'s engine and every `apply_`/`reject_`
+  stay exactly as they were. This is entry, review and receipt.
+  - The settlements page was correct and read like a ledger entry: one flat form
+    (amount / method / reference / screenshot) doing the whole job at once.
+    `RecordPaymentForm` is **deleted**; filing a payment is now a three-stage
+    flow at `/{admin,client}/settlements/send` — keypad amount capped at what
+    may actually be sent, then method and proof, then a review that names the
+    bookings it will clear before anyone commits. The settlements page keeps the
+    balances and history and links out to it.
+  - **Stages are component state on purpose.** A `File` cannot survive a server
+    round-trip, so the flow is one `<form>` with inactive stages `hidden`
+    rather than unmounted. Verified in the browser: the screenshot is still
+    attached after a round trip through every stage, and the FormData carries
+    amount, method and file together.
+  - `review/<id>` is the receiving side's decision as its own screen — proof
+    full-size instead of a thumbnail, the bookings confirming would close, then
+    confirm or reject with a reason. `receipt/<id>` is where a send lands and
+    what either side revisits; it resolves its own direction by looking the id
+    up in both tables rather than trusting a `?dir=`.
+  - **The honesty problem this creates, and the answer.** A flow that feels like
+    a bank transfer is the one most likely to be misread as money having moved,
+    when in fact nothing settles until the other side confirms. So the receipt
+    carries a **Sent → Confirmed tracker** rather than a "payment sent" tick, a
+    pending receipt wears a clock and not a checkmark, and the review and
+    receipt screens both say in words that nothing is settled yet.
+  - `PayoutReceipt` draws itself to a PNG on a `<canvas>` — `navigator.share`
+    on a phone (straight into WhatsApp), a download elsewhere. No dependency;
+    the drawn receipt states its own status rather than capturing whatever the
+    page happened to show. Verified: 840x1120 PNG, height follows the row count.
+  - `previewAllocation()` in `owed.ts` is a **third** place that walks the
+    oldest-first order (after SQL and `loadOwed`), and is the one risk taken
+    here. It is display only, it re-derives no filtering rule, and it is
+    commented as such — SQL remains authoritative. Verified against fixtures:
+    Rs 20,000 closes an Rs 18,000 booking and part-pays the next.
+  - `send/`, `review/` and `receipt/` sit under `admin/settlements/`, so the
+    existing `requireOwner` layout covers them; ops gains no route.
+  - **Not verified against a signed-in portal**: no `.env.local` on this
+    machine. The client logic (cap, stage machine, file persistence, allocation
+    preview, PNG export) was exercised in the browser against fixtures; the
+    server pages compile and route but were not driven with real rows.
 - **Maintenance block type** (2026-09-03). `npm run build` and `npm run lint`
   clean. Migration `add_maintenance_calendar_block_type`, **applied to the live
   DB**: `calendar_block_type` gains `maintenance`. It was previously free text

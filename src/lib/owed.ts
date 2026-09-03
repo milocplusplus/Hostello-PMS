@@ -311,7 +311,7 @@ export async function listPayments(
   supabase: SupabaseClient,
   direction: SettlementDirection,
   clientId: string | null,
-  options: { status?: PayoutStatus; limit?: number } = {}
+  options: { status?: PayoutStatus; limit?: number; id?: string } = {}
 ): Promise<SettlementPayment[]> {
   const spec = SETTLEMENT[direction];
 
@@ -328,6 +328,7 @@ export async function listPayments(
     .order("created_at", { ascending: false });
 
   if (clientId) query = query.eq("client_id", clientId);
+  if (options.id) query = query.eq("id", options.id);
   if (options.status) query = query.eq("status", options.status);
   if (options.limit) query = query.limit(options.limit);
 
@@ -394,4 +395,85 @@ export async function removePaymentReceipt(
   path: string | null
 ) {
   if (path) await supabase.storage.from(SETTLEMENT[direction].bucket).remove([path]);
+}
+
+/**
+ * The bookings an amount would clear, oldest stay first.
+ *
+ * Display only, and named `preview` because of it. The allocation that counts
+ * is the one `apply_client_payout` / `apply_hostello_payout` performs in SQL;
+ * this walks the same list in the same order so the review screen can say what
+ * is about to happen before anyone commits to it. It never writes, and nothing
+ * downstream reads its output — if the two ever disagree, SQL is right.
+ *
+ * `bookings` must already be `loadOwed`'s list: filtered, and ordered by
+ * check-in. This adds no rules of its own.
+ */
+export type PreviewLine = OwedBooking & { applied: number; closes: boolean };
+
+export function previewAllocation(
+  bookings: OwedBooking[],
+  amount: number
+): { lines: PreviewLine[]; unallocated: number } {
+  let left = Math.round(amount * 100) / 100;
+  const lines: PreviewLine[] = [];
+
+  for (const booking of bookings) {
+    if (left <= 0) break;
+    const applied = Math.min(left, booking.outstanding);
+    left = Math.round((left - applied) * 100) / 100;
+    lines.push({ ...booking, applied, closes: applied >= booking.outstanding });
+  }
+
+  return { lines, unallocated: Math.max(0, left) };
+}
+
+export type Allocation = {
+  bookingId: string;
+  amount: number;
+  guestName: string | null;
+  checkIn: string;
+  unitNames: string[];
+};
+
+/** What a confirmed payment actually cleared. The receipt's proof of work. */
+export async function loadAllocations(
+  supabase: SupabaseClient,
+  direction: SettlementDirection,
+  payoutId: string
+): Promise<Allocation[]> {
+  const { data } = await supabase
+    .from(SETTLEMENT[direction].allocations)
+    .select("booking_id, amount")
+    .eq("payout_id", payoutId);
+
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  const { data: bookings } = await supabase
+    .from("bookings_v")
+    .select("id, guest_name, check_in, booking_properties(properties(name))")
+    .in(
+      "id",
+      rows.map((r) => r.booking_id)
+    );
+
+  const byId = new Map(
+    ((bookings ?? []) as unknown as BookingRow[]).map((b) => [b.id, b] as const)
+  );
+
+  return rows
+    .map((r) => {
+      const booking = byId.get(r.booking_id);
+      return {
+        bookingId: r.booking_id,
+        amount: Number(r.amount),
+        guestName: booking?.guest_name ?? null,
+        checkIn: booking?.check_in ?? "",
+        unitNames: (booking?.booking_properties ?? [])
+          .map((bp) => bp.properties?.name ?? "")
+          .filter(Boolean),
+      };
+    })
+    .sort((a, b) => a.checkIn.localeCompare(b.checkIn));
 }

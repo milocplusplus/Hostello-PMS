@@ -63,7 +63,13 @@ export async function recordPayout(formData: FormData) {
   const file = formData.get("receipt");
   const receipt = file instanceof File && file.size > 0 ? file : null;
 
-  const fail: (error: string) => never = (error) => back("to-hostello", { error });
+  // Back into the flow that raised it, with the entry being corrected intact.
+  const fail: (error: string) => never = (error) => {
+    const params = new URLSearchParams();
+    if (payoutId) params.set("edit", payoutId);
+    params.set("error", error);
+    redirect(`/client/settlements/send?${params}`);
+  };
 
   if (!isPayoutMethod(method)) fail("Choose how you paid.");
   if (!Number.isFinite(amount) || amount <= 0) fail("Enter the amount you paid.");
@@ -161,7 +167,9 @@ export async function recordPayout(formData: FormData) {
   });
 
   revalidateMoney();
-  back("to-hostello");
+  // The receipt, not the list. It states plainly that Hostello has yet to
+  // confirm it, which a balance that has not moved does not.
+  redirect(`/client/settlements/receipt/${saved.id}`);
 }
 
 /** Filed by mistake. Only while nobody has ruled on it. */

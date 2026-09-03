@@ -1,24 +1,17 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Clock } from "lucide-react";
+import { ChevronRight, Clock, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { listPayments, loadOwed, type SettlementDirection } from "@/lib/owed";
-import { RecordPaymentForm } from "@/components/shared/RecordPaymentForm";
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
 import { OwedBookings } from "@/components/shared/OwedBookings";
 import { SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { SubmitButton } from "@/components/shared/Busy";
-import { errorBanner, fieldInput } from "@/lib/form-styles";
-import {
-  confirmHostelloPayout,
-  recordPayout,
-  rejectHostelloPayout,
-  unconfirmHostelloPayout,
-  withdrawPayout,
-} from "./actions";
+import { errorBanner } from "@/lib/form-styles";
+import { unconfirmHostelloPayout, withdrawPayout } from "./actions";
 
 /**
  * The owner's side of both directions.
@@ -31,9 +24,9 @@ import {
 export default async function ClientSettlementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; edit?: string; error?: string }>;
+  searchParams: Promise<{ tab?: string; error?: string }>;
 }) {
-  const { tab: rawTab, edit, error } = await searchParams;
+  const { tab: rawTab, error } = await searchParams;
   const tab = isSettlementTab(rawTab) ? rawTab : "to-hostello";
   const direction: SettlementDirection = tab === "to-hostello" ? "to_hostello" : "to_client";
 
@@ -45,15 +38,12 @@ export default async function ClientSettlementsPage({
 
   const supabase = await createClient();
   const [toHostello, toClient, entries] = await Promise.all([
-    loadOwed(supabase, clientRecord.id, "to_hostello", {
-      excludePayoutId: tab === "to-hostello" ? edit ?? null : null,
-    }),
+    loadOwed(supabase, clientRecord.id, "to_hostello"),
     loadOwed(supabase, clientRecord.id, "to_client"),
     listPayments(supabase, direction, clientRecord.id),
   ]);
 
   const owed = direction === "to_hostello" ? toHostello : toClient;
-  const editing = edit ? entries.find((e) => e.id === edit && e.status !== "received") : null;
   const pending = entries.filter((e) => e.status === "pending");
   const confirmedToDate = entries
     .filter((e) => e.status === "received")
@@ -112,23 +102,23 @@ export default async function ClientSettlementsPage({
       </div>
 
       {tab === "to-hostello" ? (
-        <RecordPaymentForm
-          action={recordPayout}
-          direction="to_hostello"
-          claimable={claimable}
-          cancelHref="/client/settlements?tab=to-hostello"
-          editing={
-            editing
-              ? {
-                  id: editing.id,
-                  amount: editing.amount,
-                  method: editing.method,
-                  reference: editing.reference,
-                  hasReceipt: Boolean(editing.receiptUrl),
-                }
-              : null
-          }
-        />
+        <Link
+          href="/client/settlements/send"
+          className="card card-hover p-4 flex items-center gap-3"
+        >
+          <span className="w-10 h-10 rounded-full bg-hostello-gold/15 text-hostello-gold flex items-center justify-center shrink-0">
+            <Send size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-ink-primary">Record a payment to Hostello</span>
+            <span className="block text-[11px] text-ink-muted mt-0.5">
+              {claimable > 0
+                ? `Up to ${formatPKR(claimable)} right now`
+                : "Nothing to record — every booking is settled or awaiting confirmation"}
+            </span>
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-ink-muted" />
+        </Link>
       ) : (
         <section className="card overflow-hidden">
           <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
@@ -146,37 +136,11 @@ export default async function ClientSettlementsPage({
           ) : (
             <PayoutHistory
               entries={pending}
+              receiptHref={(e) => `/client/settlements/receipt/${e.id}`}
               actions={(e) => (
-                // One form, two verbs: the reason belongs to the second button
-                // but has to sit in the same form to reach it.
-                <form
-                  action={confirmHostelloPayout}
-                  className="flex flex-wrap items-center gap-2 w-full"
-                >
-                  <input type="hidden" name="id" value={e.id} />
-                  <SubmitButton
-                    className="btn btn-gold btn-sm"
-                    busy="Confirming the payout…"
-                    whenAction={confirmHostelloPayout}
-                  >
-                    I received this
-                  </SubmitButton>
-                  <input
-                    name="reason"
-                    type="text"
-                    maxLength={140}
-                    placeholder="Why not? (optional)"
-                    className={`${fieldInput} text-xs py-1.5 flex-1 min-w-[160px]`}
-                  />
-                  <SubmitButton
-                    formAction={rejectHostelloPayout}
-                    whenAction={rejectHostelloPayout}
-                    busy="Sending it back to Hostello…"
-                    className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-status-booked hover:text-status-booked transition-colors"
-                  >
-                    Not received
-                  </SubmitButton>
-                </form>
+                <Link href={`/client/settlements/review/${e.id}`} className="btn btn-gold btn-sm">
+                  Review this payout
+                </Link>
               )}
             />
           )}
@@ -209,6 +173,7 @@ export default async function ClientSettlementsPage({
         </div>
         <PayoutHistory
           entries={entries}
+          receiptHref={(e) => `/client/settlements/receipt/${e.id}`}
           empty={
             tab === "to-hostello"
               ? "You haven't recorded a payment yet."
@@ -219,7 +184,7 @@ export default async function ClientSettlementsPage({
               e.status === "received" ? null : (
                 <>
                   <Link
-                    href={`/client/settlements?tab=to-hostello&edit=${e.id}`}
+                    href={`/client/settlements/send?edit=${e.id}`}
                     className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
                   >
                     {e.status === "rejected" ? "Correct & resubmit" : "Edit"}

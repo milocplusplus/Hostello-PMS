@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { FileText } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { formatNotificationTime } from "@/lib/notifications";
@@ -14,11 +15,14 @@ export function PayoutHistory({
   entries,
   showClient = false,
   empty = "No payments recorded yet.",
+  receiptHref,
   actions,
 }: {
   entries: SettlementPayment[];
   showClient?: boolean;
   empty?: string;
+  /** Where this entry's receipt lives. Every entry has one; the portal says where. */
+  receiptHref?: (entry: SettlementPayment) => string;
   actions?: (entry: SettlementPayment) => ReactNode;
 }) {
   if (entries.length === 0) {
@@ -95,7 +99,19 @@ export function PayoutHistory({
                 </p>
               )}
 
-              {actions && <div className="mt-2 flex items-center gap-3 flex-wrap">{actions(e)}</div>}
+              {(actions || receiptHref) && (
+                <div className="mt-2 flex items-center gap-3 flex-wrap">
+                  {receiptHref && (
+                    <Link
+                      href={receiptHref(e)}
+                      className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
+                    >
+                      Receipt
+                    </Link>
+                  )}
+                  {actions?.(e)}
+                </div>
+              )}
             </div>
           </li>
         );

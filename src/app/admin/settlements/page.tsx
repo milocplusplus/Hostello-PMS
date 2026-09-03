@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft, ChevronRight, Clock, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
 import {
@@ -11,17 +11,13 @@ import {
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
 import { OwedBookings } from "@/components/shared/OwedBookings";
 import { SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
-import { RecordPaymentForm } from "@/components/shared/RecordPaymentForm";
 import { Avatar } from "@/components/shared/Avatar";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { errorBanner, fieldInput } from "@/lib/form-styles";
+import { errorBanner } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import {
-  confirmPayout,
   confirmPayoutForClient,
   markShareReceived,
-  rejectPayout,
-  sendPayout,
   unconfirmPayout,
   unconfirmSentPayout,
   withdrawSentPayout,
@@ -40,9 +36,9 @@ import {
 export default async function AdminSettlementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; client?: string; edit?: string; error?: string }>;
+  searchParams: Promise<{ tab?: string; client?: string; error?: string }>;
 }) {
-  const { tab: rawTab, client: clientParam, edit, error } = await searchParams;
+  const { tab: rawTab, client: clientParam, error } = await searchParams;
   const tab = isSettlementTab(rawTab) ? rawTab : "to-hostello";
   const direction: SettlementDirection = tab === "to-hostello" ? "to_hostello" : "to_client";
 
@@ -59,10 +55,9 @@ export default async function AdminSettlementsPage({
   const noLogin = new Set(toClient.filter((b) => !b.hasLogin).map((b) => b.clientId));
   const owing = balances.filter((b) => b.balance > 0);
   const focus = clientParam ? balances.find((b) => b.clientId === clientParam) ?? null : null;
-  const editing = edit ? entries.find((e) => e.id === edit && e.status !== "received") : null;
 
   const focusOwed = focus
-    ? await loadOwed(supabase, focus.clientId, direction, { excludePayoutId: edit ?? null })
+    ? await loadOwed(supabase, focus.clientId, direction)
     : null;
 
   const pending = entries.filter((e) => e.status === "pending");
@@ -73,6 +68,7 @@ export default async function AdminSettlementsPage({
     .reduce((s, e) => s + e.amount, 0);
 
   // What is left to send after the payouts already awaiting their confirmation.
+  // The send flow re-derives this itself; here it only sizes the invitation.
   const claimable = focusOwed
     ? Math.max(0, Math.round((focusOwed.balance - focusOwed.pending) * 100) / 100)
     : 0;
@@ -143,34 +139,11 @@ export default async function AdminSettlementsPage({
             <PayoutHistory
               entries={pending}
               showClient
+              receiptHref={(e) => `/admin/settlements/receipt/${e.id}`}
               actions={(e) => (
-                // One form, two verbs: the reason belongs to the reject button
-                // but has to sit in the same form to reach it.
-                <form action={confirmPayout} className="flex flex-wrap items-center gap-2 w-full">
-                  <input type="hidden" name="id" value={e.id} />
-                  <SubmitButton
-                    className="btn btn-gold btn-sm"
-                    busy="Confirming the payment…"
-                    whenAction={confirmPayout}
-                  >
-                    Mark received
-                  </SubmitButton>
-                  <input
-                    name="reason"
-                    type="text"
-                    maxLength={140}
-                    placeholder="Why not? (optional)"
-                    className={`${fieldInput} text-xs py-1.5 flex-1 min-w-[160px]`}
-                  />
-                  <SubmitButton
-                    formAction={rejectPayout}
-                    whenAction={rejectPayout}
-                    busy="Sending it back to the client…"
-                    className="text-xs text-ink-secondary border border-border-hairline rounded-md px-3 py-1.5 hover:border-status-booked hover:text-status-booked transition-colors"
-                  >
-                    Not received
-                  </SubmitButton>
-                </form>
+                <Link href={`/admin/settlements/review/${e.id}`} className="btn btn-gold btn-sm">
+                  Review this payment
+                </Link>
               )}
             />
           )}
@@ -228,25 +201,30 @@ export default async function AdminSettlementsPage({
         </section>
       ) : null}
 
-      {tab === "to-client" && focus && (
-        <RecordPaymentForm
-          action={sendPayout}
-          direction="to_client"
-          clientId={focus.clientId}
-          claimable={claimable}
-          cancelHref={`/admin/settlements?tab=to-client&client=${focus.clientId}`}
-          editing={
-            editing
-              ? {
-                  id: editing.id,
-                  amount: editing.amount,
-                  method: editing.method,
-                  reference: editing.reference,
-                  hasReceipt: Boolean(editing.receiptUrl),
-                }
-              : null
+      {tab === "to-client" && (
+        <Link
+          href={
+            focus ? `/admin/settlements/send?client=${focus.clientId}` : "/admin/settlements/send"
           }
-        />
+          className="card card-hover p-4 flex items-center gap-3"
+        >
+          <span className="w-10 h-10 rounded-full bg-hostello-gold/15 text-hostello-gold flex items-center justify-center shrink-0">
+            <Send size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm text-ink-primary truncate">
+              {focus ? `Send ${focus.clientName} a payout` : "Send a payout"}
+            </span>
+            <span className="block text-[11px] text-ink-muted mt-0.5">
+              {focus
+                ? claimable > 0
+                  ? `Up to ${formatPKR(claimable)} right now`
+                  : "Nothing left to send — every booking is settled or awaiting their confirmation"
+                : "Pick who it is for, then the amount"}
+            </span>
+          </span>
+          <ChevronRight size={16} className="shrink-0 text-ink-muted" />
+        </Link>
       )}
 
       <section className="card overflow-hidden">
@@ -305,6 +283,7 @@ export default async function AdminSettlementsPage({
         <PayoutHistory
           entries={tab === "to-hostello" ? reviewed : entries}
           showClient
+          receiptHref={(e) => `/admin/settlements/receipt/${e.id}`}
           empty={
             tab === "to-hostello" ? "Nothing reviewed yet." : "No payout recorded yet."
           }
@@ -349,7 +328,7 @@ export default async function AdminSettlementsPage({
                   </form>
                 )}
                 <Link
-                  href={`/admin/settlements?tab=to-client&client=${e.clientId}&edit=${e.id}`}
+                  href={`/admin/settlements/send?client=${e.clientId}&edit=${e.id}`}
                   className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
                 >
                   {e.status === "rejected" ? "Correct & resend" : "Edit"}

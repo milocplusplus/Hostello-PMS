@@ -684,9 +684,31 @@ h1,
   animation: skeleton-sweep 1.6s ease-in-out infinite;
 }
 
+/* The receipt's status mark. It lands once, when the screen appears — a
+   payment that has only been filed is not an occasion for a victory lap. */
+@keyframes receipt-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-receipt-pop {
+  animation: receipt-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-in,
   .animate-fade,
+  .animate-receipt-pop,
   .animate-drawer,
   .stagger > *,
   .skeleton,

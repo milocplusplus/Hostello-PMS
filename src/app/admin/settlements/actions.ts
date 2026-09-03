@@ -208,8 +208,15 @@ export async function sendPayout(formData: FormData) {
   const file = formData.get("receipt");
   const receipt = file instanceof File && file.size > 0 ? file : null;
 
-  const fail: (error: string) => never = (error) =>
-    back("to-client", { client: clientId, error });
+  // Back into the flow that raised it, not out to the list: the amount and
+  // the recipient are still what the person was working on.
+  const fail: (error: string) => never = (error) => {
+    const params = new URLSearchParams();
+    if (clientId) params.set("client", clientId);
+    if (payoutId) params.set("edit", payoutId);
+    params.set("error", error);
+    redirect(`/admin/settlements/send?${params}`);
+  };
 
   if (!clientId) fail("Choose the client this payout is for.");
   if (!isPayoutMethod(method)) fail("Choose how you paid.");
@@ -307,7 +314,9 @@ export async function sendPayout(formData: FormData) {
   });
 
   revalidateMoney();
-  back("to-client", { client: clientId });
+  // The receipt, not the list — it is the thing worth keeping, and it says in
+  // its own words that the owner has yet to confirm any of this.
+  redirect(`/admin/settlements/receipt/${saved.id}`);
 }
 
 /** Filed by mistake. Only while the owner has not ruled on it. */

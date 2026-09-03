@@ -81,11 +81,38 @@ Pre-launch: real data has not been entered yet.
   and the pair of booking columns, and `loadOwed` / `loadOwedByClient` /
   `listPayments` all take the direction. A rule fixed on one side cannot drift
   on the other. Shared UI: `SettlementTabs`, `OwedBookings` (the per-booking
-  lines behind a balance), `PayoutHistory` (the payment entries),
-  `RecordPaymentForm` (client component: the screenshot field follows the
-  method; its wording per direction lives in one `COPY` map). `?client=<id>`
-  on the admin page drills into one client. `/{admin,client}/payouts` are
-  redirect stubs so old links and notifications still land.
+  lines behind a balance), `PayoutHistory` (the payment entries, each linking
+  to its receipt). `?client=<id>` on the admin page drills into one client.
+  `/{admin,client}/payouts` are redirect stubs so old links and notifications
+  still land.
+- **Money moves through a send flow, not a form.** The settlements page holds
+  balances and history; filing, reviewing and confirming a payment each have
+  their own phone-shaped route (`max-w-[26rem]`, centred on desktop):
+  `/{admin,client}/settlements/send` — amount (keypad, capped at what may
+  actually be sent) → method and proof → review, then one submit.
+  `send/review/receipt` are all under `admin/settlements/`, so its
+  `requireOwner` layout covers them. The admin flow starts on a recipient
+  picker (`?client=<id>` skips it); the client flow has no such step, there
+  being one Hostello. **The stages are component state, not URL state** — the
+  screenshot is a `File` and cannot survive a round-trip, so inactive stages
+  are hidden rather than unmounted and the whole flow is one `<form>`.
+  `/{admin,client}/settlements/review/<id>` is the receiving side's
+  decision — proof full-size, the bookings confirming would close, then confirm
+  or reject; an entry already ruled on renders as its receipt instead.
+  `/{admin,client}/settlements/receipt/<id>` is where a send lands and what
+  either side revisits: it resolves its own direction by id rather than taking
+  a `?dir=`, and carries a **Sent → Confirmed tracker**, because a flow that
+  feels like a bank transfer is the one most likely to be misread as money
+  having moved. `PayoutReceipt` also draws itself to a PNG on a canvas —
+  `navigator.share` on a phone, a download elsewhere — with no new dependency.
+  Shared components: `SendMoneyFlow`, `AmountKeypad`, `RecipientPicker`,
+  `IncomingPayout`, `PayoutReceipt`, each keyed by direction off one `COPY`
+  map so neither side's wording can drift.
+- `previewAllocation()` in `owed.ts` is **display only** — it walks
+  `loadOwed`'s already-filtered, already-ordered list so the review and
+  approval screens can say what a payment is about to clear. The allocation that
+  counts is the one `apply_*_payout` performs in SQL; if they ever disagree,
+  SQL is right.
 - `src/components/admin/AdminShell.tsx`, `src/components/client/ClientShell.tsx` — nav shells
 - `src/components/admin/BookingForm.tsx` — **shared by admin AND client**
   (`client/bookings/new/page.tsx` imports it from `@/components/admin/`), live payout preview
