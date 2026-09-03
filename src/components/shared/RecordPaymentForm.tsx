@@ -3,29 +3,80 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatPKR } from "@/lib/payout";
-import { PAYOUT_METHODS, methodNeedsReceipt, type PayoutMethod } from "@/lib/owed";
+import {
+  PAYOUT_METHODS,
+  methodNeedsReceipt,
+  type PayoutMethod,
+  type SettlementDirection,
+} from "@/lib/owed";
 import { RECEIPT_ACCEPT } from "@/lib/receipts";
 import { SubmitButton } from "@/components/shared/Busy";
-import {
-  errorBanner,
-  fieldInput,
-  fieldLabel,
-  primaryButton,
-} from "@/lib/form-styles";
+import { errorBanner, fieldInput, fieldLabel, primaryButton } from "@/lib/form-styles";
 
 /**
- * The owner's side of a payment. Client-side only because the screenshot field
- * has to appear and disappear with the method — an online transfer must carry
- * proof, cash has none to give.
+ * One side recording money it has sent the other. Client-side only because the
+ * screenshot field has to appear and disappear with the method — an online
+ * transfer must carry proof, cash has none to give.
+ *
+ * The same form serves both directions; only the words change, and they are
+ * kept together in `COPY` rather than spread across props at the call sites.
+ * Whichever side files an entry, it lands as `pending` and settles nothing
+ * until the side that receives the money says so.
  */
-export function RecordPayoutForm({
+const COPY: Record<
+  SettlementDirection,
+  {
+    title: string;
+    editTitle: string;
+    submit: string;
+    editSubmit: string;
+    empty: string;
+    cap: (amount: string) => string;
+    receiptHint: string;
+    busyNote: string;
+  }
+> = {
+  to_hostello: {
+    title: "Record a payment to Hostello",
+    editTitle: "Correct this payment",
+    submit: "Record payment",
+    editSubmit: "Resubmit for confirmation",
+    empty:
+      "Nothing to record: every booking is settled or already covered by an entry awaiting confirmation.",
+    cap: (amount) =>
+      `Up to ${amount}. Part payments are fine — they clear your oldest bookings first.`,
+    receiptHint: "Required for an online transfer — it is what Hostello checks against the bank.",
+    busyNote: "Sending this to Hostello for confirmation.",
+  },
+  to_client: {
+    title: "Record a payout to this client",
+    editTitle: "Correct this payout",
+    submit: "Send for confirmation",
+    editSubmit: "Resend for confirmation",
+    empty:
+      "Nothing to send: every booking is settled or already covered by a payout awaiting their confirmation.",
+    cap: (amount) =>
+      `Up to ${amount}. Part payments are fine — they clear their oldest bookings first.`,
+    receiptHint: "Required for an online transfer — it is the proof the owner confirms against.",
+    busyNote: "Sending this to the owner to confirm.",
+  },
+};
+
+export function RecordPaymentForm({
   action,
+  direction,
   claimable,
+  clientId,
+  cancelHref,
   editing,
   error,
 }: {
   action: (formData: FormData) => void;
+  direction: SettlementDirection;
   claimable: number;
+  /** Whose balance this entry is against. Only the admin side has to say. */
+  clientId?: string;
+  cancelHref: string;
   editing?: {
     id: string;
     amount: number;
@@ -37,21 +88,21 @@ export function RecordPayoutForm({
 }) {
   const [method, setMethod] = useState<PayoutMethod>(editing?.method ?? "online");
   const needsReceipt = methodNeedsReceipt(method);
+  const copy = COPY[direction];
 
   return (
     <form action={action} className="card p-5 flex flex-col gap-4">
       <div>
         <h2 className="text-sm font-medium text-ink-primary">
-          {editing ? "Correct this payment" : "Record a payment to Hostello"}
+          {editing ? copy.editTitle : copy.title}
         </h2>
         <p className="text-[11px] text-ink-muted mt-1">
-          {claimable > 0
-            ? `Up to ${formatPKR(claimable)}. Part payments are fine — they clear your oldest bookings first.`
-            : "Nothing to record: every booking is settled or already covered by an entry awaiting confirmation."}
+          {claimable > 0 ? copy.cap(formatPKR(claimable)) : copy.empty}
         </p>
       </div>
 
       {editing && <input type="hidden" name="payout_id" value={editing.id} />}
+      {clientId && <input type="hidden" name="client_id" value={clientId} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
@@ -129,7 +180,7 @@ export function RecordPayoutForm({
           <p className="text-[11px] text-ink-muted">
             {editing?.hasReceipt
               ? "Leave this empty to keep the screenshot already attached."
-              : "Required for an online transfer — it is what Hostello checks against the bank."}
+              : copy.receiptHint}
           </p>
         </div>
       )}
@@ -145,13 +196,13 @@ export function RecordPayoutForm({
           note={
             needsReceipt
               ? "The screenshot goes up with the payment. Both are saved together or not at all."
-              : "Sending this to Hostello for confirmation."
+              : copy.busyNote
           }
         >
-          {editing ? "Resubmit for confirmation" : "Record payment"}
+          {editing ? copy.editSubmit : copy.submit}
         </SubmitButton>
         {editing && (
-          <Link href="/client/payouts" className="text-xs text-ink-secondary hover:text-ink-primary">
+          <Link href={cancelHref} className="text-xs text-ink-secondary hover:text-ink-primary">
             Cancel
           </Link>
         )}

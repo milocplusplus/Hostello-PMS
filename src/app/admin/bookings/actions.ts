@@ -24,10 +24,8 @@ import {
   notifyBookingUpdated,
   notifyPaymentReceived,
   notifyStayProgress,
-  notifyPayoutSettled,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
-import { requireOwner } from "@/lib/auth";
 import { payoutReader } from "@/lib/payout-inputs";
 import { readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { describeBookingChanges } from "@/lib/booking-changes";
@@ -555,47 +553,9 @@ export async function deleteGuestId(formData: FormData) {
   redirect(`/admin/bookings/${bookingId}`);
 }
 
-export async function markBookingSettled(formData: FormData) {
-  // The owner-owes-the-owner direction: ops never sees it and cannot set it.
-  await requireOwner();
-  const id = formData.get("id") as string;
-  const settled = formData.get("settled") === "true";
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("bookings")
-    .update({
-      settled,
-      settled_date: settled ? new Date().toISOString().slice(0, 10) : null,
-    })
-    .eq("id", id);
-
-  if (error) return;
-
-  // Only notify on settle, not on un-settle (that's a correction, not news).
-  if (settled) {
-    const { data: booking } = await supabase
-      .from("bookings_v")
-      .select("client_id, client_payout, booking_properties(properties(name))")
-      .eq("id", id)
-      .single();
-
-    if (booking) {
-      await notifyPayoutSettled(supabase, {
-        clientId: booking.client_id,
-        bookingId: id,
-        unitNames: (booking.booking_properties as unknown as { properties: { name: string } | null }[])
-          ?.map((bp) => bp.properties?.name ?? "")
-          .filter(Boolean) ?? [],
-        clientPayout: Number(booking.client_payout ?? 0),
-      });
-    }
-  }
-
-  revalidatePath("/admin/bookings");
-  revalidatePath("/admin/bookings/[id]", "page");
-  revalidatePath("/client", "layout");
-}
+// `settled` is no longer set from here. Hostello records the payout it sent on
+// /admin/settlements and the owner confirms it there; a booking closes as that
+// confirmation is allocated across it. Nothing on a booking flips it any more.
 
 /**
  * Tick an arrival or a departure off the day sheet. Both directions toggle, so

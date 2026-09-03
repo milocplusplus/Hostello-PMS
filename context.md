@@ -65,14 +65,19 @@ Pre-launch: real data has not been entered yet.
 - `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
-- `src/app/{admin,client}/payouts/**` + `src/lib/owed.ts` — **Owed to Hostello.**
-  The owner's page shows the balance, the bookings behind it, a form to record a
-  payment (online needs a screenshot, cash does not) and their history; the
-  admin's is the review queue, the per-client balances and the reviewed log.
-  `owed.ts` is settlement only — it adds up shares and subtracts payments, and
-  never re-derives a split. `src/components/client/RecordPayoutForm.tsx` (client
-  component: the screenshot field follows the method) and
-  `src/components/shared/PayoutHistory.tsx` (shared by both portals).
+- `src/app/{admin,client}/settlements/**` + `src/lib/owed.ts` — **Settlements:
+  both directions on one screen, two tabs (`?tab=to-hostello|to-client`).**
+  `owed.ts` is settlement only — it adds up what is owed and subtracts what has
+  been paid, and never re-derives a split. It is **one engine, two directions**:
+  `SETTLEMENT[direction]` names the payments table, allocations table, bucket
+  and the pair of booking columns, and `loadOwed` / `loadOwedByClient` /
+  `listPayments` all take the direction. A rule fixed on one side cannot drift
+  on the other. Shared UI: `SettlementTabs`, `OwedBookings` (the per-booking
+  lines behind a balance), `PayoutHistory` (the payment entries),
+  `RecordPaymentForm` (client component: the screenshot field follows the
+  method; its wording per direction lives in one `COPY` map). `?client=<id>`
+  on the admin page drills into one client. `/{admin,client}/payouts` are
+  redirect stubs so old links and notifications still land.
 - `src/components/admin/AdminShell.tsx`, `src/components/client/ClientShell.tsx` — nav shells
 - `src/components/admin/BookingForm.tsx` — **shared by admin AND client**
   (`client/bookings/new/page.tsx` imports it from `@/components/admin/`), live payout preview
@@ -192,7 +197,9 @@ Pre-launch: real data has not been entered yet.
   settled_date, share_received, share_received_date, notes, entered_by, timestamps.
   **Two settlements, not one**: `share_received` = Hostello has its `hostello_share`,
   `settled` = the owner has their `client_payout`. They run in opposite directions
-  and are independent. Only `share_received` feeds "Owed to Hostello".
+  and are independent. `share_received` feeds "Owed to Hostello", `settled`
+  feeds "Owed to Client". **Neither is set from a booking screen** — each is
+  closed only by a confirmed payment allocated across it.
 - `client_payouts` — client_id, amount, method(`online|cash`), reference,
   receipt_path, status(`pending|received|rejected`), admin_note, submitted_by,
   reviewed_by/at. What an owner says they sent. A `pending` row changes no
@@ -200,6 +207,13 @@ Pre-launch: real data has not been entered yet.
   withdraw their own **pending or rejected** entries and never set `received`.
 - `client_payout_allocations` — payout_id, booking_id, client_id, amount. Which
   bookings a confirmed payment cleared. Written only by `apply_client_payout`.
+- `hostello_payouts` — the same columns the other way round: `client_note` (the
+  owner's reason for rejecting) and `sent_by` in place of `admin_note` /
+  `submitted_by`. What Hostello says it sent an owner. RLS gives an owner
+  **SELECT only** — their confirm and reject go through RPCs, so there is no
+  UPDATE policy to get the columns wrong through — and admin full access.
+- `hostello_payout_allocations` — which bookings a confirmed payout cleared.
+  Written only by `apply_hostello_payout`.
 - `booking_properties` — booking_id, property_id (many-to-many; multi-unit bookings)
 - `calendar_blocks` — start_date/end_date (**inclusive**), block_type enum(`blocked|booked`);
   `total_amount/owner_payout/hostello_payout` are **dead columns** from an older design.
@@ -263,15 +277,37 @@ Pre-launch: real data has not been entered yet.
    `place()` in `app/admin/calendar/page.tsx` — `place()` converts `check_out` to
    an inclusive last night before clipping to the window.
 2b. **Owed to Hostello** — the owner files a `client_payouts` row (`pending`) →
-   admin reviews on `/admin/payouts` → **confirm** calls the `apply_client_payout`
-   RPC, which marks it received and allocates it across that client's open
-   bookings **oldest check-in first**, closing each booking (`share_received`)
-   as it is fully covered and returning any overpayment as unallocated credit;
-   **reject** leaves the balance untouched and the row visible as rejected with
-   the admin's reason, which the owner can correct and resubmit. Admin can also
-   close one booking outright (`markShareReceived`) for the case where Hostello
-   kept its share out of money it already held. `revoke_client_payout` undoes a
+   admin reviews on `/admin/settlements?tab=to-hostello` → **confirm** calls the
+   `apply_client_payout` RPC, which marks it received and allocates it across
+   that client's open bookings **oldest check-in first**, closing each booking
+   (`share_received`) as it is fully covered and returning any overpayment as
+   unallocated credit; **reject** leaves the balance untouched and the row
+   visible as rejected with the admin's reason, which the owner can correct and
+   resubmit. Admin can also close one booking outright (`markShareReceived`),
+   on the client drill-down, for the case where Hostello kept its share out of
+   money it already held — the one settlement anyone closes alone, and only
+   because no money has to move for it. `revoke_client_payout` undoes a
    confirmation, reopening only the bookings the remaining money no longer covers.
+2c. **Owed to Client** — the same machinery pointing the other way. Hostello
+   files a `hostello_payouts` row (`pending`) with proof of payment on
+   `/admin/settlements?tab=to-client&client=<id>` → the **owner** reviews it on
+   `/client/settlements?tab=to-client` → **confirm** calls `apply_hostello_payout`,
+   which allocates it oldest-first and closes each booking's `settled`;
+   **reject** calls `reject_hostello_payout` and settles nothing, handing it
+   back with their reason for Hostello to correct and resend.
+   `revoke_hostello_payout` undoes a confirmation (owner or admin).
+   **Hostello cannot settle a booking on the owner's behalf** — `apply_` and
+   `reject_` refuse anyone but the client's own login. The one exception is
+   `admin_confirm_hostello_payout`, for a client with **no portal login**, who
+   could otherwise never be settled at all: it refuses the moment
+   `clients.owner_user_id` is non-null, and stamps `confirmed_offline` so the
+   record never claims the owner confirmed anything. `ClientBalance.hasLogin`
+   is what puts the button on screen. The balance counts only bookings Hostello
+   sold and collected for: `loadOwed("to_client")` drops `PASS_THROUGH_SOURCES`,
+   because on an owner-sourced stay the owner already holds the guest's money —
+   and `allocate_hostello_payout` repeats that filter in SQL via
+   `is_pass_through_source()`, or a payout would settle a booking the balance
+   never counted.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
    off gross first; `hostello_share` depends on deal_model (0 for fixed/tentative).
@@ -350,11 +386,18 @@ Pre-launch: real data has not been entered yet.
   Hostello owes the owner; `share_received` is money the owner owes Hostello.
   Before 2026-08-29 a single `settled` was labelled "Mark received" on admin and
   "Paid out" on the owner's portal — the same tick telling two stories. Never
-  sum one of them and label it as the other.
+  sum one of them and label it as the other. Since 2026-09-03 **neither is a
+  button on a booking**: both are set only by allocating a confirmed payment,
+  and the side that receives the money is the only side that can confirm.
 - Payment screenshots live in the **`payout-receipts`** bucket at
   `<client_id>/<uuid>.<ext>` — a different bucket from `booking-receipts`, whose
   policies key on the *booking* id. Owners may write into their own folder here,
   which they may not do on `booking-receipts`.
+- Hostello's proof of a payout to an owner is a **third** bucket,
+  `hostello-payout-receipts`, same `<client_id>/…` path shape. It is not
+  `payout-receipts` precisely because an owner may delete inside their folder
+  there, and must not be able to remove the evidence they are confirming
+  against. Admin writes; the owner reads their own folder only.
 - **A short stay is stored as one night.** `is_short_stay` bookings are hours on
   a single date, written with `check_out = check_in + 1` so every night-based
   query keeps working and the stack deduction lands as the flat
@@ -394,6 +437,16 @@ Pre-launch: real data has not been entered yet.
   scheduled syncs. It short-circuits on one indexed query when the property has
   no feed, and **returns null when a channel is unreachable** — never fail a
   booking because an OTA was down.
+- **A new SECURITY DEFINER function carries two EXECUTE grants**, a PUBLIC one
+  and an explicit `anon` one, from this project's default privileges. Revoking
+  from one leaves the other, and `revoke ... from anon` alone is a no-op. Name
+  both: `revoke execute on function f(...) from public, anon;` then grant back
+  to `authenticated, service_role`. Existing functions look clean after a
+  `create or replace` only because that keeps the ACL they already had — check
+  `proacl` after adding one, not just `has_function_privilege('anon', ...)`.
+- **`is_pass_through_source()` is a second copy of `PASS_THROUGH_SOURCES`**
+  (src/lib/payout.ts), in SQL, because `allocate_hostello_payout` cannot import
+  the app's TypeScript. Change one, change the other.
 - **`ical_export_document()` is a second copy of `listUnavailable()`'s rules**
   (src/lib/availability.ts), in SQL, because a Deno edge function cannot import
   the app's TypeScript. Cancelled frees its nights, a ticked-out short stay

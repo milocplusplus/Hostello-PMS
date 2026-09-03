@@ -180,10 +180,10 @@ export default async function AdminTodayPage() {
           </span>
           <h2 className="text-sm font-medium flex-1">Payments pending</h2>
           <Link
-            href="/admin/bookings?settle=awaiting"
+            href="/admin/settlements?tab=to-hostello"
             className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
           >
-            All payouts →
+            Settlements →
           </Link>
         </div>
         {outstanding.length === 0 ? (

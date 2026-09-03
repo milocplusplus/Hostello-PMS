@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Home, BarChart3, CircleDollarSign, CalendarDays, Wallet, Plus, Lock, LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
-import { formatPKR } from "@/lib/payout";
+import { formatPKR, isPassThroughSource } from "@/lib/payout";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -27,7 +27,7 @@ const QUICK_ACTIONS = [
   { href: "/client/bookings/new", label: "New booking", icon: Plus },
   { href: "/client/calendar", label: "Check availability", icon: CalendarDays },
   { href: "/client/calendar/block", label: "Block dates", icon: Lock },
-  { href: "/client/bookings", label: "Bookings & payouts", icon: Wallet },
+  { href: "/client/settlements", label: "Settlements", icon: Wallet },
 ];
 
 type BookingRow = {
@@ -151,8 +151,18 @@ export default async function ClientDashboard({
   const payoutThisMonth = rows.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
   const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const payoutLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
-  const awaiting = ((monthBookings ?? []) as unknown as { client_payout: number | null; settled: boolean }[])
-    .reduce((s, b) => s + (b.settled ? 0 : Number(b.client_payout ?? 0)), 0);
+  // Only what Hostello actually has to send: on a booking the owner sourced
+  // themselves they already hold the guest's money, so it is not awaited.
+  const awaiting = (
+    (monthBookings ?? []) as unknown as {
+      source: string;
+      client_payout: number | null;
+      settled: boolean;
+    }[]
+  ).reduce(
+    (s, b) => s + (b.settled || isPassThroughSource(b.source) ? 0 : Number(b.client_payout ?? 0)),
+    0
+  );
 
   // Cumulative daily series: each booking lands on its check-in day (clamped into
   // the month), so the last point equals the month total on the KPI card.

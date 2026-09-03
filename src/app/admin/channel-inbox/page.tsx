@@ -486,7 +486,10 @@ export default async function ChannelInboxPage({
                     <>
                       This is the channel saying it sent money — it settles nothing on its own.
                       Record it on{" "}
-                      <Link href="/admin/payouts" className="text-hostello-gold hover:underline">
+                      <Link
+                        href="/admin/settlements?tab=to-hostello"
+                        className="text-hostello-gold hover:underline"
+                      >
                         Owed to Hostello
                       </Link>{" "}
                       if it applies, then tick it off here.

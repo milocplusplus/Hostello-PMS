@@ -3,7 +3,7 @@ import { LogIn, LogOut, BedDouble, Wallet, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
-import { formatPKR } from "@/lib/payout";
+import { formatPKR, PASS_THROUGH_SOURCES } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
 import { markClientStayProgress } from "@/app/client/bookings/actions";
@@ -60,7 +60,9 @@ export default async function ClientTodayPage() {
       .select("client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
-      .eq("settled", false),
+      .eq("settled", false)
+      // A stay the owner sourced themselves is not money Hostello is holding.
+      .not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`),
     supabase
       .from("calendar_blocks")
       .select("id, start_date, end_date, block_type, notes, properties(name)")

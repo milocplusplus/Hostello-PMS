@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import { FileText } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { formatNotificationTime } from "@/lib/notifications";
-import { methodLabel, PAYOUT_STATUS, type ClientPayout } from "@/lib/owed";
+import { methodLabel, PAYOUT_STATUS, type SettlementPayment } from "@/lib/owed";
 
 /**
- * The payment entries, as both portals show them. A Server Component, so the
- * `actions` slot can hand each row whatever forms that portal needs — review
- * buttons for admin, edit and withdraw for the owner.
+ * The payment entries, as both portals show them in both directions. A Server
+ * Component, so the `actions` slot can hand each row whatever forms that portal
+ * needs — review buttons for whoever is owed, edit and withdraw for whoever
+ * paid.
  */
 export function PayoutHistory({
   entries,
@@ -15,10 +16,10 @@ export function PayoutHistory({
   empty = "No payments recorded yet.",
   actions,
 }: {
-  entries: ClientPayout[];
+  entries: SettlementPayment[];
   showClient?: boolean;
   empty?: string;
-  actions?: (entry: ClientPayout) => ReactNode;
+  actions?: (entry: SettlementPayment) => ReactNode;
 }) {
   if (entries.length === 0) {
     return <p className="text-xs text-ink-muted px-5 py-6">{empty}</p>;
@@ -56,7 +57,9 @@ export function PayoutHistory({
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-sm text-financial font-medium">{formatPKR(e.amount)}</span>
                 <span className="text-xs text-ink-secondary">{methodLabel(e.method)}</span>
-                <span className={`text-xs ${status.tone}`}>· {status.label}</span>
+                <span className={`text-xs ${status.tone}`}>
+                  · {e.confirmedOffline ? "Recorded received" : status.label}
+                </span>
               </div>
 
               {showClient && e.clientName && (
@@ -68,15 +71,26 @@ export function PayoutHistory({
                 {e.reviewedAt ? ` · reviewed ${formatNotificationTime(e.reviewedAt)}` : ""}
               </p>
 
+              {/* Never let this read as the owner having confirmed it. */}
+              {e.confirmedOffline && (
+                <p className="text-[11px] text-status-pending mt-1">
+                  Marked received by Hostello — this owner has no portal login to confirm it
+                  themselves.
+                </p>
+              )}
+
               {e.reference && (
                 <p className="text-xs text-ink-secondary mt-1 break-words">{e.reference}</p>
               )}
 
               {e.status === "rejected" && (
+                // Whoever was owed is the one who said it never arrived, so the
+                // direction decides whose words these are.
                 <p className="text-xs text-status-booked mt-2">
-                  {e.adminNote
-                    ? `Hostello says: ${e.adminNote}`
-                    : "Hostello could not find this payment."}{" "}
+                  {(() => {
+                    const who = e.direction === "to_client" ? e.clientName ?? "The owner" : "Hostello";
+                    return e.note ? `${who} says: ${e.note}` : `${who} could not find this payment.`;
+                  })()}{" "}
                   <span className="text-ink-muted">The amount owed is unchanged.</span>
                 </p>
               )}

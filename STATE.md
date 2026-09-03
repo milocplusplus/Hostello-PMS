@@ -1,6 +1,72 @@
 # State — updated 2026-09-03
 
 ## Done
+- **Settlements: both directions** (2026-09-03). `npm run build` and
+  `npm run lint` clean. Payouts were half a feature: what an owner owed Hostello
+  had a whole review flow, what Hostello owed an owner had a checkbox on the
+  booking. Now both run the same way and neither lives on a booking.
+  - **`/{admin,client}/settlements`** replaces `/payouts`, one page with two
+    tabs (`?tab=to-hostello|to-client`) showing both balances at once. The old
+    routes are redirect stubs — notification hrefs, bookmarks and the channel
+    inbox link all still land. Nav item is "Settlements"; the dashboard quick-add
+    menu gained "Pay a client", the client dashboard "Settlements".
+  - Migrations `add_hostello_payouts` + `add_hostello_payout_rpcs`: mirrors of
+    `client_payouts` / `client_payout_allocations` / `apply_client_payout`.
+    **Applied to the live DB.**
+  - **Only the side receiving the money confirms it.** `apply_hostello_payout`
+    and `reject_hostello_payout` refuse anyone but the client's own login — not
+    even an admin. So Hostello records a payout with proof, the owner is
+    notified, and `settled` closes only when they confirm.
+    → The one exception, added the same day: `admin_confirm_hostello_payout`
+    lets Hostello mark a payout received for a client with **no portal login**,
+    who could otherwise never be settled. It refuses the moment
+    `clients.owner_user_id` is non-null, so it cannot become a general way round
+    the owner, and it stamps `confirmed_offline` — the feed and the history say
+    "Marked received by Hostello", never that the owner confirmed it. The button
+    appears only for those clients (`ClientBalance.hasLogin`). All 5 current
+    clients have logins, so it is inert today.
+    **Verified against the live DB** with rollback-wrapped probes: no session →
+    `refused: admin only`; a real admin session (`is_admin()` true) against a
+    client *with* a login → `refused: this client has a portal login`; the same
+    admin against a client with none → allowed, `status=received`,
+    `confirmed_offline=true`, `reviewed_by` = the admin. Nothing survived the
+    rollbacks (0 payouts, 0 allocations, 0 clients without a login).
+  - `owed.ts` is now one engine, two directions: `SETTLEMENT[direction]` names
+    the tables, bucket and column pair, and `loadOwed`/`loadOwedByClient`/
+    `listPayments` take a direction. No second copy to drift.
+  - `to_client` **excludes `PASS_THROUGH_SOURCES`** — on a booking the owner
+    sourced themselves they already hold the guest's money. The client dashboard
+    and `/client/today` were counting those as awaited payout; both now use the
+    same rule. `PASS_THROUGH_SOURCES` is exported from `payout.ts` for it.
+  - Third storage bucket, `hostello-payout-receipts`, deliberately not
+    `payout-receipts`: an owner may delete inside their own folder there and must
+    not be able to remove the proof they are confirming against.
+  - Removed: `markBookingSettled` and every settle/received control on both
+    booking detail pages and the bookings list. `markShareReceived` survives —
+    it is the one settlement that moves no money — and moved to the admin
+    client drill-down. `notifyPayoutSettled` went with its only caller; three
+    new kinds (`payout_sent`, `payout_receipt_confirmed`,
+    `payout_receipt_rejected`) took its place.
+  - `RecordPayoutForm` → `components/shared/RecordPaymentForm.tsx`, serving both
+    directions; `PayoutHistory` now takes `SettlementPayment` (`note` +
+    `direction`) so a rejection says whose words it is.
+  - **Two bugs the live-DB probes caught, both mine:**
+    - **Grants.** `revoke execute … from anon` is a no-op while PUBLIC holds the
+      default grant — and a *newly created* function carries **both** a PUBLIC
+      and an explicit `anon` grant, so revoking one leaves the other. I hit this
+      twice before naming both. Now in context.md's gotchas; check `proacl`
+      after adding a function, not just `has_function_privilege`.
+    - **`allocate_hostello_payout` did not skip pass-through sources**, while
+      `loadOwed("to_client")` does — two definitions of "open booking". A
+      confirmed payout could have spilled onto a booking Hostello never owed and
+      marked it `settled`. (The probe hit it immediately: the only open booking
+      on the test client is `source='other'`.) Fixed with
+      `is_pass_through_source()` in SQL and re-probed: 0 allocations, booking
+      untouched. The to-hostello direction needs no such filter —
+      `hostello_share` is already 0 on those bookings.
+  - **Not verified against a signed-in portal**: no `.env.local` on this machine.
+    Checked by `npm run build`, `npm run lint`, and reading the live schema,
+    policies, grants and Supabase security advisors back.
 - **Busy states everywhere** (2026-09-03). `npm run build` and `npm run lint` clean.
   Every write said nothing while it ran; an upload just sat there. Now each one
   names what it is doing.

@@ -218,7 +218,7 @@ export async function notifyBookingCancelled(
  * useful facts are who and where, and an OS banner has room for little else.
  *
  * Only the *doing* is announced, never the undoing: un-ticking is a correction,
- * the same call `markBookingSettled` makes about un-settling.
+ * the same call a revoked payout makes about re-opening a booking.
  */
 export async function notifyStayProgress(
   supabase: SupabaseClient,
@@ -251,22 +251,6 @@ export async function notifyStayProgress(
 }
 
 // ── Money ───────────────────────────────────────────────────────────────────
-
-export async function notifyPayoutSettled(
-  supabase: SupabaseClient,
-  args: { clientId: string; bookingId: string; unitNames: string[]; clientPayout: number }
-) {
-  await emit(supabase, {
-    kind: "payout_settled",
-    category: "payment",
-    audience: "both",
-    title: `Payout settled for ${unitLabel(args.unitNames)}`,
-    body: `${formatPKR(args.clientPayout)} marked as paid out.`,
-    clientId: args.clientId,
-    bookingId: args.bookingId,
-    eventKey: `payout_settled:${args.bookingId}`,
-  });
-}
 
 export async function notifyPaymentReceived(
   supabase: SupabaseClient,
@@ -383,6 +367,99 @@ export async function notifyShareReceived(
     clientId: args.clientId,
     bookingId: args.bookingId,
     eventKey: `share_received:${args.bookingId}`,
+  });
+}
+
+/**
+ * The other direction: Hostello has sent the owner their payout and wants it
+ * confirmed. Client-only — Hostello just filed it. Keyed on the entry and the
+ * attempt, so a corrected resend announces itself again and a double-tap does
+ * not.
+ */
+export async function notifyHostelloPayoutSent(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    payoutId: string;
+    amount: number;
+    method: string;
+    hasProof: boolean;
+    attempt: number;
+  }
+) {
+  await emit(supabase, {
+    kind: "payout_sent",
+    category: "payment",
+    audience: "client",
+    title: "Hostello sent you a payout",
+    body: `${formatPKR(args.amount)} · ${methodLabel(args.method)}${
+      args.hasProof ? " · proof attached" : ""
+    }. Confirm it once it reaches you — nothing settles until you do.`,
+    clientId: args.clientId,
+    eventKey: `payout_sent:${args.payoutId}:${args.attempt}`,
+  });
+}
+
+/** The owner says the payout landed. Hostello is the side waiting to hear. */
+export async function notifyHostelloPayoutConfirmed(
+  supabase: SupabaseClient,
+  args: { clientId: string; payoutId: string; amount: number; balance: number }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "payout_receipt_confirmed",
+    category: "payment",
+    audience: "admin",
+    title: `${who ?? "A client"} confirmed a payout`,
+    body: `${formatPKR(args.amount)} received. ${
+      args.balance > 0 ? `${formatPKR(args.balance)} still owed to them.` : "Nothing left owed to them."
+    }`,
+    clientId: args.clientId,
+    eventKey: `payout_receipt_confirmed:${args.payoutId}`,
+  });
+}
+
+/**
+ * Hostello recorded a payout as received for a client with no portal login.
+ * Admin-only by necessity — there is no owner account to tell — and worded so
+ * the feed never claims the owner confirmed anything.
+ */
+export async function notifyHostelloPayoutRecorded(
+  supabase: SupabaseClient,
+  args: { clientId: string; payoutId: string; amount: number; balance: number }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "payout_receipt_recorded",
+    category: "payment",
+    audience: "admin",
+    title: `Payout to ${who ?? "a client"} recorded as received`,
+    body: `${formatPKR(args.amount)} settled on their behalf — they have no portal login to confirm it. ${
+      args.balance > 0 ? `${formatPKR(args.balance)} still owed to them.` : "Nothing left owed to them."
+    }`,
+    clientId: args.clientId,
+    eventKey: `payout_receipt_recorded:${args.payoutId}`,
+  });
+}
+
+/** The owner says it never arrived. Nothing settles — that is the point. */
+export async function notifyHostelloPayoutRejected(
+  supabase: SupabaseClient,
+  args: { clientId: string; payoutId: string; amount: number; reason: string | null }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "payout_receipt_rejected",
+    category: "payment",
+    audience: "admin",
+    title: `${who ?? "A client"} has not received a payout`,
+    body: `${formatPKR(args.amount)} could not be confirmed${
+      args.reason ? ` · ${args.reason}` : ""
+    }. Nothing has settled.`,
+    clientId: args.clientId,
+    // One decision per entry; a corrected resend gets a fresh key from
+    // `notifyHostelloPayoutSent`, so the conversation still moves.
+    eventKey: `payout_receipt_rejected:${args.payoutId}`,
   });
 }
 

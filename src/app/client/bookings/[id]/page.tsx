@@ -55,7 +55,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, net_sale, client_payout, settled, settled_date, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, net_sale, client_payout, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -156,14 +156,9 @@ export default async function ClientBookingDetailPage({
           {Number(booking.advance_received ?? 0) > 0 && (
             <Line label="Advance received" value={formatPKR(booking.advance_received)} />
           )}
-          <Line
-            label="Settlement"
-            value={
-              booking.settled
-                ? `Paid out${booking.settled_date ? ` · ${formatDayMonth(booking.settled_date)}` : ""}`
-                : "Awaiting"
-            }
-          />
+          {/* Whether this payout has reached you is not shown here on purpose:
+              only you can say it has, and you do that on /client/settlements,
+              next to the proof of payment it is being claimed against. */}
         </div>
       </div>
 

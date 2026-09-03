@@ -7,7 +7,6 @@ import { sourceLabel } from "@/lib/block-sources";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { cancelBooking } from "./actions";
-import { markShareReceived } from "../payouts/actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { BookingFilters } from "@/components/admin/BookingFilters";
@@ -384,26 +383,9 @@ export default async function BookingsPage({
                           </Link>
                         ) : (
                           <div className="flex flex-col items-end gap-1.5 md:flex-row md:items-center md:justify-end md:gap-2">
-                            {showMoney && (
-                              <form action={markShareReceived}>
-                                <input type="hidden" name="id" value={b.id} />
-                                <input
-                                  type="hidden"
-                                  name="received"
-                                  value={(!b.share_received).toString()}
-                                />
-                                <SubmitButton
-                                  className="btn btn-ghost btn-sm"
-                                  busy={
-                                    b.share_received
-                                      ? "Marking the share unpaid…"
-                                      : "Marking the share received…"
-                                  }
-                                >
-                                  {b.share_received ? "Mark unpaid" : "Mark received"}
-                                </SubmitButton>
-                              </form>
-                            )}
+                            {/* Settling is not done from a list of stays — it
+                                is done against the payment that proves it, on
+                                /admin/settlements. */}
                             <form action={cancelBooking}>
                               <input type="hidden" name="id" value={b.id} />
                               <SubmitButton

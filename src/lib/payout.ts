@@ -33,7 +33,7 @@ export function isOtaSource(source: string): boolean {
  * nobody recorded where it came from. None of them are Hostello's sale, so the
  * whole net goes to the owner.
  */
-const PASS_THROUGH_SOURCES = ["client", "offline", "reference", "other"];
+export const PASS_THROUGH_SOURCES = ["client", "offline", "reference", "other"];
 
 export function isPassThroughSource(source: string): boolean {
   return PASS_THROUGH_SOURCES.includes(source);

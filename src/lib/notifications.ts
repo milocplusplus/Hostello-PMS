@@ -50,11 +50,16 @@ const KIND_ICON: Record<string, LucideIcon> = {
   guest_checked_in: LogIn,
   guest_checked_out: LogOut,
   payment_received: Receipt,
-  payout_settled: Wallet,
+  // Owner → Hostello: they file it, an admin rules on it.
   payout_submitted: HandCoins,
   payout_confirmed: BadgeCheck,
   payout_rejected: BadgeX,
   share_received: Wallet,
+  // Hostello → owner: Hostello sends it, the owner rules on it.
+  payout_sent: Wallet,
+  payout_receipt_confirmed: BadgeCheck,
+  payout_receipt_rejected: BadgeX,
+  payout_receipt_recorded: BadgeCheck,
   // A channel emailed us about a reservation. Admin-only, every one of them:
   // until an admin approves it nothing has happened, so there is nothing to
   // tell an owner. Their notice is the ordinary `booking_created` on approval.
@@ -91,13 +96,23 @@ export type NotificationItem = {
   who?: string | null;
 };
 
+/** The `payout_*` kinds that belong to the Hostello → owner direction. */
+const TO_CLIENT_KINDS = new Set([
+  "payout_sent",
+  "payout_receipt_confirmed",
+  "payout_receipt_rejected",
+  "payout_receipt_recorded",
+]);
+
 export function notificationHref(
   row: { kind?: string | null; booking_id?: string | null; property_id?: string | null },
   portal: "admin" | "client"
 ): string {
-  // A payment entry is not about one booking, so it has neither id to follow.
+  // A payment entry can clear several bookings at once, so it has neither id to
+  // follow — it belongs to a direction, which is a tab.
   if (row.kind?.startsWith("payout_")) {
-    return portal === "admin" ? "/admin/payouts" : "/client/payouts";
+    const tab = TO_CLIENT_KINDS.has(row.kind) ? "to-client" : "to-hostello";
+    return `${portal === "admin" ? "/admin" : "/client"}/settlements?tab=${tab}`;
   }
   // A channel email is a thing to review, not a booking to look at — even when
   // it has already found the booking it is about.

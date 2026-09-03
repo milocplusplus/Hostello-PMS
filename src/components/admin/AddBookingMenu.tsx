@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronDown, Lock, CalendarDays, Users } from "lucide-react";
+import { Plus, ChevronDown, Lock, CalendarDays, HandCoins, Users } from "lucide-react";
 
 const MENU = [
   { href: "/admin/calendar/block", label: "Block dates", icon: Lock },
   { href: "/admin/calendar", label: "Check calendar", icon: CalendarDays },
+  {
+    href: "/admin/settlements?tab=to-client",
+    label: "Pay a client",
+    icon: HandCoins,
+    ownerOnly: true,
+  },
   { href: "/admin/clients/new", label: "Add client", icon: Users, ownerOnly: true },
 ];
 

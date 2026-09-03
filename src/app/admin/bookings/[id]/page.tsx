@@ -12,14 +12,12 @@ import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { SubmitButton } from "@/components/shared/Busy";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
 import { listReceipts } from "@/lib/receipts";
 import { GuestIdCards } from "@/components/shared/GuestIdCards";
 import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
 import {
-  markBookingSettled,
   markStayProgress,
   cancelBooking,
   uploadBookingReceipt,
@@ -27,7 +25,6 @@ import {
   uploadGuestIds,
   deleteGuestId,
 } from "../actions";
-import { markShareReceived } from "../../payouts/actions";
 
 function Line({ label, value, gold }: { label: string; value: string; gold?: boolean }) {
   return (
@@ -59,7 +56,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, settled, settled_date, share_received, share_received_date, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -212,26 +209,9 @@ export default async function BookingDetailPage({
           {Number(booking.advance_received ?? 0) > 0 && (
             <Line label="Advance received" value={formatPKR(booking.advance_received)} />
           )}
-          {/* Two settlements, not one: whoever collected the guest's money owes
-              the other side their pot, and both can be outstanding at once. */}
-          <Line
-            label="Hostello's share"
-            value={
-              booking.share_received
-                ? `Received${
-                    booking.share_received_date ? ` · ${formatDayMonth(booking.share_received_date)}` : ""
-                  }`
-                : "Owed to Hostello"
-            }
-          />
-          <Line
-            label="Owner's payout"
-            value={
-              booking.settled
-                ? `Paid out${booking.settled_date ? ` · ${formatDayMonth(booking.settled_date)}` : ""}`
-                : "Not yet sent"
-            }
-          />
+          {/* Two settlements ride on this booking and neither is shown here on
+              purpose: each is closed by the side that receives the money, and
+              both live on /admin/settlements where the payment proving it does. */}
         </div>
         )}
       </div>
@@ -281,36 +261,10 @@ export default async function BookingDetailPage({
           >
             Edit booking
           </Link>
-          {/* Clearing the share here is the case where Hostello kept its cut out
-              of money it already held, so the owner never has to send it. */}
           {showMoney && (
-          <>
-          <form action={markShareReceived}>
-            <input type="hidden" name="id" value={booking.id} />
-            <input type="hidden" name="received" value={(!booking.share_received).toString()} />
-            <input type="hidden" name="from" value={`/admin/bookings/${booking.id}`} />
-            <SubmitButton
-              className="btn btn-ghost btn-sm"
-              busy={
-                booking.share_received
-                  ? "Marking the share not received…"
-                  : "Marking the share received…"
-              }
-            >
-              {booking.share_received ? "Share not received" : "Mark share received"}
-            </SubmitButton>
-          </form>
-          <form action={markBookingSettled}>
-            <input type="hidden" name="id" value={booking.id} />
-            <input type="hidden" name="settled" value={(!booking.settled).toString()} />
-            <SubmitButton
-              className="btn btn-ghost btn-sm"
-              busy={booking.settled ? "Marking the payout unsent…" : "Marking the payout sent…"}
-            >
-              {booking.settled ? "Payout not sent" : "Mark payout sent"}
-            </SubmitButton>
-          </form>
-          </>
+            <Link href="/admin/settlements" className="btn btn-ghost btn-sm">
+              Settlements
+            </Link>
           )}
           <form action={cancelBooking}>
             <input type="hidden" name="id" value={booking.id} />

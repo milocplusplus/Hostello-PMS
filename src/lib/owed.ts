@@ -1,20 +1,69 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PASS_THROUGH_SOURCES } from "./payout";
 import { receiptExtension, validateReceipt } from "./receipts";
 
 /**
- * What an owner owes Hostello, and the payments that clear it.
+ * What one side still owes the other, and the payments that clear it.
  *
  * This is settlement, not revenue: every rupee here was already decided by
  * `payout.ts` when the booking was written and snapshotted onto the row. All
- * this module does is add up the shares nobody has confirmed receiving yet, and
- * subtract what has been paid against them. Never re-derive a split in here.
+ * this module does is add up the amounts nobody has confirmed receiving yet,
+ * and subtract what has been paid against them. Never re-derive a split here.
  *
- * A booking carries two independent settlements: `share_received` (Hostello has
- * its cut) and `settled` (the owner has theirs). Only the first one is owed to
- * Hostello — the second runs the other way and is not this module's business.
+ * A booking carries two independent settlements running in opposite
+ * directions, and each is closed by whoever actually received the money:
+ *
+ *   to_hostello — `hostello_share`, closed by `share_received`. The owner
+ *                 collected the guest's money and sends Hostello its cut; an
+ *                 admin confirms it landed.
+ *   to_client   — `client_payout`, closed by `settled`. Hostello collected and
+ *                 sends the owner theirs; the *owner* confirms it landed.
+ *
+ * Both directions run through the same functions here — one settlement engine,
+ * two column sets — so a rule fixed on one side cannot drift on the other.
  */
 
-export const PAYOUT_RECEIPT_BUCKET = "payout-receipts";
+export type SettlementDirection = "to_hostello" | "to_client";
+
+type DirectionSpec = {
+  /** The payments table for this direction. */
+  table: "client_payouts" | "hostello_payouts";
+  allocations: "client_payout_allocations" | "hostello_payout_allocations";
+  bucket: string;
+  /** Whoever reviews a payment leaves their reason here. */
+  noteColumn: "admin_note" | "client_note";
+  /** The booking column holding what is owed. */
+  amountColumn: "hostello_share" | "client_payout";
+  /** The booking flag that closes it. */
+  closedColumn: "share_received" | "settled";
+  /** Columns only this direction's table carries. */
+  extraColumns: string[];
+};
+
+export const SETTLEMENT: Record<SettlementDirection, DirectionSpec> = {
+  to_hostello: {
+    table: "client_payouts",
+    allocations: "client_payout_allocations",
+    bucket: "payout-receipts",
+    noteColumn: "admin_note",
+    amountColumn: "hostello_share",
+    closedColumn: "share_received",
+    extraColumns: [],
+  },
+  to_client: {
+    table: "hostello_payouts",
+    allocations: "hostello_payout_allocations",
+    // Its own bucket: on `payout-receipts` an owner may write and delete inside
+    // their own folder, which must not be true of Hostello's proof of payment.
+    bucket: "hostello-payout-receipts",
+    noteColumn: "client_note",
+    amountColumn: "client_payout",
+    closedColumn: "settled",
+    // Set when Hostello recorded the money as received for a client who has no
+    // portal login and so cannot confirm it themselves.
+    extraColumns: ["confirmed_offline"],
+  },
+};
 
 export type PayoutMethod = "online" | "cash";
 export type PayoutStatus = "pending" | "received" | "rejected";
@@ -56,15 +105,23 @@ export type OwedBooking = {
   outstanding: number;
 };
 
-export type ClientPayout = {
+export type SettlementPayment = {
   id: string;
+  direction: SettlementDirection;
   clientId: string;
   clientName: string | null;
   amount: number;
   method: PayoutMethod;
   reference: string | null;
   status: PayoutStatus;
-  adminNote: string | null;
+  /** The reviewer's reason for rejecting. Whose words depends on direction. */
+  note: string | null;
+  /**
+   * `received`, but recorded by Hostello rather than confirmed by the owner —
+   * only possible for a client with no portal login. The history must not blur
+   * the two claims, so it is carried here rather than folded into `status`.
+   */
+  confirmedOffline: boolean;
   createdAt: string;
   reviewedAt: string | null;
   receiptUrl: string | null;
@@ -72,9 +129,9 @@ export type ClientPayout = {
 };
 
 export type OwedSummary = {
-  /** Still owed: unconfirmed shares, less what has already been allocated. */
+  /** Still owed: unconfirmed amounts, less what has already been allocated. */
   balance: number;
-  /** Filed but not yet confirmed by an admin. Does not reduce `balance`. */
+  /** Filed but not yet confirmed by the other side. Does not reduce `balance`. */
   pending: number;
   bookings: OwedBooking[];
 };
@@ -85,42 +142,54 @@ type BookingRow = {
   check_in: string;
   check_out: string;
   source: string;
-  hostello_share: number | null;
+  hostello_share?: number | null;
+  client_payout?: number | null;
   booking_properties: { properties: { name: string } | null }[] | null;
 };
 
 /**
- * The open bookings behind the balance. Confirmed only — a tentative stay has
- * no Hostello share to owe (`payout.ts` zeroes it), and a cancelled one never
+ * The open bookings behind one client's balance. Confirmed only — a tentative
+ * stay has no share to owe (`payout.ts` zeroes it), and a cancelled one never
  * happened.
+ *
+ * `to_client` additionally drops the pass-through sources. Hostello owes a
+ * payout only on stays it sold and collected for; on an owner-sourced booking,
+ * a walk-in or a referral the owner already holds the guest's money, so there
+ * is nothing to send. `payout.ts` owns that list.
  */
 export async function loadOwed(
   supabase: SupabaseClient,
   clientId: string,
+  direction: SettlementDirection,
   /** The entry being edited, left out of `pending` so it doesn't block itself. */
   options: { excludePayoutId?: string | null } = {}
 ): Promise<OwedSummary> {
+  const spec = SETTLEMENT[direction];
+
   const pendingQuery = supabase
-    .from("client_payouts")
+    .from(spec.table)
     .select("amount")
     .eq("client_id", clientId)
     .eq("status", "pending");
 
+  let bookingQuery = supabase
+    .from("bookings_v")
+    .select(
+      `id, guest_name, check_in, check_out, source, ${spec.amountColumn}, booking_properties(properties(name))`
+    )
+    .eq("client_id", clientId)
+    .eq("status", "confirmed")
+    .eq(spec.closedColumn, false)
+    .gt(spec.amountColumn, 0)
+    .order("check_in");
+
+  if (direction === "to_client") {
+    bookingQuery = bookingQuery.not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`);
+  }
+
   const [{ data: bookings }, { data: allocations }, { data: pendingRows }] = await Promise.all([
-    supabase
-      .from("bookings_v")
-      .select(
-        "id, guest_name, check_in, check_out, source, hostello_share, booking_properties(properties(name))"
-      )
-      .eq("client_id", clientId)
-      .eq("status", "confirmed")
-      .eq("share_received", false)
-      .gt("hostello_share", 0)
-      .order("check_in"),
-    supabase
-      .from("client_payout_allocations")
-      .select("booking_id, amount")
-      .eq("client_id", clientId),
+    bookingQuery,
+    supabase.from(spec.allocations).select("booking_id, amount").eq("client_id", clientId),
     options.excludePayoutId ? pendingQuery.neq("id", options.excludePayoutId) : pendingQuery,
   ]);
 
@@ -130,7 +199,7 @@ export async function loadOwed(
   }
 
   const rows = ((bookings ?? []) as unknown as BookingRow[]).map((b) => {
-    const share = Number(b.hostello_share ?? 0);
+    const share = Number(b[spec.amountColumn] ?? 0);
     const paid = paidPerBooking.get(b.id) ?? 0;
     return {
       id: b.id,
@@ -159,19 +228,36 @@ export type ClientBalance = {
   clientName: string;
   balance: number;
   bookings: number;
+  /**
+   * Whether this owner has a portal login. Without one they can never confirm
+   * a payout, so Hostello may record it as received on their behalf — the one
+   * case where the receiving side is not the side that ticks it.
+   */
+  hasLogin: boolean;
 };
 
 /** The same balance, for every client at once. The admin's side of the ledger. */
-export async function loadOwedByClient(supabase: SupabaseClient): Promise<ClientBalance[]> {
+export async function loadOwedByClient(
+  supabase: SupabaseClient,
+  direction: SettlementDirection
+): Promise<ClientBalance[]> {
+  const spec = SETTLEMENT[direction];
+
+  let bookingQuery = supabase
+    .from("bookings_v")
+    .select(`id, client_id, ${spec.amountColumn}`)
+    .eq("status", "confirmed")
+    .eq(spec.closedColumn, false)
+    .gt(spec.amountColumn, 0);
+
+  if (direction === "to_client") {
+    bookingQuery = bookingQuery.not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`);
+  }
+
   const [{ data: bookings }, { data: allocations }, { data: clients }] = await Promise.all([
-    supabase
-      .from("bookings_v")
-      .select("id, client_id, hostello_share")
-      .eq("status", "confirmed")
-      .eq("share_received", false)
-      .gt("hostello_share", 0),
-    supabase.from("client_payout_allocations").select("booking_id, amount"),
-    supabase.from("clients").select("id, name").order("name"),
+    bookingQuery,
+    supabase.from(spec.allocations).select("booking_id, amount"),
+    supabase.from("clients").select("id, name, owner_user_id").order("name"),
   ]);
 
   const paidPerBooking = new Map<string, number>();
@@ -180,8 +266,8 @@ export async function loadOwedByClient(supabase: SupabaseClient): Promise<Client
   }
 
   const totals = new Map<string, { balance: number; bookings: number }>();
-  for (const b of bookings ?? []) {
-    const outstanding = Number(b.hostello_share) - (paidPerBooking.get(b.id) ?? 0);
+  for (const b of (bookings ?? []) as unknown as (BookingRow & { client_id: string })[]) {
+    const outstanding = Number(b[spec.amountColumn] ?? 0) - (paidPerBooking.get(b.id) ?? 0);
     if (outstanding <= 0) continue;
     const entry = totals.get(b.client_id) ?? { balance: 0, bookings: 0 };
     entry.balance += outstanding;
@@ -195,6 +281,7 @@ export async function loadOwedByClient(supabase: SupabaseClient): Promise<Client
       clientName: c.name,
       balance: Math.round((totals.get(c.id)?.balance ?? 0) * 100) / 100,
       bookings: totals.get(c.id)?.bookings ?? 0,
+      hasLogin: Boolean(c.owner_user_id),
     }))
     .sort((a, b) => b.balance - a.balance);
 }
@@ -207,7 +294,9 @@ type PayoutRow = {
   reference: string | null;
   receipt_path: string | null;
   status: PayoutStatus;
-  admin_note: string | null;
+  admin_note?: string | null;
+  client_note?: string | null;
+  confirmed_offline?: boolean | null;
   created_at: string;
   reviewed_at: string | null;
   clients?: { name: string } | null;
@@ -218,16 +307,24 @@ type PayoutRow = {
  * client at once. Screenshots are private: each one comes back as a signed URL
  * minted here, never a public path.
  */
-export async function listClientPayouts(
+export async function listPayments(
   supabase: SupabaseClient,
+  direction: SettlementDirection,
   clientId: string | null,
   options: { status?: PayoutStatus; limit?: number } = {}
-): Promise<ClientPayout[]> {
+): Promise<SettlementPayment[]> {
+  const spec = SETTLEMENT[direction];
+
+  const columns = [
+    "id, client_id, amount, method, reference, receipt_path, status",
+    spec.noteColumn,
+    ...spec.extraColumns,
+    "created_at, reviewed_at, clients(name)",
+  ].join(", ");
+
   let query = supabase
-    .from("client_payouts")
-    .select(
-      "id, client_id, amount, method, reference, receipt_path, status, admin_note, created_at, reviewed_at, clients(name)"
-    )
+    .from(spec.table)
+    .select(columns)
     .order("created_at", { ascending: false });
 
   if (clientId) query = query.eq("client_id", clientId);
@@ -243,7 +340,7 @@ export async function listClientPayouts(
 
   if (paths.length > 0) {
     const { data: signed } = await supabase.storage
-      .from(PAYOUT_RECEIPT_BUCKET)
+      .from(spec.bucket)
       .createSignedUrls(paths, 60 * 60);
     for (const s of signed ?? []) {
       if (s.path && s.signedUrl) urls.set(s.path, s.signedUrl);
@@ -252,13 +349,15 @@ export async function listClientPayouts(
 
   return rows.map((r) => ({
     id: r.id,
+    direction,
     clientId: r.client_id,
     clientName: r.clients?.name ?? null,
     amount: Number(r.amount),
     method: r.method,
     reference: r.reference,
     status: r.status,
-    adminNote: r.admin_note,
+    note: r[spec.noteColumn] ?? null,
+    confirmedOffline: Boolean(r.confirmed_offline),
     createdAt: r.created_at,
     reviewedAt: r.reviewed_at,
     receiptUrl: r.receipt_path ? urls.get(r.receipt_path) ?? null : null,
@@ -268,12 +367,11 @@ export async function listClientPayouts(
 
 /**
  * The screenshot for an online transfer. The path's first segment is the client
- * id — that is what the storage policies key on, so an owner can only ever
- * write into their own folder.
+ * id — that is what the storage policies key on, in both buckets.
  */
-export async function uploadPayoutReceipt(
+export async function uploadPaymentReceipt(
   supabase: SupabaseClient,
-  args: { clientId: string; file: File }
+  args: { direction: SettlementDirection; clientId: string; file: File }
 ): Promise<{ error: string | null; path?: string }> {
   const invalid = validateReceipt(args.file);
   if (invalid) return { error: invalid };
@@ -283,13 +381,17 @@ export async function uploadPayoutReceipt(
 
   const path = `${args.clientId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
-    .from(PAYOUT_RECEIPT_BUCKET)
+    .from(SETTLEMENT[args.direction].bucket)
     .upload(path, args.file, { contentType: args.file.type });
 
   if (error) return { error: error.message };
   return { error: null, path };
 }
 
-export async function removePayoutReceipt(supabase: SupabaseClient, path: string | null) {
-  if (path) await supabase.storage.from(PAYOUT_RECEIPT_BUCKET).remove([path]);
+export async function removePaymentReceipt(
+  supabase: SupabaseClient,
+  direction: SettlementDirection,
+  path: string | null
+) {
+  if (path) await supabase.storage.from(SETTLEMENT[direction].bucket).remove([path]);
 }

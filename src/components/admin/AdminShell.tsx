@@ -78,7 +78,7 @@ function navGroups(role: StaffRole): NavGroup[] {
         },
         ...(owner
           ? [
-              { href: "/admin/payouts", label: "Owed to Hostello", icon: HandCoins, exact: false },
+              { href: "/admin/settlements", label: "Settlements", icon: HandCoins, exact: false },
               { href: "/admin/stats", label: "Stats", icon: BarChart3, exact: false },
             ]
           : []),
