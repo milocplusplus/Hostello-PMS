@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { CalendarDays, Phone, Users, StickyNote } from "lucide-react";
+import { CalendarDays, Clock, Phone, Users, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
-import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
+import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
@@ -17,9 +17,12 @@ import { listReceipts } from "@/lib/receipts";
 import { GuestIdCards } from "@/components/shared/GuestIdCards";
 import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
+import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import {
   cancelClientBooking,
   markClientStayProgress,
+  changeClientBookingDates,
+  moveClientBookingUnits,
   uploadClientGuestIds,
   deleteClientGuestId,
 } from "../actions";
@@ -55,7 +58,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, net_sale, client_payout, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -63,9 +66,17 @@ export default async function ClientBookingDetailPage({
 
   if (!booking) notFound();
 
-  const [receipts, guestIds] = await Promise.all([
+  // Their own active units — `properties_v`'s WHERE clause is what scopes this,
+  // not a filter, so a booking can only ever move within their own portfolio.
+  const [receipts, guestIds, { data: clientUnits }] = await Promise.all([
     listReceipts(supabase, booking.id),
     listGuestIds(supabase, booking.id),
+    supabase
+      .from("properties_v")
+      .select("id, name")
+      .eq("client_id", clientRecord.id)
+      .eq("status", "active")
+      .order("name"),
   ]);
 
   const units =((booking.booking_properties as unknown as {
@@ -77,7 +88,7 @@ export default async function ClientBookingDetailPage({
   const nights = nightsBetween(booking.check_in, booking.check_out);
   const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
-  const deduction = gross - Number(booking.net_sale ?? gross);
+  const advance = Number(booking.advance_received ?? 0);
 
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">
@@ -131,9 +142,30 @@ export default async function ClientBookingDetailPage({
 
           <div className="mt-4 flex flex-col gap-1.5 text-xs text-ink-secondary">
             {booking.guest_phone && (
-              <span className="flex items-center gap-2">
+              // Tap to call, or open WhatsApp — the two ways anyone actually
+              // reaches a guest. No messaging system behind it.
+              <span className="flex items-center gap-2 flex-wrap">
                 <Phone size={12} className="text-ink-muted" />
-                {booking.guest_phone}
+                <a href={`tel:${booking.guest_phone}`} className="hover:text-ink-primary transition-colors">
+                  {booking.guest_phone}
+                </a>
+                <a
+                  href={`https://wa.me/${booking.guest_phone.replace(/[^0-9]/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-ink-muted hover:text-hostello-gold transition-colors"
+                >
+                  WhatsApp
+                </a>
+              </span>
+            )}
+            {!shortStay && (booking.expected_arrival || booking.expected_departure) && (
+              <span className="flex items-center gap-2">
+                <Clock size={12} className="text-ink-muted" />
+                {booking.expected_arrival
+                  ? `Arriving ${hhmm(booking.expected_arrival)}`
+                  : "Arrival time not given"}
+                {booking.expected_departure && ` · leaving ${hhmm(booking.expected_departure)}`}
               </span>
             )}
             {booking.guests_count != null && (
@@ -145,20 +177,23 @@ export default async function ClientBookingDetailPage({
           </div>
         </div>
 
+        {/* What the guest pays and what has been collected. Your share of it,
+            and whether it has reached you, are on /client/settlements — next
+            to the payment proving it, which is the only place either can be
+            acted on. A booking is the stay; it is not the ledger. */}
         <div className="card p-5">
-          <h2 className="text-sm font-medium text-ink-secondary mb-1">Payout</h2>
-          <p className="text-[11px] text-ink-muted mb-2">Terms as agreed when this booking was made</p>
+          <h2 className="text-sm font-medium text-ink-secondary mb-1">Payment</h2>
+          <p className="text-[11px] text-ink-muted mb-2">What the guest is paying for this stay</p>
 
           <Line label="Sale price" value={formatPKR(gross)} />
-          {deduction > 0 && <Line label="Deduction" value={`− ${formatPKR(deduction)}`} />}
-          <Line label="Net sale" value={formatPKR(booking.net_sale)} />
-          <Line label="Your payout" value={formatPKR(booking.client_payout)} gold />
-          {Number(booking.advance_received ?? 0) > 0 && (
-            <Line label="Advance received" value={formatPKR(booking.advance_received)} />
-          )}
-          {/* Whether this payout has reached you is not shown here on purpose:
-              only you can say it has, and you do that on /client/settlements,
-              next to the proof of payment it is being claimed against. */}
+          <Line label="Advance received" value={formatPKR(booking.advance_received)} />
+          <Line label="Balance due" value={formatPKR(Math.max(0, gross - advance))} gold />
+          <Link
+            href="/client/settlements"
+            className="mt-3 inline-block text-xs text-ink-muted hover:text-hostello-gold transition-colors"
+          >
+            Your payout and settlement →
+          </Link>
         </div>
       </div>
 
@@ -168,6 +203,19 @@ export default async function ClientBookingDetailPage({
           checkedInAt={booking.checked_in_at}
           checkedOutAt={booking.checked_out_at}
           action={markClientStayProgress}
+        />
+      )}
+
+      {booking.status !== "cancelled" && (
+        <BookingQuickTools
+          bookingId={booking.id}
+          checkIn={booking.check_in}
+          checkOut={booking.check_out}
+          isShortStay={Boolean(shortStay)}
+          units={clientUnits ?? []}
+          currentUnitIds={units.map((u) => u.id)}
+          changeDatesAction={changeClientBookingDates}
+          moveUnitsAction={moveClientBookingUnits}
         />
       )}
 

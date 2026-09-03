@@ -61,7 +61,15 @@ Pre-launch: real data has not been entered yet.
   gets their own units — `properties_v`'s WHERE clause scopes that, not a filter.
 - `src/app/admin/clients/**` — client CRUD, and nested property CRUD under
   `clients/[id]/properties/**`
-- `src/app/admin/bookings/**` — booking list + create + `actions.ts`
+- `src/app/admin/bookings/**` — booking list + create + `actions.ts`. **These
+  pages are the stay, not the ledger**: guests, expected arrival/departure,
+  units, dates, the tools. One Payment card (sale price / advance / balance due)
+  and nothing else about money — the split and both settlements are on
+  `/{admin,client}/settlements`. `src/lib/booking-details.ts` reads
+  `guests_count` + the two times for all four write paths.
+  `src/components/shared/BookingQuickTools.tsx` is change-dates / move-unit,
+  which **delegate to `updateBooking` / `updateClientBooking`** rather than
+  restating the clash check and payout recalculation those fields force.
 - `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
@@ -437,6 +445,14 @@ Pre-launch: real data has not been entered yet.
   scheduled syncs. It short-circuits on one indexed query when the property has
   no feed, and **returns null when a channel is unreachable** — never fail a
   booking because an OTA was down.
+- **Grants on `bookings` are column-level, not table-level.** A new column
+  arrives with no privileges at all and needs an explicit
+  `grant select, insert, update, references (col) on bookings to authenticated`.
+  This is not true of `properties`, which has table-level grants — do not
+  generalise from it.
+- **A view does not pick up new base-table columns.** Adding to `bookings` means
+  recreating `bookings_v` (and `properties_v` / `clients_v` likewise), restating
+  `with (security_invoker = false)` so the WHERE clause stays the access rule.
 - **A new SECURITY DEFINER function carries two EXECUTE grants**, a PUBLIC one
   and an explicit `anon` one, from this project's default privileges. Revoking
   from one leaves the other, and `revoke ... from anon` alone is a no-op. Name

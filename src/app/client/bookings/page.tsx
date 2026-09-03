@@ -43,7 +43,7 @@ export default async function ClientBookingsPage({
   const { data: bookings } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, booking_properties(properties(name))"
+      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, guests_count, expected_arrival, booking_properties(properties(name))"
     )
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
@@ -51,13 +51,15 @@ export default async function ClientBookingsPage({
     .gte("check_out", monthStart)
     .order("check_in");
 
+  // Counts about the stays, not a ledger: your payout and whether it has
+  // reached you live on /client/settlements, next to the payment proving it.
   const totals = (bookings ?? []).reduce(
     (acc, b) => {
       acc.gross += Number(b.sale_price ?? 0);
-      acc.payout += Number(b.client_payout ?? 0);
+      acc.nights += nightsBetween(b.check_in, b.check_out);
       return acc;
     },
-    { gross: 0, payout: 0 }
+    { gross: 0, nights: 0 }
   );
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
@@ -121,9 +123,9 @@ export default async function ClientBookingsPage({
                 "radial-gradient(14rem 5rem at 12% 0%, var(--color-hostello-gold), transparent 70%)",
             }}
           />
-          <p className="eyebrow relative">Your payout</p>
+          <p className="eyebrow relative">Nights booked</p>
           <p className="display num relative text-xl md:text-2xl font-semibold mt-2 truncate text-financial">
-            {formatPKR(totals.payout)}
+            {totals.nights}
           </p>
         </div>
       </div>
@@ -143,7 +145,7 @@ export default async function ClientBookingsPage({
                 <th className="px-4 py-3 font-normal">Units</th>
                 <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
                 <th className="px-4 py-3 font-normal hidden md:table-cell">Source</th>
-                <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Your payout</th>
+                <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Sale price</th>
                 <th className="px-4 py-3 font-normal hidden md:table-cell">Status</th>
                 {/* Fixed layout on a phone: this width is what leaves the units
                     column the rest of the card instead of overflowing it. */}
@@ -188,7 +190,7 @@ export default async function ClientBookingsPage({
                                     b.check_out
                                   )} (${nights}n)`}
                             </span>
-                            <span className="text-financial">{formatPKR(b.client_payout)}</span>
+                            <span className="text-financial">{formatPKR(b.sale_price)}</span>
                             {statusNode}
                           </span>
                         </span>
@@ -212,7 +214,7 @@ export default async function ClientBookingsPage({
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-financial hidden md:table-cell">
-                      {formatPKR(b.client_payout)}
+                      {formatPKR(b.sale_price)}
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">{statusNode}</td>
                     <td className="px-4 py-3 text-right">

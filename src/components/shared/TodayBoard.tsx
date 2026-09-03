@@ -33,6 +33,8 @@ export type TodayStay = {
   checkedOutAt: string | null;
   /** Hours instead of nights — it arrives and leaves on the same date. */
   shortStay: ShortStay | null;
+  /** When they said they would turn up. Null = they have not told us. */
+  expectedArrival: string | null;
 };
 
 function StayRow({
@@ -76,6 +78,11 @@ function StayRow({
             : `${formatDayMonth(stay.checkIn)} – ${formatDayMonth(stay.checkOut)} · ${nights} ${
                 nights === 1 ? "night" : "nights"
               }`}
+          {/* The one fact the day sheet is missing without it: what time to be
+              there. Only for night stays — a short stay says its hours above. */}
+          {!stay.shortStay && stay.expectedArrival && (
+            <span className="text-ink-secondary">· arriving {stay.expectedArrival}</span>
+          )}
         </p>
       </div>
       <div className="flex flex-col items-end gap-1.5 shrink-0">

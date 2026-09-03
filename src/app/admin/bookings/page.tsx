@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
@@ -26,7 +26,6 @@ type Search = {
   client?: string;
   channel?: string;
   status?: string;
-  settle?: string;
 };
 
 export default async function BookingsPage({
@@ -40,15 +39,14 @@ export default async function BookingsPage({
     client = "",
     channel = "",
     status = "",
-    settle = "",
   } = await searchParams;
 
   const supabase = await createClient();
   const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
   if (!user) redirect("/login");
 
-  // Ops runs the same list of stays; the split, the settlement state and the
-  // four money tiles are the owner's. Sale price stays — ops takes the payment.
+  // Ops runs the same list of stays. Nothing on this page is a split any more —
+  // it shows sale price, which ops needs because ops takes the payment.
   const showMoney = canSeeSplit(profile?.role);
 
   const { year, month0 } = parseMonthParam(monthParam);
@@ -65,13 +63,12 @@ export default async function BookingsPage({
   let filter = supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, net_sale, hostello_share, client_payout, settled, share_received, clients:clients_v(name), booking_properties(properties:properties_v(name))"
+      "id, guest_name, guests_count, expected_arrival, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, clients:clients_v(name), booking_properties(properties:properties_v(name))"
     );
 
   filter = status ? filter.eq("status", status) : filter.neq("status", "cancelled");
   if (client) filter = filter.eq("client_id", client);
   if (channel) filter = filter.eq("source", channel);
-  if (settle && showMoney) filter = filter.eq("share_received", settle === "received");
 
   const query = searching
     ? filter.ilike("guest_name", "%" + term + "%").order("check_in", { ascending: false })
@@ -87,13 +84,13 @@ export default async function BookingsPage({
   const totals = rows.reduce(
     (acc, b) => {
       if (b.status === "cancelled") return acc;
-      acc.gross += Number(b.sale_price ?? 0);
-      acc.clientPayout += Number(b.client_payout ?? 0);
-      if (b.share_received) acc.received += Number(b.hostello_share ?? 0);
-      else acc.awaiting += Number(b.hostello_share ?? 0);
+      acc.bookings += 1;
+      // A short stay is stored as one night and is one night here too.
+      acc.nights += nightsBetween(b.check_in, b.check_out);
+      acc.guests += Number(b.guests_count ?? 0);
       return acc;
     },
-    { gross: 0, clientPayout: 0, received: 0, awaiting: 0 }
+    { bookings: 0, nights: 0, guests: 0 }
   );
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
@@ -104,11 +101,10 @@ export default async function BookingsPage({
     if (client) params.set("client", client);
     if (channel) params.set("channel", channel);
     if (status) params.set("status", status);
-    if (settle) params.set("settle", settle);
     return `/admin/bookings?${params.toString()}`;
   }
 
-  const filtered = Boolean(client || channel || status || settle);
+  const filtered = Boolean(client || channel || status);
   const scopeLabel = searching
     ? `All dates matching “${term}”`
     : formatMonthLabel(year, month0);
@@ -129,8 +125,6 @@ export default async function BookingsPage({
           client={client}
           channel={channel}
           status={status}
-          settle={settle}
-          showSettlement={showMoney}
         />
         {!searching && (
           <div className="flex items-center gap-0.5 p-1 rounded-xl bg-surface-2/60 border border-border-hairline shrink-0">
@@ -155,38 +149,31 @@ export default async function BookingsPage({
         )}
       </div>
 
-      {showMoney && (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-        {/* Each tile is lit by the colour of the figure it carries, so the two
-            that matter — what is owed and what is in hand — read first. */}
+      {/* Three counts about the stays on screen, not a ledger. What is owed in
+          either direction, and what has been settled, live on
+          /admin/settlements — this page is the list of bookings. */}
+      <div className="grid grid-cols-3 gap-3 md:gap-4">
         {[
           {
-            label: "Gross revenue",
-            value: formatPKR(totals.gross),
+            label: "Bookings",
+            value: String(totals.bookings),
             ink: "text-ink-primary",
             tint: "var(--color-hostello-purple-glow)",
             icon: null,
           },
           {
-            label: "Client payouts",
-            value: formatPKR(totals.clientPayout),
+            label: "Nights",
+            value: String(totals.nights),
             ink: "text-ink-primary",
             tint: "var(--color-channel-booking)",
-            icon: null,
+            icon: <CalendarDays size={12} />,
           },
           {
-            label: "Owed to Hostello",
-            value: formatPKR(totals.awaiting),
-            ink: "text-status-pending",
-            tint: "var(--color-status-pending)",
-            icon: <Clock size={12} />,
-          },
-          {
-            label: "Received (cash in hand)",
-            value: formatPKR(totals.received),
-            ink: "text-financial",
+            label: "Guests expected",
+            value: String(totals.guests),
+            ink: "text-ink-primary",
             tint: "var(--color-hostello-gold)",
-            icon: <CheckCircle2 size={12} />,
+            icon: <Users size={12} />,
           },
         ].map((t) => (
           <div key={t.label} className="card card-hover overflow-hidden relative p-4 md:p-5">
@@ -207,7 +194,6 @@ export default async function BookingsPage({
           </div>
         ))}
       </div>
-      )}
 
       {rows.length === 0 && (
         <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
@@ -238,14 +224,7 @@ export default async function BookingsPage({
                   <th className="px-4 py-3 font-normal">Guest</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Channel</th>
-                  {showMoney ? (
-                    <>
-                      <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Hostello</th>
-                      <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Client</th>
-                    </>
-                  ) : (
-                    <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Total</th>
-                  )}
+                  <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Total</th>
                   <th className="px-4 py-3 font-normal hidden md:table-cell">Status</th>
                   {/* Fixed layout on a phone: this width is what leaves the guest
                       column the rest of the card instead of overflowing it. */}
@@ -280,25 +259,13 @@ export default async function BookingsPage({
                           "text-status-pending border-status-pending/40 bg-status-pending/10",
                           "bg-status-pending"
                         )
-                      : // Settled / awaiting is the split's own story. Ops sees the
-                        // booking's state instead.
-                        !showMoney
-                        ? pill(
-                            "Confirmed",
-                            "text-positive border-positive/40 bg-positive/10",
-                            "bg-positive"
-                          )
-                        : b.share_received
-                          ? pill(
-                              "Received",
-                              "text-hostello-gold border-hostello-gold/40 bg-hostello-gold/10",
-                              "bg-hostello-gold"
-                            )
-                          : pill(
-                              "Awaiting",
-                              "text-ink-secondary border-border-hairline bg-surface-3/60",
-                              "bg-ink-muted"
-                            );
+                      : // The booking's own state. Whether either side has been
+                        // settled is the ledger's story, told on /admin/settlements.
+                        pill(
+                          "Confirmed",
+                          "text-positive border-positive/40 bg-positive/10",
+                          "bg-positive"
+                        );
                   return (
                     <tr
                       key={b.id}
@@ -333,9 +300,7 @@ export default async function BookingsPage({
                                       b.check_out
                                     )} (${nights}n)`}
                               </span>
-                              <span className="text-financial">
-                                {formatPKR(showMoney ? b.hostello_share : b.sale_price)}
-                              </span>
+                              <span className="text-financial">{formatPKR(b.sale_price)}</span>
                               {statusNode}
                             </span>
                           </span>
@@ -358,20 +323,10 @@ export default async function BookingsPage({
                           {sourceLabel(b.source) ?? b.source}
                         </span>
                       </td>
-                      {showMoney ? (
-                        <>
-                          <td className="px-4 py-3 text-right text-financial whitespace-nowrap hidden md:table-cell">
-                            {formatPKR(b.hostello_share)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-ink-secondary whitespace-nowrap hidden md:table-cell">
-                            {formatPKR(b.client_payout)}
-                          </td>
-                        </>
-                      ) : (
-                        <td className="px-4 py-3 text-right text-ink-primary whitespace-nowrap hidden md:table-cell">
-                          {formatPKR(b.sale_price)}
-                        </td>
-                      )}
+                      {/* Sale price only. The split behind it is on /admin/settlements. */}
+                      <td className="px-4 py-3 text-right text-ink-primary whitespace-nowrap hidden md:table-cell">
+                        {formatPKR(b.sale_price)}
+                      </td>
                       <td className="px-4 py-3 hidden md:table-cell">{statusNode}</td>
                       <td className="px-4 py-3 text-right">
                         {cancelled ? (

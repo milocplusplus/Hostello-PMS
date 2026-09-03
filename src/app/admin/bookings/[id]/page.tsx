@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { CalendarDays, Phone, Users, StickyNote } from "lucide-react";
+import { CalendarDays, Clock, Phone, Users, StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { DEAL_MODELS, formatPKR, isOtaSource, isPassThroughSource, nightsBetween } from "@/lib/payout";
-import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
+import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
@@ -17,8 +17,11 @@ import { listReceipts } from "@/lib/receipts";
 import { GuestIdCards } from "@/components/shared/GuestIdCards";
 import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
+import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import {
   markStayProgress,
+  changeBookingDates,
+  moveBookingUnits,
   cancelBooking,
   uploadBookingReceipt,
   deleteBookingReceipt,
@@ -56,16 +59,24 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, is_short_stay, short_stay_start, short_stay_end, ota_model_snapshot, ota_share_percent_snapshot, stack_rate_snapshot, net_sale, hostello_share, client_payout, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
 
   if (!booking) notFound();
 
-  const [receipts, guestIds] = await Promise.all([
+  // Every unit this booking could move to. Scoped to its own client, because
+  // `updateBooking` refuses a mix and there is no point offering the refusal.
+  const [receipts, guestIds, { data: clientUnits }] = await Promise.all([
     listReceipts(supabase, booking.id),
     listGuestIds(supabase, booking.id),
+    supabase
+      .from("properties_v")
+      .select("id, name")
+      .eq("client_id", booking.client_id)
+      .eq("status", "active")
+      .order("name"),
   ]);
 
   const client = booking.clients as unknown as { name: string } | null;
@@ -78,22 +89,7 @@ export default async function BookingDetailPage({
   const nights = nightsBetween(booking.check_in, booking.check_out);
   const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
-  const deductPct = Number(booking.deduct_percent_snapshot ?? 0);
-  const deduction = gross - Number(booking.net_sale ?? gross);
   const advance = Number(booking.advance_received ?? 0);
-  // OTA bookings settle on their own per-client terms, not the deal model.
-  const otaSnapshot = isOtaSource(booking.source) ? booking.ota_model_snapshot : null;
-  const dealLabel = isPassThroughSource(booking.source)
-    ? `${sourceLabel(booking.source) ?? booking.source} — Hostello earns nothing`
-    : otaSnapshot
-    ? otaSnapshot === "none"
-      ? "Airbnb / Booking.com — Hostello earns nothing"
-      : otaSnapshot === "percent"
-        ? `Airbnb / Booking.com — ${booking.ota_share_percent_snapshot}% share`
-        : "Airbnb / Booking.com — stack rate"
-    : (DEAL_MODELS.find((d) => d.value === booking.deal_model_snapshot)?.label ??
-      booking.deal_model_snapshot ??
-      "—");
 
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">
@@ -171,9 +167,21 @@ export default async function BookingDetailPage({
 
           <div className="mt-4 flex flex-col gap-1.5 text-xs text-ink-secondary">
             {booking.guest_phone && (
-              <span className="flex items-center gap-2">
+              // Tap to call, or open WhatsApp — the two ways anyone here
+              // actually reaches a guest. No messaging system behind it.
+              <span className="flex items-center gap-2 flex-wrap">
                 <Phone size={12} className="text-ink-muted" />
-                {booking.guest_phone}
+                <a href={`tel:${booking.guest_phone}`} className="hover:text-ink-primary transition-colors">
+                  {booking.guest_phone}
+                </a>
+                <a
+                  href={`https://wa.me/${booking.guest_phone.replace(/[^0-9]/g, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-ink-muted hover:text-hostello-gold transition-colors"
+                >
+                  WhatsApp
+                </a>
               </span>
             )}
             {booking.guests_count != null && (
@@ -182,38 +190,38 @@ export default async function BookingDetailPage({
                 {booking.guests_count} {booking.guests_count === 1 ? "guest" : "guests"}
               </span>
             )}
+            {/* A short stay's hours are already on the dates line above. */}
+            {!shortStay && (booking.expected_arrival || booking.expected_departure) && (
+              <span className="flex items-center gap-2">
+                <Clock size={12} className="text-ink-muted" />
+                {booking.expected_arrival
+                  ? `Arriving ${hhmm(booking.expected_arrival)}`
+                  : "Arrival time not given"}
+                {booking.expected_departure && ` · leaving ${hhmm(booking.expected_departure)}`}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Ops is told what the guest owes and what they have paid — the split
-            behind it, and the deal that produced it, are the owner's. */}
-        {!showMoney ? (
-          <div className="card p-5">
-            <h2 className="eyebrow mb-3">Payment</h2>
-            <Line label="Sale price" value={formatPKR(gross)} />
-            <Line label="Advance received" value={formatPKR(booking.advance_received)} />
-            <Line label="Balance due" value={formatPKR(Math.max(0, gross - advance))} gold />
-          </div>
-        ) : (
+        {/* What the guest owes and what they have handed over — the same card
+            for both staff roles now. The split behind it, the deal that
+            produced it and whether either side has been settled all live on
+            /admin/settlements, next to the payments that prove them. A booking
+            is the stay; it is not the ledger. */}
         <div className="card p-5">
-          <h2 className="eyebrow mb-1.5">Payout</h2>
-          <p className="text-[11px] text-ink-muted mb-3">{dealLabel} — terms as of booking</p>
-
+          <h2 className="eyebrow mb-3">Payment</h2>
           <Line label="Sale price" value={formatPKR(gross)} />
-          {deduction > 0 && (
-            <Line label={`Deduction (${deductPct}%)`} value={`− ${formatPKR(deduction)}`} />
+          <Line label="Advance received" value={formatPKR(booking.advance_received)} />
+          <Line label="Balance due" value={formatPKR(Math.max(0, gross - advance))} gold />
+          {showMoney && (
+            <Link
+              href="/admin/settlements"
+              className="mt-3 inline-block text-xs text-ink-muted hover:text-hostello-gold transition-colors"
+            >
+              Split and settlement →
+            </Link>
           )}
-          <Line label="Net sale" value={formatPKR(booking.net_sale)} />
-          <Line label="Hostello share" value={formatPKR(booking.hostello_share)} gold />
-          <Line label="Client payout" value={formatPKR(booking.client_payout)} />
-          {Number(booking.advance_received ?? 0) > 0 && (
-            <Line label="Advance received" value={formatPKR(booking.advance_received)} />
-          )}
-          {/* Two settlements ride on this booking and neither is shown here on
-              purpose: each is closed by the side that receives the money, and
-              both live on /admin/settlements where the payment proving it does. */}
         </div>
-        )}
       </div>
 
       {booking.status !== "cancelled" && (
@@ -222,6 +230,19 @@ export default async function BookingDetailPage({
           checkedInAt={booking.checked_in_at}
           checkedOutAt={booking.checked_out_at}
           action={markStayProgress}
+        />
+      )}
+
+      {booking.status !== "cancelled" && (
+        <BookingQuickTools
+          bookingId={booking.id}
+          checkIn={booking.check_in}
+          checkOut={booking.check_out}
+          isShortStay={Boolean(shortStay)}
+          units={clientUnits ?? []}
+          currentUnitIds={units.map((u) => u.id)}
+          changeDatesAction={changeBookingDates}
+          moveUnitsAction={moveBookingUnits}
         />
       )}
 

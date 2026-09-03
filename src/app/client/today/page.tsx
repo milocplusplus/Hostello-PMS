@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, BedDouble, Wallet, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { rowShortStay, departureDate } from "@/lib/short-stay";
+import { hhmm, rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR, PASS_THROUGH_SOURCES } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
@@ -24,6 +24,7 @@ type Row = {
   is_short_stay: boolean;
   short_stay_start: string | null;
   short_stay_end: string | null;
+  expected_arrival: string | null;
   booking_properties: unknown;
 };
 
@@ -44,7 +45,7 @@ export default async function ClientTodayPage() {
 
   const today = todayISO();
   const fields =
-    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))";
+    "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, settled, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, expected_arrival, booking_properties(properties(name))";
 
   const [{ data: stays }, { data: unsettled }, { data: blocks }] = await Promise.all([
     supabase
@@ -88,6 +89,7 @@ export default async function ClientTodayPage() {
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
     shortStay: rowShortStay(b),
+    expectedArrival: b.expected_arrival ? hhmm(b.expected_arrival) : null,
   });
 
   const rows = (stays ?? []) as unknown as Row[];

@@ -49,6 +49,7 @@ type ClientTerms = {
 export type BookingFormValues = {
   guestName: string | null;
   guestPhone: string | null;
+  guestsCount: number | null;
   salePrice: number;
   advance: number;
   source: string;
@@ -57,6 +58,9 @@ export type BookingFormValues = {
   extraUnitIds: string[];
   /** Set only when the booking is hours rather than nights. */
   shortStay: { start: string; end: string } | null;
+  /** When the guest says they will turn up and leave. Null = not told us. */
+  expectedArrival: string | null;
+  expectedDeparture: string | null;
 };
 
 export function BookingForm({
@@ -340,18 +344,68 @@ export function BookingForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="guest_name" className={fieldLabel}>
-          Guest name (optional)
-        </label>
-        <input
-          id="guest_name"
-          name="guest_name"
-          placeholder="Optional"
-          defaultValue={values?.guestName ?? ""}
-          className={fieldInput}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="guest_name" className={fieldLabel}>
+            Guest name (optional)
+          </label>
+          <input
+            id="guest_name"
+            name="guest_name"
+            placeholder="Optional"
+            defaultValue={values?.guestName ?? ""}
+            className={fieldInput}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="guests_count" className={fieldLabel}>
+            Guests
+          </label>
+          <input
+            id="guests_count"
+            name="guests_count"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="How many are coming"
+            defaultValue={values?.guestsCount ?? ""}
+            className={fieldInput}
+          />
+        </div>
       </div>
+
+      {/* A short stay already states its hours above; these are for a stay
+          measured in nights, where the date says nothing about whether they
+          land at 2pm or 2am. Empty means they have not told us, and the
+          booking says exactly that rather than inventing a standard time. */}
+      {!shortStay && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="expected_arrival" className={fieldLabel}>
+              Expected arrival (optional)
+            </label>
+            <input
+              id="expected_arrival"
+              name="expected_arrival"
+              type="time"
+              defaultValue={values?.expectedArrival ?? ""}
+              className={fieldInput}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="expected_departure" className={fieldLabel}>
+              Expected departure (optional)
+            </label>
+            <input
+              id="expected_departure"
+              name="expected_departure"
+              type="time"
+              defaultValue={values?.expectedDeparture ?? ""}
+              className={fieldInput}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="guest_ids" className={fieldLabel}>

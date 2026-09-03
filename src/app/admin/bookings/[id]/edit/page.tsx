@@ -5,7 +5,7 @@ import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { updateBooking } from "../../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
-import { rowShortStay } from "@/lib/short-stay";
+import { hhmm, rowShortStay } from "@/lib/short-stay";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function EditBookingPage({
@@ -24,7 +24,7 @@ export default async function EditBookingPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, client_id, guest_name, guest_phone, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
+      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -107,6 +107,9 @@ export default async function EditBookingPage({
         values={{
           guestName: booking.guest_name,
           guestPhone: booking.guest_phone,
+          guestsCount: booking.guests_count,
+          expectedArrival: booking.expected_arrival ? hhmm(booking.expected_arrival) : null,
+          expectedDeparture: booking.expected_departure ? hhmm(booking.expected_departure) : null,
           salePrice: Number(booking.sale_price ?? 0),
           advance: Number(booking.advance_received ?? 0),
           source: booking.source,

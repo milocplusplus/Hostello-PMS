@@ -18,7 +18,8 @@ import {
   GUEST_ID_BUCKET,
 } from "@/lib/guest-ids";
 import { describeBookingChanges } from "@/lib/booking-changes";
-import { readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
+import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
+import { readBookingDetails } from "@/lib/booking-details";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -37,6 +38,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const details = readBookingDetails(formData);
 
   const { shortStay, error: shortStayError } = readShortStay(formData);
   if (shortStayError) return { error: shortStayError };
@@ -134,6 +136,9 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
+      guests_count: details.guestsCount,
+      expected_arrival: details.expectedArrival,
+      expected_departure: details.expectedDeparture,
       notes,
       entered_by: user?.id ?? null,
     })
@@ -212,6 +217,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
   const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
+  const details = readBookingDetails(formData);
 
   const { shortStay, error: shortStayError } = readShortStay(formData);
   if (shortStayError) back(shortStayError);
@@ -309,6 +315,9 @@ export async function updateClientBooking(id: string, formData: FormData) {
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
+      guests_count: details.guestsCount,
+      expected_arrival: details.expectedArrival,
+      expected_departure: details.expectedDeparture,
       notes,
       updated_at: updatedAt,
     })
@@ -510,4 +519,74 @@ export async function cancelClientBooking(formData: FormData) {
     // The admins' bell and activity feed are what this is for.
     revalidatePath("/admin", "layout");
   }
+}
+
+/**
+ * The owner's side of the same two quick actions. Same reasoning as the admin
+ * copy: rebuild the form `updateClientBooking` expects and change one field, so
+ * the clash check and the payout recalculation stay in one place rather than
+ * being restated here.
+ */
+async function editExistingClientBooking(id: string, change: (form: FormData) => void) {
+  const supabase = await createClient();
+
+  const { data: row } = await supabase
+    .from("bookings_v")
+    .select(
+      "guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!row) redirect("/client/bookings");
+
+  const form = new FormData();
+  for (const bp of (row.booking_properties as unknown as { property_id: string }[]) ?? []) {
+    form.append("property_ids", bp.property_id);
+  }
+  form.set("check_in", row.check_in);
+  form.set("check_out", row.check_out);
+  form.set("guest_name", row.guest_name ?? "");
+  form.set("guest_phone", row.guest_phone ?? "");
+  form.set("guests_count", row.guests_count == null ? "" : String(row.guests_count));
+  form.set("expected_arrival", row.expected_arrival ? hhmm(row.expected_arrival) : "");
+  form.set("expected_departure", row.expected_departure ? hhmm(row.expected_departure) : "");
+  form.set("source", row.source);
+  form.set("status", row.status);
+  form.set("sale_price", String(row.sale_price ?? 0));
+  form.set("advance_received", String(row.advance_received ?? 0));
+  form.set("notes", row.notes ?? "");
+  if (row.is_short_stay) {
+    form.set("is_short_stay", "1");
+    form.set("short_stay_start", hhmm(row.short_stay_start as string));
+    form.set("short_stay_end", hhmm(row.short_stay_end as string));
+  }
+
+  change(form);
+  await updateClientBooking(id, form);
+}
+
+/** Move or extend a stay in place. A short stay keeps its hours and its date. */
+export async function changeClientBookingDates(formData: FormData) {
+  const id = formData.get("id") as string;
+  const checkIn = (formData.get("check_in") as string) || "";
+  const checkOut = (formData.get("check_out") as string) || "";
+
+  await editExistingClientBooking(id, (form) => {
+    if (checkIn) form.set("check_in", checkIn);
+    if (checkOut && !form.get("is_short_stay")) form.set("check_out", checkOut);
+  });
+}
+
+/** Swap the booking onto different units of their own. */
+export async function moveClientBookingUnits(formData: FormData) {
+  const id = formData.get("id") as string;
+  const propertyIds = formData.getAll("property_ids") as string[];
+
+  await editExistingClientBooking(id, (form) => {
+    if (propertyIds.length > 0) {
+      form.delete("property_ids");
+      for (const pid of propertyIds) form.append("property_ids", pid);
+    }
+  });
 }

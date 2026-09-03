@@ -1,6 +1,44 @@
 # State — updated 2026-09-03
 
 ## Done
+- **A booking is the stay, not the ledger** (2026-09-03). `npm run build` and
+  `npm run lint` clean. The booking pages and Settlements were telling the same
+  money story twice; the booking pages now carry the stay and the tools, and the
+  split lives in one place.
+  - Migration `add_booking_expected_arrival_departure`: `bookings.expected_arrival`
+    / `expected_departure`, nullable `time`. **Applied to the live DB.** Two
+    traps, both now in context.md's gotchas: grants on `bookings` are
+    **column-level**, so a new column arrives with no privileges and needs an
+    explicit grant; and `bookings_v` had to be **recreated**, because a view does
+    not pick up new base-table columns. Both new columns pass through unmasked —
+    an arrival time is not a split, and ops needs it.
+  - **`guests_count` was never settable.** The column existed and both detail
+    pages rendered it, but no form wrote it, so it was always null. `BookingForm`
+    now carries it, next to the two new time fields (hidden for a short stay,
+    whose hours already say when they arrive).
+  - `src/lib/booking-details.ts` — `readBookingDetails()`, used by all four write
+    paths. An empty time input posts `""`, which is not a valid `time`; coercing
+    it to null once beats getting it right at four call sites.
+  - **Money off the booking pages.** Both detail pages show one Payment card —
+    sale price, advance, balance due — the same for every role, and link out to
+    Settlements. Gone: the payout breakdown, the four money KPI tiles on the
+    admin list, the Hostello/Client columns, the settlement status pill and the
+    `?settle=` filter (with its select in `BookingFilters`). Sale price stays
+    because ops takes payment at the door. The admin list's tiles are now
+    Bookings / Nights / Guests expected; the client list's second tile is Nights.
+  - **Booking management tools** (`BookingQuickTools`, shared by both portals):
+    change dates / extend, move to a different unit, and tap-to-call / WhatsApp
+    off the stored phone. The first two **carry no rules of their own** — they
+    rebuild the form the existing `updateBooking` / `updateClientBooking`
+    expects, change one field and hand it over, so the clash check, the
+    same-client rule and the payout recalculation are the ones the edit form
+    already runs. Dates and units both move the payout (nights, stack rates), and
+    a shortcut that skipped the recalculation would leave the split quietly
+    wrong. `<details>`, not a modal — nothing here needs to run in the browser.
+  - The day sheet and both check-in boards now show "· arriving 14:00" on a
+    night stay. That was the whole point of the field.
+  - **Not verified in a browser**: no `.env.local` on this machine. Build, lint,
+    and the live schema/grants read back.
 - **Settlements: both directions** (2026-09-03). `npm run build` and
   `npm run lint` clean. Payouts were half a feature: what an owner owed Hostello
   had a whole review flow, what Hostello owed an owner had a checkbox on the
@@ -502,6 +540,23 @@
 Vercel project `hostello-pms` (`prj_HRnVSD9I0OnA2oINYxplGp9KRYsM`, team
 `team_mSNnhApqjbhfTQv1bDziZKMp`) is now **connected to
 `milocplusplus/Hostello-PMS`, production branch `main`** — pushing to main deploys.
+
+**Settlements (both directions) shipped 2026-09-03 as
+`dpl_GfM79EbN6sLwkdqsZR1ChPzhh5tH`** (READY, production, commit `9934aaf`, built
+in 40s, region `syd1`). The production build log carries all four routes —
+`/admin/settlements`, `/client/settlements`, and `/{admin,client}/payouts` still
+present as the redirect stubs, so existing notification hrefs keep landing.
+Previous production deploy `dpl_6M4MV93SYHPfLT2ccnUiWNcnjjEY` is the rollback
+candidate; the migrations are additive and would not need reverting with it.
+**The three migrations were applied to the live DB hours before the code
+shipped**, so production ran the old code against the new schema in between.
+That was safe *here* only because every change was additive — a new table, new
+RPCs, one new nullable-with-default column. It is the same ordering trap as the
+paused-project note below: apply-then-deploy is only safe when the old code
+cannot notice the schema change.
+**Not verified signed in.** The routes are in the build output and the
+deployment is aliased, but no settlement flow has been clicked through in a
+browser — there is no `.env.local` or portal credential on this machine.
 Phase 2 + 3 shipped as `dpl_7JfmujCpqA8LueTG5gujr3VhiucB` (READY, production) on
 `hostello-pms.vercel.app`.
 

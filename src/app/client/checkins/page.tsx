@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { LogIn, LogOut, TriangleAlert, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { rowShortStay, departureDate } from "@/lib/short-stay";
+import { hhmm, rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
 import { todayISO, addDaysISO, formatFullDate } from "@/lib/calendar";
 import { StaySection, type TodayStay } from "@/components/shared/TodayBoard";
@@ -27,6 +27,7 @@ type Row = {
   is_short_stay: boolean;
   short_stay_start: string | null;
   short_stay_end: string | null;
+  expected_arrival: string | null;
   booking_properties: unknown;
 };
 
@@ -45,7 +46,7 @@ export default async function ClientCheckInsPage() {
   const { data } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, booking_properties(properties(name))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, client_payout, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, expected_arrival, booking_properties(properties(name))"
     )
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
@@ -74,6 +75,7 @@ export default async function ClientCheckInsPage() {
     checkedInAt: b.checked_in_at,
     checkedOutAt: b.checked_out_at,
     shortStay: rowShortStay(b),
+    expectedArrival: b.expected_arrival ? hhmm(b.expected_arrival) : null,
   });
 
   const rows = ((data ?? []) as unknown as Row[]).map(toStay);
