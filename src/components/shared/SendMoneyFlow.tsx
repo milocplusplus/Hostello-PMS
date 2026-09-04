@@ -146,6 +146,13 @@ export function SendMoneyFlow({
     setStage("review");
   }
 
+  function chooseMethod(next: PayoutMethod) {
+    setMethod(next);
+    // Every warning this stage can raise is about the method that raised it —
+    // "attach a screenshot" is nonsense the moment cash is picked.
+    setWarning(null);
+  }
+
   function back() {
     setWarning(null);
     setStage(stage === "review" ? "details" : "amount");
@@ -227,7 +234,7 @@ export function SendMoneyFlow({
               <button
                 key={m.value}
                 type="button"
-                onClick={() => setMethod(m.value)}
+                onClick={() => chooseMethod(m.value)}
                 aria-pressed={method === m.value}
                 className={`flex-1 text-xs rounded-md border px-3 py-2.5 transition-colors ${
                   method === m.value

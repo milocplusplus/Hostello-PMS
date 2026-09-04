@@ -66,8 +66,9 @@ export function PayoutReceipt(props: ReceiptProps) {
         type: "image/png",
       });
 
-      // On a phone this hands the receipt straight to WhatsApp, which is where
-      // it is actually going. Everywhere else it is a download.
+      // Wherever the browser can share files — phones, and desktop Chrome on
+      // Windows — this hands the receipt to WhatsApp or the OS share sheet.
+      // Everywhere else it falls back to a download.
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title: "Hostello payment receipt" });
         return;
