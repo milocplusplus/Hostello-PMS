@@ -18,6 +18,8 @@ import { GuestIdCards } from "@/components/shared/GuestIdCards";
 import { listGuestIds } from "@/lib/guest-ids";
 import { StayProgressCard } from "@/components/shared/StayProgress";
 import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
+import { GuestMessages } from "@/components/shared/GuestMessages";
+import { waPhone } from "@/lib/guest-messages";
 import {
   cancelClientBooking,
   markClientStayProgress,
@@ -89,6 +91,9 @@ export default async function ClientBookingDetailPage({
   const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
   const advance = Number(booking.advance_received ?? 0);
+  const balanceDue = Math.max(0, gross - advance);
+  // Null when nothing dialable is stored, which is what hides the WhatsApp link.
+  const guestWa = waPhone(booking.guest_phone);
 
   return (
     <div className="max-w-3xl mx-auto flex flex-col gap-5">
@@ -149,14 +154,16 @@ export default async function ClientBookingDetailPage({
                 <a href={`tel:${booking.guest_phone}`} className="hover:text-ink-primary transition-colors">
                   {booking.guest_phone}
                 </a>
-                <a
-                  href={`https://wa.me/${booking.guest_phone.replace(/[^0-9]/g, "")}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-ink-muted hover:text-hostello-gold transition-colors"
-                >
-                  WhatsApp
-                </a>
+                {guestWa && (
+                  <a
+                    href={`https://wa.me/${guestWa}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-ink-muted hover:text-hostello-gold transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                )}
               </span>
             )}
             {!shortStay && (booking.expected_arrival || booking.expected_departure) && (
@@ -187,7 +194,7 @@ export default async function ClientBookingDetailPage({
 
           <Line label="Sale price" value={formatPKR(gross)} />
           <Line label="Advance received" value={formatPKR(booking.advance_received)} />
-          <Line label="Balance due" value={formatPKR(Math.max(0, gross - advance))} gold />
+          <Line label="Balance due" value={formatPKR(balanceDue)} gold />
           <Link
             href="/client/settlements"
             className="mt-3 inline-block text-xs text-ink-muted hover:text-hostello-gold transition-colors"
@@ -196,6 +203,23 @@ export default async function ClientBookingDetailPage({
           </Link>
         </div>
       </div>
+
+      {/* A cancelled stay has no arrival to explain and no balance to chase. */}
+      {booking.status !== "cancelled" && (
+        <GuestMessages
+          phone={booking.guest_phone}
+          context={{
+            guestName: booking.guest_name,
+            unitNames: units.map((u) => u.name),
+            checkIn: booking.check_in,
+            checkOut: booking.check_out,
+            balanceDue,
+            expectedArrival: booking.expected_arrival,
+            expectedDeparture: booking.expected_departure,
+            shortStay,
+          }}
+        />
+      )}
 
       {booking.status !== "cancelled" && (
         <StayProgressCard
