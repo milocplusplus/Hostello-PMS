@@ -35,14 +35,14 @@ export default async function ClientStatsPage({
       .eq("client_id", clientRecord.id)
       .eq("status", "confirmed")
       .lte("check_in", period.end)
-      .gte("check_out", period.start),
+      .gt("check_out", period.start),
     supabase
       .from("bookings_v")
       .select("sale_price")
       .eq("client_id", clientRecord.id)
       .eq("status", "confirmed")
       .lte("check_in", period.prevEnd)
-      .gte("check_out", period.prevStart),
+      .gt("check_out", period.prevStart),
   ]);
 
   const rows = (bookings ?? []) as StatsBooking[];

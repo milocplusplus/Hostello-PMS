@@ -70,9 +70,12 @@ export default async function BookingsPage({
   if (client) filter = filter.eq("client_id", client);
   if (channel) filter = filter.eq("source", channel);
 
+  // check_out is exclusive, so the last night is check_out - 1 and a stay
+  // overlaps the month only when check_out > monthStart. With `gte` a stay
+  // ending on the 1st was counted in full in both months.
   const query = searching
     ? filter.ilike("guest_name", "%" + term + "%").order("check_in", { ascending: false })
-    : filter.lte("check_in", monthEnd).gte("check_out", monthStart).order("check_in");
+    : filter.lte("check_in", monthEnd).gt("check_out", monthStart).order("check_in");
 
   const [{ data: bookings }, { data: clientOptions }] = await Promise.all([
     query,

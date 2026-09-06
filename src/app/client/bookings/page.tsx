@@ -48,7 +48,7 @@ export default async function ClientBookingsPage({
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
     .lte("check_in", monthEnd)
-    .gte("check_out", monthStart)
+    .gt("check_out", monthStart)
     .order("check_in");
 
   // Counts about the stays, not a ledger: your payout and whether it has

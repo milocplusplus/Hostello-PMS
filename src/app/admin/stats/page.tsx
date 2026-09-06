@@ -31,13 +31,13 @@ export default async function AdminStatsPage({
     .select("check_in, check_out, source, sale_price, hostello_share, client_payout")
     .eq("status", "confirmed")
     .lte("check_in", period.end)
-    .gte("check_out", period.start);
+    .gt("check_out", period.start);
   let prevQuery = supabase
     .from("bookings_v")
     .select("sale_price")
     .eq("status", "confirmed")
     .lte("check_in", period.prevEnd)
-    .gte("check_out", period.prevStart);
+    .gt("check_out", period.prevStart);
   if (client) {
     windowQuery = windowQuery.eq("client_id", client);
     prevQuery = prevQuery.eq("client_id", client);

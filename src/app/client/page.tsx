@@ -107,14 +107,14 @@ export default async function ClientDashboard({
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", monthEnd)
-      .gte("check_out", monthStart),
+      .gt("check_out", monthStart),
     supabase
       .from("bookings_v")
       .select("sale_price, client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", prevEnd)
-      .gte("check_out", prevStart),
+      .gt("check_out", prevStart),
     supabase
       .from("bookings_v")
       .select(bookingFields)
@@ -134,18 +134,19 @@ export default async function ClientDashboard({
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", period.end)
-      .gte("check_out", period.start),
+      .gt("check_out", period.start),
     supabase
       .from("bookings_v")
       .select("client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .lte("check_in", period.prevEnd)
-      .gte("check_out", period.prevStart),
+      .gt("check_out", period.prevStart),
   ]);
 
   // ── Money ──────────────────────────────────────────────────────────────────
-  // Same overlap window the Bookings & Payouts page uses, so the two never disagree.
+  // Same overlap window the Bookings & Payouts page uses, so the two never
+  // disagree — check_out is exclusive, so overlap is check_out > start.
   const rows = (monthBookings ?? []) as unknown as BookingRow[];
   const grossThisMonth = rows.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const payoutThisMonth = rows.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
