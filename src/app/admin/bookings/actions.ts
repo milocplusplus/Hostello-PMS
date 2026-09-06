@@ -26,7 +26,8 @@ import {
   notifyStayProgress,
 } from "@/lib/notify";
 import { findStayClash } from "@/lib/availability";
-import { payoutReader } from "@/lib/payout-inputs";
+import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
+import { requireStaff } from "@/lib/auth";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
 import { describeBookingChanges } from "@/lib/booking-changes";
@@ -38,6 +39,10 @@ type SaveResult = { error: string } | { clientId: string; bookingId: string };
  * the full page and the calendar's quick-add modal can use it.
  */
 async function saveBooking(formData: FormData): Promise<SaveResult> {
+  // The booking is written with the service-role key, which RLS does not apply
+  // to, so staff has to be established here rather than by the write refusing.
+  await requireStaff();
+
   const client_id = formData.get("client_id") as string;
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
@@ -140,7 +145,13 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   // return nothing for them.
   const bookingId = randomUUID();
 
-  const { error } = await supabase
+  // The split goes in with the server's own credentials, not the caller's —
+  // `bookingWriter` explains why a column grant cannot do this job. `requireStaff`
+  // above is what stands in for the RLS this write no longer passes through.
+  const writer = bookingWriter();
+  if (!writer.ok) return { error: writer.error };
+
+  const { error } = await writer.client
     .from("bookings")
     .insert({
       id: bookingId,
@@ -254,6 +265,10 @@ export async function createBookingInline(formData: FormData) {
  * that does move, because it belongs to the units and the units can change.
  */
 export async function updateBooking(id: string, formData: FormData) {
+  // Same reason as `saveBooking`: the split is rewritten with the service-role
+  // key, so RLS is not the thing keeping a client out of this endpoint.
+  await requireStaff();
+
   // Annotated on the const, not just the arrow: that is what lets TypeScript
   // treat a `back(...)` call as terminating and narrow what follows it.
   // A quick tool on the booking page wants its clash reported where it was
@@ -352,7 +367,10 @@ export async function updateBooking(id: string, formData: FormData) {
 
   const updatedAt = new Date().toISOString();
 
-  const { error } = await supabase
+  const writer = bookingWriter();
+  if (!writer.ok) back(writer.error);
+
+  const { error } = await writer.client
     .from("bookings")
     .update({
       guest_name,

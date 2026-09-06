@@ -20,6 +20,7 @@ import {
 import { describeBookingChanges } from "@/lib/booking-changes";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
+import { bookingWriter } from "@/lib/payout-inputs";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -112,7 +113,14 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
     status: status as "confirmed" | "tentative" | "cancelled",
   });
 
-  const { data: newBooking, error } = await supabase
+  // The split is written with the server's own credentials — see
+  // `bookingWriter`. RLS does not apply to it, which is safe here only because
+  // the two checks above already proved this client record and every one of
+  // these units belong to the caller.
+  const writer = bookingWriter();
+  if (!writer.ok) return { error: writer.error };
+
+  const { data: newBooking, error } = await writer.client
     .from("bookings")
     .insert({
       client_id,
@@ -305,7 +313,12 @@ export async function updateClientBooking(id: string, formData: FormData) {
 
   const updatedAt = new Date().toISOString();
 
-  const { error } = await supabase
+  // Ownership of this booking and of every unit on it was established above;
+  // this write skips RLS, so those checks are the only thing standing in for it.
+  const writer = bookingWriter();
+  if (!writer.ok) back(writer.error);
+
+  const { error } = await writer.client
     .from("bookings")
     .update({
       guest_name,

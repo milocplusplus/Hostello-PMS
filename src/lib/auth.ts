@@ -71,6 +71,24 @@ export async function requireOwner(): Promise<CurrentProfile> {
   return profile;
 }
 
+/**
+ * Guard for a Server Action only Hostello staff may run. Ops is staff here —
+ * the split is what ops is kept away from, not the stay.
+ *
+ * A `layout.tsx` guards a page render, not an action: an action is its own
+ * endpoint and can be POSTed by anyone signed in. That mattered less while
+ * every booking write went through RLS, which refused a client writing another
+ * client's row on its own. The money columns are now written with the
+ * service-role key, which RLS does not apply to, so this is the check that
+ * replaces it — see `bookingWriter()`.
+ */
+export async function requireStaff(): Promise<CurrentProfile> {
+  const profile = await currentProfile();
+  if (!profile) redirect("/login");
+  if (!isStaffRole(profile.role)) redirect("/client");
+  return profile;
+}
+
 export type CurrentClient = {
   id: string;
   name: string;
