@@ -21,6 +21,7 @@ import { describeBookingChanges } from "@/lib/booking-changes";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
 import { bookingWriter } from "@/lib/payout-inputs";
+import { readBookingPrice } from "@/lib/booking-price";
 
 type SaveResult = { error: string } | { bookingId: string };
 
@@ -36,7 +37,6 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
@@ -53,6 +53,15 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   if (!check_in || !check_out || check_out <= check_in) {
     return { error: "Check-out must be after check-in." };
   }
+
+  // Per night or as a total; the server does the multiplying either way.
+  const priced = readBookingPrice(formData, {
+    checkIn: check_in,
+    checkOut: check_out,
+    isShortStay: Boolean(shortStay),
+  });
+  if (!priced.ok) return { error: priced.error };
+  const { salePrice: sale_price, nightlyPrice: nightly_price } = priced.price;
 
   // Check the attachments before anything is written — once the booking exists,
   // rejecting the form would only invite a duplicate.
@@ -134,6 +143,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
       source,
       status,
       sale_price,
+      nightly_price,
       advance_received,
       deal_model_snapshot: ownClient.deal_model,
       share_percent_snapshot: ownClient.share_percent,
@@ -230,7 +240,6 @@ export async function updateClientBooking(id: string, formData: FormData) {
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
@@ -242,6 +251,15 @@ export async function updateClientBooking(id: string, formData: FormData) {
 
   if (property_ids.length === 0) back("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+
+  // A per-night stay re-multiplies against the dates as they now are.
+  const priced = readBookingPrice(formData, {
+    checkIn: check_in,
+    checkOut: check_out,
+    isShortStay: Boolean(shortStay),
+  });
+  if (!priced.ok) back(priced.error);
+  const { salePrice: sale_price, nightlyPrice: nightly_price } = priced.price;
 
   // The edit form carries the same ID-card field as the new-booking form, so a
   // save can bring more scans with it.
@@ -331,6 +349,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
       source,
       status,
       sale_price,
+      nightly_price,
       advance_received,
       stack_rate_snapshot: stackRateTotal,
       net_sale: payout.netSale,

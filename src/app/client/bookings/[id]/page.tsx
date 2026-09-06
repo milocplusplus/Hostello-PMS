@@ -6,6 +6,7 @@ import { currentClient, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatNightly } from "@/lib/booking-price";
 import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
@@ -60,7 +61,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -193,6 +194,12 @@ export default async function ClientBookingDetailPage({
           <p className="text-[11px] text-ink-muted mb-2">What the guest is paying for this stay</p>
 
           <Line label="Sale price" value={formatPKR(gross)} />
+          {/* Where the total came from, when it was not typed as one. */}
+          {booking.nightly_price != null && !shortStay && (
+            <p className="text-[11px] text-ink-muted -mt-1 mb-1">
+              {formatNightly(Number(booking.nightly_price), nights, formatPKR)}
+            </p>
+          )}
           <Line label="Advance received" value={formatPKR(booking.advance_received)} />
           <Line label="Balance due" value={formatPKR(balanceDue)} gold />
           <Link

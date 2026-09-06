@@ -3,13 +3,16 @@
 import { useMemo, useState } from "react";
 import {
   calculatePayout,
+  formatPKR,
   isOtaSource,
   isPassThroughSource,
+  nightsBetween,
   usesStackRate,
   type DealModel,
   type OtaModel,
 } from "@/lib/payout";
 import { BOOKING_SOURCES, sourceLabel } from "@/lib/block-sources";
+import { formatNightly, type PriceMode } from "@/lib/booking-price";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
 import { GUEST_ID_ACCEPT } from "@/lib/guest-ids";
 import { StayDates } from "@/components/shared/StayDates";
@@ -51,6 +54,8 @@ export type BookingFormValues = {
   guestPhone: string | null;
   guestsCount: number | null;
   salePrice: number;
+  /** Set only when the stay was priced per night rather than as a total. */
+  nightlyPrice: number | null;
   advance: number;
   source: string;
   status: "confirmed" | "tentative";
@@ -107,6 +112,14 @@ export function BookingForm({
   const [stayStart, setStayStart] = useState(values?.shortStay?.start ?? DEFAULT_SHORT_STAY.start);
   const [stayEnd, setStayEnd] = useState(values?.shortStay?.end ?? DEFAULT_SHORT_STAY.end);
   const [salePrice, setSalePrice] = useState(values ? String(values.salePrice) : "");
+  // Reopens the way it was entered: a booking priced per night comes back with
+  // the rate in the box, not the total someone would then have to divide.
+  const [priceMode, setPriceMode] = useState<PriceMode>(
+    values?.nightlyPrice != null ? "nightly" : "total"
+  );
+  const [nightlyPrice, setNightlyPrice] = useState(
+    values?.nightlyPrice != null ? String(values.nightlyPrice) : ""
+  );
   const [source, setSource] = useState(values?.source ?? "hostello");
   // An edit reopens with everything visible — those fields already have values,
   // and hiding them behind a toggle reads as if the booking has none.
@@ -156,10 +169,26 @@ export function BookingForm({
     [busy, checkIn, checkOut]
   );
 
+  // Hours are a flat rate for the window, so per-night is not on offer for a
+  // short stay — and a booking switched to one falls back to the total it had.
+  const nightsForPricing = useMemo(
+    () => (checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0),
+    [checkIn, checkOut]
+  );
+  const perNight = priceMode === "nightly" && !shortStay;
+
+  // The same multiplication the server does in `readBookingPrice`. Shown here
+  // so the figure is never a surprise; the form still posts the rate, and the
+  // server is what turns it into money.
+  const grossPrice = perNight
+    ? (Number(nightlyPrice) || 0) * nightsForPricing
+    : Number(salePrice) || 0;
+
   const preview = useMemo(() => {
-    if (!checkIn || !checkOut || !salePrice || !client) return null;
+    if (!checkIn || !checkOut || !client) return null;
+    if (perNight ? !nightlyPrice : !salePrice) return null;
     return calculatePayout({
-      salePrice: Number(salePrice) || 0,
+      salePrice: grossPrice,
       checkIn,
       checkOut,
       dealModel: client.deal_model,
@@ -171,7 +200,18 @@ export function BookingForm({
       source,
       status,
     });
-  }, [checkIn, checkOut, salePrice, client, stackRateTotal, source, status]);
+  }, [
+    checkIn,
+    checkOut,
+    salePrice,
+    nightlyPrice,
+    perNight,
+    grossPrice,
+    client,
+    stackRateTotal,
+    source,
+    status,
+  ]);
 
   const stackBased = client
     ? usesStackRate({ dealModel: client.deal_model, otaModel: client.ota_model, source })
@@ -315,20 +355,76 @@ export function BookingForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="sale_price" className={fieldLabel}>
-            Sale price (PKR, gross)
-          </label>
-          <input
-            id="sale_price"
-            name="sale_price"
-            type="number"
-            min="0"
-            step="1"
-            required
-            value={salePrice}
-            onChange={(e) => setSalePrice(e.target.value)}
-            className={fieldInput}
-          />
+          <div className="flex items-baseline justify-between gap-2">
+            <label htmlFor={perNight ? "nightly_price" : "sale_price"} className={fieldLabel}>
+              {perNight ? "Price per night (PKR)" : "Sale price (PKR, gross)"}
+            </label>
+            {/* Hours are one flat rate for the window, so the choice only makes
+                sense for a stay measured in nights.
+                Same vocabulary as "How you paid" in SendMoneyFlow: a border on
+                both states so it reads as a control at rest, gold and a lifted
+                fill on the chosen one. A borderless pair of muted words read as
+                a caption nobody knew was clickable. */}
+            {!shortStay && (
+              <div className="flex items-center gap-1" role="group" aria-label="How to enter the price">
+                {(["total", "nightly"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPriceMode(m)}
+                    aria-pressed={priceMode === m}
+                    className={`text-[11px] leading-none rounded-md border px-2.5 py-1.5 transition-colors ${
+                      priceMode === m
+                        ? "border-hostello-gold text-ink-primary bg-surface-2"
+                        : "border-border-hairline text-ink-secondary hover:border-border-strong hover:text-ink-primary"
+                    }`}
+                  >
+                    {m === "total" ? "Total" : "Per night"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Which box is filled in is what `price_mode` tells the server; it
+              multiplies the rate itself rather than trusting a total from here. */}
+          <input type="hidden" name="price_mode" value={perNight ? "nightly" : "total"} />
+
+          {perNight ? (
+            <input
+              id="nightly_price"
+              name="nightly_price"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value={nightlyPrice}
+              onChange={(e) => setNightlyPrice(e.target.value)}
+              className={fieldInput}
+            />
+          ) : (
+            <input
+              id="sale_price"
+              name="sale_price"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              className={fieldInput}
+            />
+          )}
+
+          {perNight && (
+            <p className="text-[11px] text-ink-muted">
+              {nightsForPricing > 0 && Number(nightlyPrice) > 0
+                ? `${formatNightly(Number(nightlyPrice), nightsForPricing, formatPKR)} = ${formatPKR(
+                    grossPrice
+                  )}`
+                : "Pick the dates and the total works itself out."}
+            </p>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="source" className={fieldLabel}>

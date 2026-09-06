@@ -6,6 +6,7 @@ import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { sourceLabel } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatNightly } from "@/lib/booking-price";
 import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
 import { formatDayMonth } from "@/lib/calendar";
 import { Avatar } from "@/components/shared/Avatar";
@@ -61,7 +62,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, nightly_price, advance_received, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -218,6 +219,12 @@ export default async function BookingDetailPage({
         <div className="card p-5">
           <h2 className="eyebrow mb-3">Payment</h2>
           <Line label="Sale price" value={formatPKR(gross)} />
+          {/* Where the total came from, when it was not typed as one. */}
+          {booking.nightly_price != null && !shortStay && (
+            <p className="text-[11px] text-ink-muted -mt-1 mb-1">
+              {formatNightly(Number(booking.nightly_price), nights, formatPKR)}
+            </p>
+          )}
           <Line label="Advance received" value={formatPKR(booking.advance_received)} />
           <Line label="Balance due" value={formatPKR(balanceDue)} gold />
           {showMoney && (

@@ -30,6 +30,7 @@ import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
 import { requireStaff } from "@/lib/auth";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
+import { readBookingPrice } from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
 
 type SaveResult = { error: string } | { clientId: string; bookingId: string };
@@ -50,7 +51,6 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
@@ -71,6 +71,16 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   if (!check_in || !check_out || check_out <= check_in) {
     return { error: "Check-out must be after check-in." };
   }
+
+  // Per night or as a total — the nights are known by now, so the multiplication
+  // can happen here rather than being taken on trust from the form.
+  const priced = readBookingPrice(formData, {
+    checkIn: check_in,
+    checkOut: check_out,
+    isShortStay: Boolean(shortStay),
+  });
+  if (!priced.ok) return { error: priced.error };
+  const { salePrice: sale_price, nightlyPrice: nightly_price } = priced.price;
 
   // Check the attachment before anything is written — once the booking exists,
   // rejecting the form would only invite a duplicate.
@@ -166,6 +176,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       source,
       status,
       sale_price,
+      nightly_price,
       advance_received,
       deal_model_snapshot: clientRecord.deal_model,
       share_percent_snapshot: clientRecord.share_percent,
@@ -289,7 +300,6 @@ export async function updateBooking(id: string, formData: FormData) {
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const sale_price = Number(formData.get("sale_price")) || 0;
   const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
@@ -301,6 +311,18 @@ export async function updateBooking(id: string, formData: FormData) {
 
   if (property_ids.length === 0) back("Select at least one unit.");
   if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+
+  // A stay priced per night re-multiplies against whatever the dates now are —
+  // that is the point of pricing it that way, and it is what makes the quick
+  // "change dates" tool reprice instead of leaving a total for nights nobody is
+  // staying any more.
+  const priced = readBookingPrice(formData, {
+    checkIn: check_in,
+    checkOut: check_out,
+    isShortStay: Boolean(shortStay),
+  });
+  if (!priced.ok) back(priced.error);
+  const { salePrice: sale_price, nightlyPrice: nightly_price } = priced.price;
 
   // The edit form carries the same ID-card field as the new-booking form, so a
   // save can bring more scans with it.
@@ -383,6 +405,7 @@ export async function updateBooking(id: string, formData: FormData) {
       source,
       status,
       sale_price,
+      nightly_price,
       advance_received,
       stack_rate_snapshot: stackRateTotal,
       net_sale: payout.netSale,
@@ -692,7 +715,7 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
   const { data: row } = await supabase
     .from("bookings_v")
     .select(
-      "guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
+      "guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .maybeSingle();
@@ -712,6 +735,15 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
   form.set("expected_departure", row.expected_departure ? hhmm(row.expected_departure) : "");
   form.set("source", row.source);
   form.set("status", row.status);
+  // Carry the pricing *mode* through, not just the number. A per-night stay
+  // that lost its rate here would come back as a flat total, and the next date
+  // change would stop repricing without anyone touching the price.
+  if (row.nightly_price != null) {
+    form.set("price_mode", "nightly");
+    form.set("nightly_price", String(row.nightly_price));
+  } else {
+    form.set("price_mode", "total");
+  }
   form.set("sale_price", String(row.sale_price ?? 0));
   form.set("advance_received", String(row.advance_received ?? 0));
   form.set("notes", row.notes ?? "");

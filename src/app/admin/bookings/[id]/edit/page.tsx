@@ -24,7 +24,7 @@ export default async function EditBookingPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, advance_received, notes, booking_properties(property_id)"
+      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -111,6 +111,7 @@ export default async function EditBookingPage({
           expectedArrival: booking.expected_arrival ? hhmm(booking.expected_arrival) : null,
           expectedDeparture: booking.expected_departure ? hhmm(booking.expected_departure) : null,
           salePrice: Number(booking.sale_price ?? 0),
+          nightlyPrice: booking.nightly_price == null ? null : Number(booking.nightly_price),
           advance: Number(booking.advance_received ?? 0),
           source: booking.source,
           status: booking.status as "confirmed" | "tentative",
