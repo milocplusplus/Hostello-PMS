@@ -1481,6 +1481,31 @@ reassign the alias, so nothing broke.
     18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
+00. **Three commits are sitting unpushed on `main`, and one migration is
+   deliberately unapplied.** Nothing is urgent — this is pre-launch — but the
+   order is not optional, so read this before touching bookings or grants.
+   - `f04ccd2` revenue windows (`gte` → `gt` on `check_out`), `82bbce9` the
+     money-column lockdown, `0012264` the service-role booking write.
+   - **The database is already ahead of production on `82bbce9`.** That
+     migration is applied; the code is not deployed. Until `git push origin
+     main` runs, "Mark share received" on `/admin/settlements` fails —
+     `share_received` no longer carries a column grant and the deployed code
+     still does a direct UPDATE. It is the only broken path.
+   - **`supabase/migrations/20260906140000_revoke_derived_money_writes.sql` is
+     written but NOT applied, on purpose.** It must land *after* the deploy of
+     `0012264`, not before: until that code is live, `authenticated` still needs
+     the grants it removes and every booking save depends on them. Applying it
+     early takes booking creation down in both portals.
+   - Between the two: save and edit one booking as admin, as ops and as an
+     owner. None of `0012264` was exercised against a live session — no test
+     suite, no signed-in browser — and it changed the write path of the most
+     important flow in the app.
+   - After it lands, `SUPABASE_SERVICE_ROLE_KEY` is required to save *any*
+     booking, not just for an ops login. Set in Vercel production; a local
+     `.env.local` without it will refuse saves with a message saying why.
+   - Full audit of all three portals, with the 22 findings still open:
+     https://claude.ai/code/artifact/1b696f13-970f-43d3-9825-a5f573c71224
+
 0a. **Fill in `max_guests` / `nightly_rate` on the real properties.** Until
    someone does, every unit lands in the finder's "missing the figure" group and
    a budget search ranks nothing. It is one pass through
