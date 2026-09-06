@@ -159,13 +159,13 @@ export async function markShareReceived(formData: FormData) {
     .eq("id", id)
     .single();
 
-  const { error } = await supabase
-    .from("bookings")
-    .update({
-      share_received: received,
-      share_received_date: received ? new Date().toISOString().slice(0, 10) : null,
-    })
-    .eq("id", id);
+  // Through the RPC, not a direct UPDATE: `share_received` carries no column
+  // grant any more, so the only way it moves is a SECURITY DEFINER function
+  // that checks is_admin() for itself. Hiding the button was never the rule.
+  const { error } = await supabase.rpc("set_share_received", {
+    p_booking_id: id,
+    p_received: received,
+  });
 
   if (error) back("to-hostello", { client, error: error.message });
 
