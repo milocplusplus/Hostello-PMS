@@ -8,19 +8,26 @@ import { deliverPush } from "./push";
 import type { NotificationCategory } from "./notifications";
 
 /**
- * Every notification in the app is written here and nowhere else.
+ * Every notification the *app* writes is written here and nowhere else. The
+ * channel sync writes its own straight from SQL, because a cron job has no
+ * session — `sync_calendar_feed_apply` is the only other emitter.
  *
  * One row goes into `notifications`; a database trigger fans it out to the
- * people the `audience` names (all admins, the owning client's portal user, or
- * both) and never to whoever caused it. That is what keeps role and ownership
- * scoping in one place instead of at each call site — and what lets the pg_cron
- * job and a future mobile backend write notifications the same way.
+ * people the `audience` names and never to whoever caused it. That is what
+ * keeps role and ownership scoping in one place instead of at each call site —
+ * and what lets the pg_cron job and a future mobile backend write notifications
+ * the same way.
  *
  * Notifications are best-effort: a failure here must never roll back or block
  * the booking/block/payment that triggered it. Errors are swallowed deliberately.
  */
 
-type Audience = "admin" | "client" | "both";
+/**
+ * `admin` is the owners alone and is the right default: most of what the app
+ * has to say carries a figure, and the split is what ops is kept away from.
+ * `staff` adds ops, and may only be used by a notice with no money in it.
+ */
+type Audience = "admin" | "staff" | "client" | "both";
 
 type EmitArgs = {
   kind: string;

@@ -185,11 +185,12 @@ export default async function CalendarPage({
             notes: string | null;
             source: string | null;
             feed_id: string | null;
+            booking_id: string | null;
           }[],
         })
       : supabase
           .from("calendar_blocks")
-          .select("id, property_id, start_date, end_date, block_type, notes, source, feed_id")
+          .select("id, property_id, start_date, end_date, block_type, notes, source, feed_id, booking_id")
           .in("property_id", propertyIds)
           .lte("start_date", windowEnd)
           .gte("end_date", windowStart),
@@ -292,11 +293,22 @@ export default async function CalendarPage({
       // Under a channel filter only imported dates from that channel survive.
       if (channelFilter && (!bl.feed_id || bl.source !== channelFilter)) continue;
 
+      // A hold that has been written up is drawn once, as its booking. It comes
+      // back the moment that booking is cancelled — the channel is still
+      // holding the night either way.
+      if (bl.booking_id && bookingById.has(bl.booking_id)) continue;
+
       // calendar_blocks.end_date is inclusive.
       const pos = place(bl.start_date, bl.end_date);
       if (!pos) continue;
       // Colour and word both come from block-sources, so a new block type
       // needs nothing here.
+
+      // An imported reservation carries no guest and no price — iCal has
+      // neither. This is where an admin adds them: the ordinary booking form,
+      // prefilled, with the hold itself passed along so the write knows the
+      // nights are its own.
+      const unwritten = Boolean(bl.feed_id) && bl.block_type === "booked" && !bl.booking_id;
 
       segments.push({
         key: `k-${bl.id}`,
@@ -307,12 +319,25 @@ export default async function CalendarPage({
         endDate: bl.end_date,
         color: blockTypeColor(bl.block_type),
         source: bl.feed_id ? bl.source : null,
-        title: bl.notes ?? blockTypeLabel(bl.block_type),
+        title: unwritten
+          ? `${bl.notes ?? blockTypeLabel(bl.block_type)} · add details`
+          : (bl.notes ?? blockTypeLabel(bl.block_type)),
         dateRange: `${formatDayMonth(bl.start_date)} – ${formatDayMonth(bl.end_date)}`,
         hours: null,
         amount: null,
         tentative: false,
-        href: bl.feed_id ? "/admin/calendar/feeds" : `/admin/calendar/block?month=${monthStr}`,
+        href: unwritten
+          ? `/admin/bookings/new?${new URLSearchParams({
+              property: bl.property_id,
+              date: bl.start_date,
+              // check_out is exclusive; the block's last night is not.
+              checkout: addDaysISO(bl.end_date, 1),
+              source: bl.source ?? "",
+              block: bl.id,
+            })}`
+          : bl.feed_id
+            ? "/admin/calendar/feeds"
+            : `/admin/calendar/block?month=${monthStr}`,
       });
     }
 

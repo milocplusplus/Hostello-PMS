@@ -33,7 +33,8 @@ function rangeLabel(start: string, end: string) {
  * Is this stay free to write? Returns the reason it isn't, or null.
  *
  * Checks both tables. `excludeBookingId` is what lets a booking be edited
- * without clashing with itself.
+ * without clashing with itself; `excludeBlockId` is what lets a channel's
+ * imported hold be typed up as the booking it already is.
  */
 export async function findStayClash(
   supabase: SupabaseClient,
@@ -43,9 +44,11 @@ export async function findStayClash(
     /** Exclusive — the departure morning. */
     checkOut: string;
     excludeBookingId?: string;
+    /** The imported hold this booking is being written from. */
+    excludeBlockId?: string;
   }
 ): Promise<string | null> {
-  const { propertyIds, checkIn, checkOut, excludeBookingId } = args;
+  const { propertyIds, checkIn, checkOut, excludeBookingId, excludeBlockId } = args;
   if (propertyIds.length === 0) return null;
 
   // A block covers start_date..end_date inclusive; this stay covers
@@ -55,14 +58,20 @@ export async function findStayClash(
     supabase.from("booking_properties").select("booking_id").in("property_id", propertyIds),
     supabase
       .from("calendar_blocks")
-      .select("start_date, end_date")
+      .select("id, booking_id, start_date, end_date")
       .in("property_id", propertyIds)
       .lt("start_date", checkOut)
-      .gte("end_date", checkIn)
-      .limit(1),
+      .gte("end_date", checkIn),
   ]);
 
-  const block = blocks.data?.[0];
+  // The channel hold this stay already is: named directly while it is being
+  // written up, and found by its own link on every edit after that. It is the
+  // one block that cannot be what stands in the booking's way.
+  const ownHold = (blocks.data ?? []).find(
+    (b) => b.id === excludeBlockId || (excludeBookingId && b.booking_id === excludeBookingId)
+  );
+
+  const block = (blocks.data ?? []).find((b) => b.id !== ownHold?.id);
   if (block) {
     return `Those nights are blocked on one of the selected units (${rangeLabel(
       block.start_date,
@@ -96,6 +105,12 @@ export async function findStayClash(
     )}).`;
   }
 
+  // Writing up — or later editing — a hold the channel itself sent us: the
+  // channel has sold those nights, which is the reason this booking exists.
+  // Asking it would only get the reservation quoted back as an objection to
+  // itself, and the every-minute sync is what still catches a real overlap.
+  if (ownHold) return null;
+
   // Nothing local objects, so ask the channels themselves. The scheduled sync
   // runs every minute; this covers the gap between two of them, for the
   // case where Airbnb sold the night a moment ago. It stays quiet when no
@@ -111,7 +126,7 @@ export async function findStayClash(
 export async function listUnavailable(
   supabase: SupabaseClient,
   propertyIds: string[],
-  options: { from?: string; excludeBookingId?: string } = {}
+  options: { from?: string; excludeBookingId?: string; excludeBlockId?: string } = {}
 ): Promise<UnavailableRange[]> {
   if (propertyIds.length === 0) return [];
 
@@ -130,7 +145,7 @@ export async function listUnavailable(
       .gt("bookings.check_out", from),
     supabase
       .from("calendar_blocks")
-      .select("property_id, start_date, end_date")
+      .select("id, property_id, start_date, end_date, booking_id")
       .in("property_id", propertyIds)
       .gte("end_date", from),
   ]);
@@ -157,6 +172,10 @@ export async function listUnavailable(
   }
 
   for (const block of blocks.data ?? []) {
+    // The hold being written up — or already written up, on an edit — is not in
+    // the way of the booking it became.
+    if (block.id === options.excludeBlockId) continue;
+    if (block.booking_id && block.booking_id === options.excludeBookingId) continue;
     ranges.push({
       propertyId: block.property_id,
       start: block.start_date,

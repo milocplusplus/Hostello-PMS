@@ -75,6 +75,8 @@ export function BookingForm({
   initialPropertyId,
   initialDate,
   initialCheckOut,
+  initialSource,
+  fromBlockId,
   values,
   unavailable = [],
   submitLabel = "Save booking",
@@ -88,6 +90,10 @@ export function BookingForm({
   initialPropertyId?: string;
   initialDate?: string;
   initialCheckOut?: string;
+  /** The channel a prefilled booking came from. Still the admin's to change. */
+  initialSource?: string;
+  /** The imported hold being written up — see `from_block` in the booking write. */
+  fromBlockId?: string;
   /** Present only when an existing booking is being edited. */
   values?: BookingFormValues;
   /** Occupied nights across every selectable unit — the picker greys them out. */
@@ -120,7 +126,7 @@ export function BookingForm({
   const [nightlyPrice, setNightlyPrice] = useState(
     values?.nightlyPrice != null ? String(values.nightlyPrice) : ""
   );
-  const [source, setSource] = useState(values?.source ?? "hostello");
+  const [source, setSource] = useState(values?.source ?? initialSource ?? "hostello");
   // An edit reopens with everything visible — those fields already have values,
   // and hiding them behind a toggle reads as if the booking has none.
   const [showMore, setShowMore] = useState(Boolean(values));
@@ -224,6 +230,7 @@ export function BookingForm({
   return (
     <form action={action} className="card p-6 flex flex-col gap-4">
       {client && <input type="hidden" name="client_id" value={client.id} />}
+      {fromBlockId && <input type="hidden" name="from_block" value={fromBlockId} />}
       <input type="hidden" name="property_ids" value={propertyId} />
       {extraUnitIds.map((id) => (
         <input key={id} type="hidden" name="property_ids" value={id} />

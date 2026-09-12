@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarCog,
   CalendarDays,
+  CalendarPlus,
   CalendarX2,
   HandCoins,
   Home,
@@ -71,6 +72,10 @@ const KIND_ICON: Record<string, LucideIcon> = {
   dates_blocked: Lock,
   dates_unblocked: LockOpen,
   calendar_conflict: TriangleAlert,
+  // A channel's iCal sold nights and sent dates only. Written by the sync in
+  // SQL (`sync_calendar_feed_apply`), not by notify.ts, and the only kind that
+  // goes to ops as well as admin — it is a stay to write up, not a figure.
+  channel_reservation: CalendarPlus,
   property_added: Home,
   property_removed: Home,
   client_terms_updated: Percent,

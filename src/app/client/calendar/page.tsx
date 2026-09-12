@@ -124,7 +124,7 @@ export default async function ClientCalendarPage({
       .in("property_id", propertyIds),
     supabase
       .from("calendar_blocks")
-      .select("id, property_id, start_date, end_date, block_type, notes")
+      .select("id, property_id, start_date, end_date, block_type, notes, booking_id")
       .in("property_id", propertyIds)
       .lte("start_date", windowEnd)
       .gte("end_date", windowStart),
@@ -222,6 +222,9 @@ export default async function ClientCalendarPage({
     }
 
     for (const bl of blocksByProperty.get(p.id) ?? []) {
+      // A channel hold that has been written up is drawn once, as its booking.
+      if (bl.booking_id && bookingById.has(bl.booking_id)) continue;
+
       // calendar_blocks.end_date is inclusive.
       const pos = place(bl.start_date, bl.end_date);
       if (!pos) continue;

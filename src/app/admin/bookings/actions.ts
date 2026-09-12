@@ -127,12 +127,40 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     0
   );
 
+  // Writing up a reservation a channel imported: the calendar bar that says
+  // "Reserved" and nothing else. Honoured only for a **feed-owned** row, on a
+  // unit that is being booked, over nights it actually holds — so this can
+  // never be used to write straight through a block a person made. The hold
+  // itself is left standing; the channel still holds those nights, and the
+  // next sync would only bring it back.
+  const fromBlockId = (formData.get("from_block") as string)?.trim() || null;
+  let importedHold: string | null = null;
+
+  if (fromBlockId) {
+    const { data: hold } = await supabase
+      .from("calendar_blocks")
+      .select("id, property_id, start_date, end_date")
+      .eq("id", fromBlockId)
+      .not("feed_id", "is", null)
+      .maybeSingle();
+
+    if (
+      hold &&
+      property_ids.includes(hold.property_id) &&
+      hold.start_date < check_out &&
+      hold.end_date >= check_in
+    ) {
+      importedHold = hold.id;
+    }
+  }
+
   // Bookings *and* blocks — see `findStayClash`. Blocked nights used to pass
   // straight through here.
   const clash = await findStayClash(supabase, {
     propertyIds: property_ids,
     checkIn: check_in,
     checkOut: check_out,
+    excludeBlockId: importedHold ?? undefined,
   });
   if (clash) return { error: clash };
 
@@ -204,6 +232,12 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     property_id,
   }));
   await supabase.from("booking_properties").insert(linkRows);
+
+  // The hold and the booking are one reservation now: the calendar draws a
+  // single bar for them, and the sync stops reporting the two as a clash.
+  if (importedHold) {
+    await supabase.from("calendar_blocks").update({ booking_id: bookingId }).eq("id", importedHold);
+  }
 
   // Best-effort, like the notification below: the booking is already real, and
   // a receipt can always be attached again from the booking page.

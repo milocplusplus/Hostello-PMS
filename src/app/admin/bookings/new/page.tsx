@@ -4,14 +4,24 @@ import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { createBooking } from "../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
+import { BOOKING_SOURCES } from "@/lib/block-sources";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 export default async function NewBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; property?: string; date?: string; checkout?: string; client?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    property?: string;
+    date?: string;
+    checkout?: string;
+    client?: string;
+    source?: string;
+    /** An imported channel hold being written up — see the calendar's bars. */
+    block?: string;
+  }>;
 }) {
-  const { error, property, date, checkout, client } = await searchParams;
+  const { error, property, date, checkout, client, source, block } = await searchParams;
 
   const supabase = await createClient();
   const showMoney = canSeeSplit((await currentProfile())?.role);
@@ -47,9 +57,12 @@ export default async function NewBookingPage({
       ota_share_percent: Number(c.ota_share_percent),
     })) ?? [];
 
+  // The hold this booking is being written up from must not grey out its own
+  // nights; the write checks it again before it trusts the form.
   const unavailable = await listUnavailable(
     supabase,
-    propertyOptions.map((p) => p.id)
+    propertyOptions.map((p) => p.id),
+    { excludeBlockId: block }
   );
 
   const initialPropertyId =
@@ -80,6 +93,8 @@ export default async function NewBookingPage({
           initialPropertyId={initialPropertyId}
           initialDate={date}
           initialCheckOut={checkout}
+          initialSource={BOOKING_SOURCES.some((s) => s.value === source) ? source : undefined}
+          fromBlockId={block}
           unavailable={unavailable}
           showPayoutPreview={showMoney}
           error={error}

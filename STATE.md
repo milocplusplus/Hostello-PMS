@@ -1,6 +1,96 @@
-# State — updated 2026-09-04
+# State — updated 2026-09-12
 
 ## Done
+- **Ops is told when a channel sells a night** (2026-09-12). `npm run build` and
+  `npm run lint` clean. Migration
+  `20260912120000_notify_staff_new_channel_hold.sql` is **applied** (verified on
+  the live DB: the `audience` check now carries `staff`, `fan_out_notification`
+  has the ops branch, `sync_calendar_feed_apply` emits the notice). The fan-out
+  has real recipients to reach — 1 admin and 2 ops profiles.
+  - Until now an imported reservation announced itself to nobody. It appeared as
+    a bar on a calendar somebody had to be looking at, and the stay it stood for
+    had no guest and no price until someone noticed.
+  - `sync_calendar_feed_apply` now writes one `channel_reservation` notification
+    per **newly inserted** `booked` hold whose nights are still ahead — so a
+    feed's back catalogue on the day it is connected is silent, and an edit to a
+    reservation already reported is not news. Keyed
+    `channel_reservation:<block_id>`, so a re-sync cannot repeat it.
+  - Title names the channel ("Airbnb booked <unit> — add the details"); the body
+    carries the dates and says to open the calendar. Clicking it lands on
+    `/admin/calendar?property=…` via the existing `notificationHref` rule —
+    which is where the bar reading "· add details" opens the prefilled form.
+  - **`audience` gains `staff` (admin + ops), and that is the whole reason this
+    needed a migration.** `admin` fans out to `profiles.role = 'admin'` only, so
+    ops has had a bell in `AdminShell` since the beginning and has *never had a
+    single row in it*. `admin` is left exactly as it was on purpose: most of
+    what the app says carries a figure, and the split is what ops is kept from.
+    Only a notice with no money in it may say `staff`. This one has none.
+  - Category is `booking`, not `calendar`: it is a stay to write up, and muting
+    the chatter of owners blocking and unblocking dates must not silence it.
+  - **No push banner.** A notification written in SQL never reaches
+    `deliverPush()` — same as `calendar_conflict` today. It lands in the bell and
+    the notifications page, live via the `notification_recipients` realtime
+    subscription. If staff need it on a phone, that is a pg_net call from the
+    sync, not a change here.
+  - The clash notification is still `admin`-only. Ops arguably needs to know
+    about a double-booking too — deliberately not widened without being asked.
+- **An imported Airbnb hold can be written up as the booking it already is**
+  (2026-09-12). `npm run build` and `npm run lint` clean. Migration
+  `20260908093000_link_imported_hold_to_booking.sql` is **applied** (verified on
+  the live DB: `calendar_blocks.booking_id` exists, `sync_calendar_feed_apply`
+  carries the `cb.booking_id is distinct from b.id` guard).
+  - iCal carries dates and the word "Reserved" — no guest, no price. So an
+    Airbnb reservation lands as a block, and the moment an admin typed the same
+    stay in as a booking the app fought itself: the write refused it as blocked,
+    the calendar drew two bars, and the every-minute sync filed a critical
+    "block clashes with a booking" notification about a reservation that was one
+    reservation all along.
+  - The hold now records which booking it became (`calendar_blocks.booking_id`,
+    set only on feed-owned rows, by the admin booking write). The block is
+    **kept**, not deleted — the channel still holds those nights and the next
+    sync would only bring it back.
+  - Calendar: an unwritten imported `booked` bar reads "… · add details" and
+    opens `/admin/bookings/new` prefilled with unit, dates (`end_date + 1`, since
+    `check_out` is exclusive), channel and `block=<id>`. A linked hold is drawn
+    once, as its booking — in both portals. Cancel the booking and the bar comes
+    back, which is right: the channel is holding the night either way.
+  - **The self-clash rule lives once, in `findStayClash` / `listUnavailable`.**
+    The hold is identified either by `excludeBlockId` (being written up) or by
+    `booking_id = excludeBookingId` (every edit afterwards) — so editing dates,
+    moving units, `changeBookingDates` and `moveBookingUnits` all stop tripping
+    over the booking's own hold, and the live `checkChannelClash` round trip is
+    skipped for the same reason. Everything else still clashes exactly as before.
+  - `saveBooking` re-checks the hold before it trusts the form: feed-owned, on a
+    unit being booked, over nights it actually holds. A block a person made can
+    never be written straight through.
+  - **Not verified against a live feed or a signed-in session** — no `.env.local`
+    here, and no real Airbnb link is connected yet (see Next 6–8).
+- **An owner can look at their own units** (2026-09-12). `npm run build` and
+  `npm run lint` clean. No schema change and no new query surface —
+  `properties_v` already scoped itself to the owner; nothing in the portal ever
+  read it as a list.
+  - The client portal showed property *names* everywhere and the property
+    nowhere: a calendar row, a unit chip on a booking, a search result whose
+    href was `/client/calendar`. Where a unit is, what it sleeps, what it asks
+    and whether it is still on sale were all admin-only facts.
+  - New `src/app/client/properties/page.tsx` (+ `loading.tsx`). It reads
+    `properties_v` with **no `client_id` filter** — the view's WHERE clause is
+    the access rule, the same call `client/availability` and
+    `client/bookings/[id]` already make. One list card: name / location / type /
+    capacity / status dot, asking rates on the right.
+  - **Inactive units are listed, labelled.** Every other client-side property
+    read filters `status = active`; this one must not, because a unit quietly
+    taken off sale is exactly the thing an owner needs to notice.
+  - **The stack rate shows only under a deal that has one** (`ads`,
+    `fixed_stack`, or `ota_model = stack`), and is labelled "Your rate".
+    Anywhere else it would read as an asking price, which it is not — the same
+    line `properties_v` draws for ops.
+  - `ClientShell` gains a Properties nav item, and `searchClient` now points a
+    property hit at the page instead of dead-ending it on the calendar.
+  - **Not verified against a signed-in portal** — still no `.env.local` here.
+    It compiles, routes and renders; it has not met a real row. And 0a below is
+    what it exposes: with `max_guests` / `nightly_rate` unset on the real units,
+    most of this page reads "No nightly rate set" until someone fills them in.
 - **Sending money feels like sending money** (2026-09-04). `npm run build` and
   `npm run lint` clean. No schema change, no new RPC, no revenue or settlement
   maths touched — `payout.ts`, `owed.ts`'s engine and every `apply_`/`reject_`
@@ -1481,16 +1571,15 @@ reassign the alias, so nothing broke.
     18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
-00. **Three commits are sitting unpushed on `main`, and one migration is
-   deliberately unapplied.** Nothing is urgent — this is pre-launch — but the
-   order is not optional, so read this before touching bookings or grants.
-   - `f04ccd2` revenue windows (`gte` → `gt` on `check_out`), `82bbce9` the
-     money-column lockdown, `0012264` the service-role booking write.
-   - **The database is already ahead of production on `82bbce9`.** That
-     migration is applied; the code is not deployed. Until `git push origin
-     main` runs, "Mark share received" on `/admin/settlements` fails —
-     `share_received` no longer carries a column grant and the deployed code
-     still does a direct UPDATE. It is the only broken path.
+00. **One migration is deliberately unapplied, and the order is not optional** —
+   read this before touching bookings or grants. Nothing is urgent; this is
+   pre-launch.
+   - The three commits this item used to warn about — `f04ccd2` revenue windows
+     (`gte` → `gt` on `check_out`), `82bbce9` the money-column lockdown,
+     `0012264` the service-role booking write — are **pushed** (confirmed on
+     `origin/main`, 2026-09-12), which un-breaks "Mark share received" on
+     `/admin/settlements` once Vercel has the build. The Vercel deploy itself
+     was not watched from here.
    - **`supabase/migrations/20260906140000_revoke_derived_money_writes.sql` is
      written but NOT applied, on purpose.** It must land *after* the deploy of
      `0012264`, not before: until that code is live, `authenticated` still needs
@@ -1505,6 +1594,18 @@ reassign the alias, so nothing broke.
      `.env.local` without it will refuse saves with a message saying why.
    - Full audit of all three portals, with the 22 findings still open:
      https://claude.ai/code/artifact/1b696f13-970f-43d3-9825-a5f573c71224
+
+00b. **Confirm the `staff` fan-out actually reaches ops.** The migration is
+   applied and the branch is right by reading, but no row has ever been written
+   with `audience = 'staff'` — writing a probe row was refused from this
+   session, so it has never been executed. The first real imported reservation
+   is the test:
+   `select n.kind, n.audience, p.role, count(*) from notifications n
+      join notification_recipients r on r.notification_id = n.id
+      join profiles p on p.id = r.user_id
+     where n.kind = 'channel_reservation' group by 1,2,3;`
+   Two ops rows per notice is right; zero means `fan_out_notification` is not
+   doing what it reads as. Pairs with Next 6 and 8 — it needs a live feed.
 
 0a. **Fill in `max_guests` / `nightly_rate` on the real properties.** Until
    someone does, every unit lands in the finder's "missing the figure" group and
@@ -1570,8 +1671,9 @@ reassign the alias, so nothing broke.
   `notifications` and the extra `properties` columns were applied straight to the
   live DB. Worth backfilling a `0002_*.sql` from the live schema.
 - "Maintenance" block type needs a `calendar_block_type` enum migration if wanted.
-- Property thumbnails / bedrooms / max_guests need columns that don't exist.
-  Current call: type · city subtext and initials avatars, real images later.
+- Property thumbnails and bedroom counts still need columns that don't exist.
+  `max_guests` does exist now (2026-09-01) and `/client/properties` shows it.
+  Current call: type · city subtext and no images.
 - `.env.local` is not present locally — copy `.env.local.example` and fill in the
   Supabase keys before `npm run dev`. (`node_modules` is installed.)
 
