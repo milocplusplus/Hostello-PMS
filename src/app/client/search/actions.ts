@@ -33,7 +33,7 @@ export async function searchClient(query: string): Promise<SearchResult[]> {
       id: p.id,
       title: p.name,
       subtitle: p.city ? `Property · ${p.city}` : "Property",
-      href: "/client/calendar",
+      href: "/client/properties",
     });
   }
 
