@@ -37,6 +37,10 @@ export default async function ClientBlockDatesPage({
     .from("calendar_blocks")
     .select("id, property_id, start_date, end_date, block_type, notes, properties(name)")
     .in("property_id", (properties ?? []).map((p) => p.id))
+    // Same rule as /admin/calendar/block: an imported channel date is a real
+    // reservation on Airbnb or Booking.com. Unblocking one here would free a
+    // sold night until the next sync put it back.
+    .is("feed_id", null)
     .order("start_date", { ascending: false })
     .limit(50);
 

@@ -87,9 +87,18 @@ export async function deleteClientCalendarBlock(formData: FormData) {
   // Read it before it is gone — the notification has to say which dates reopened.
   const { data: block } = await supabase
     .from("calendar_blocks")
-    .select("id, property_id, start_date, end_date")
+    .select("id, property_id, start_date, end_date, feed_id")
     .eq("id", id)
     .maybeSingle();
+
+  // The list never offers one, but RLS would allow the delete, and freeing a
+  // night a channel has already sold is the one block removal that can end in a
+  // double booking.
+  if (block?.feed_id) {
+    redirect(
+      backTo(month, "That reservation came from a channel. Cancel it there and the dates free up here.")
+    );
+  }
 
   const { error } = await supabase.from("calendar_blocks").delete().eq("id", id);
 
