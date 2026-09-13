@@ -1,6 +1,44 @@
-# State — updated 2026-09-12
+# State — updated 2026-09-13
 
 ## Done
+- **An owner can ask for a rate or a capacity change** (2026-09-13). `npm run
+  build` and `npm run lint` clean. Migration
+  `20260913090000_add_property_change_requests.sql` is **applied**.
+  - `properties` is SELECT-only for a client and stays that way: the asking
+    price is what a guest is quoted and what the availability finder offers, so
+    it is not an owner's to set alone. `property_change_requests` is the ask,
+    never the change — the owner proposes `max_guests` / `nightly_rate`, an
+    admin applies it, and applying is an ordinary admin UPDATE on `properties`.
+  - **Only those two fields are ever proposable.** `stack_rate` is a negotiated
+    deal term, blanked for ops, and is not on a form anyone fills in alone.
+  - A partial unique index gives one open ask per unit, so an owner cannot stack
+    requests and an admin cannot apply a stale one over a newer one. There is
+    **no UPDATE policy for the client**: correcting an ask is withdrawing it and
+    filing again, so a request an admin is reading cannot change underneath them.
+  - Client: `/client/properties` grows a `<details>` form per row (the
+    `BookingQuickTools` pattern — Server Component, plain form), the open ask
+    with a Withdraw, and a "Past requests" list. Admin: `/admin/property-requests`
+    is the queue, owner-only via a `requireOwner()` layout, nav under Management.
+    Ops may read the table but has no policy to write `properties`, which is why
+    the page is the owner's.
+  - Three notification kinds: `property_change_requested` (admin),
+    `property_change_applied` / `property_change_declined` (client). `notificationHref`
+    gets a `property_change_` branch — a bare `property_id` would otherwise land
+    the admin on the property's calendar, which is not where the queue is.
+  - Verified on the live DB as real sessions: cross-client insert, forged
+    `client_id`, self-approved insert, a second open ask, an empty ask, an owner
+    approving their own and an owner writing `properties` are all refused; filing,
+    withdrawing and the admin's apply all work; the fan-out reaches 1 admin. All
+    probe rows removed and the probe property restored.
+- **An owner could unblock an Airbnb reservation** (2026-09-13). Fixed.
+  `/client/calendar/block` listed feed-imported holds as the owner's own blocks
+  with an Unblock button — `/admin/calendar/block` filters `feed_id is null` for
+  exactly this reason and the client copy never did. Both live `calendar_blocks`
+  rows are Airbnb-imported and sit on a client that *has* a portal login, so this
+  was reachable: the night freed up on the calendar and on the published iCal
+  export until the next sync put it back, with a false `dates_unblocked` notice
+  in between. The list now filters, and `deleteClientCalendarBlock` refuses a
+  feed-owned block outright — hiding the control is not the fix.
 - **Ops is told when a channel sells a night** (2026-09-12). `npm run build` and
   `npm run lint` clean. Migration
   `20260912120000_notify_staff_new_channel_hold.sql` is **applied** (verified on
@@ -1571,27 +1609,45 @@ reassign the alias, so nothing broke.
     18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
-00. **One migration is deliberately unapplied, and the order is not optional** —
-   read this before touching bookings or grants. Nothing is urgent; this is
-   pre-launch.
-   - The three commits this item used to warn about — `f04ccd2` revenue windows
-     (`gte` → `gt` on `check_out`), `82bbce9` the money-column lockdown,
-     `0012264` the service-role booking write — are **pushed** (confirmed on
-     `origin/main`, 2026-09-12), which un-breaks "Mark share received" on
-     `/admin/settlements` once Vercel has the build. The Vercel deploy itself
-     was not watched from here.
-   - **`supabase/migrations/20260906140000_revoke_derived_money_writes.sql` is
-     written but NOT applied, on purpose.** It must land *after* the deploy of
-     `0012264`, not before: until that code is live, `authenticated` still needs
-     the grants it removes and every booking save depends on them. Applying it
-     early takes booking creation down in both portals.
-   - Between the two: save and edit one booking as admin, as ops and as an
-     owner. None of `0012264` was exercised against a live session — no test
-     suite, no signed-in browser — and it changed the write path of the most
-     important flow in the app.
-   - After it lands, `SUPABASE_SERVICE_ROLE_KEY` is required to save *any*
-     booking, not just for an ops login. Set in Vercel production; a local
-     `.env.local` without it will refuse saves with a message saying why.
+00. **Nothing is unapplied any more — but the booking write has still never
+   been run.** Read this before touching bookings or grants. Nothing is urgent;
+   this is pre-launch.
+   - **This item was wrong, and it was wrong in the direction that matters.** It
+     said `20260906140000_revoke_derived_money_writes.sql` was deliberately
+     unapplied and had to wait for a deploy. It has been applied since
+     **2026-09-07 15:52 UTC** (`supabase_migrations.schema_migrations` records
+     it as `20260907155212 revoke_derived_money_writes`; the repo filename's
+     date is not the applied date, and no entry here is either). Checked on the
+     live DB 2026-09-12: `authenticated` holds grants on **24 ordinary columns
+     and 0 of the 9 money columns** — exactly the end state the migration
+     describes. Do not "apply" it again looking for an effect; there is none.
+   - The code that goes with it is deployed too. `0012264` is an ancestor of
+     `02bd66a`, whose production deploy went READY on ~2026-09-07, and the
+     current production deploy is `76bd06d` (2026-09-12, READY). All four money
+     write paths go through `bookingWriter()` — verified by reading, not by use.
+   - **So the lock is live and has never been exercised. Not once.** Zero rows
+     in `bookings` have a `created_at` or `updated_at` after the revoke landed;
+     the newest is 2026-09-07 15:07, forty-five minutes *before* it. Every
+     booking save in both portals now depends on a service-role path that has
+     never executed against these grants. If `SUPABASE_SERVICE_ROLE_KEY` is
+     missing or wrong in Vercel production, the first person to save a booking
+     is what finds out.
+   - **Creating a booking as admin: tested against production, 2026-09-12, and
+     it works.** Driven through a signed-in Chrome on the deployed app
+     (`dpl_CdhDwdYN9Lhxq5K4Z2dKmxhwai3q`): Test Property, Sep 20 → Sep 22,
+     Rs 20,000. `POST /admin/bookings/new` 200, and the row carries all nine
+     derived columns — `net_sale` 20,000, `hostello_share` 10,000,
+     `client_payout` 10,000, `deal_model_snapshot` ads, `stack_rate_snapshot`
+     5,000 (2 nights × 5,000, the ads floor). The service-role write path is
+     real, `SUPABASE_SERVICE_ROLE_KEY` is present and right in production, and
+     the split is still `payout.ts`'s. Booking id
+     `f81710df-0475-4372-bd91-c6835188faed`, left in place.
+   - **Editing it could not be tested, for a reason that is its own bug — see
+     0c.** The write path for an update is the same `bookingWriter()`, but the
+     form never reaches it.
+   - **Still owed: the same two saves as ops and as an owner.** Only the admin
+     login was signed in. Writing a row straight from SQL proves nothing — the
+     MCP connection *is* the service role and would succeed either way.
    - Full audit of all three portals, with the 22 findings still open:
      https://claude.ai/code/artifact/1b696f13-970f-43d3-9825-a5f573c71224
 
@@ -1606,6 +1662,30 @@ reassign the alias, so nothing broke.
      where n.kind = 'channel_reservation' group by 1,2,3;`
    Two ops rows per notice is right; zero means `fan_out_notification` is not
    doing what it reads as. Pairs with Next 6 and 8 — it needs a live feed.
+
+0c. **`/admin/bookings/<id>` never finishes loading in production, and the edit
+   form's save does not submit.** Found 2026-09-12 while testing the booking
+   write, in a signed-in Chrome against
+   `dpl_CdhDwdYN9Lhxq5K4Z2dKmxhwai3q`. **Not caused by anything in this
+   session** — it reproduces on `fe7bcfce-4320-46a6-9739-88cafefd325f`, a
+   booking from 2026-09-07, and nothing here touched that route.
+   - The detail page sits on its `loading.tsx` forever. Two different tabs, two
+     different bookings, 20+ seconds each. Vercel logs the request as **200**
+     and reports no runtime error, and the browser console is clean — so the
+     shell streams and the page body never resolves. That is a server component
+     that never settles, not a crash.
+   - First place to look: this route is the only one that awaits **Supabase
+     Storage** — `listReceipts()` and `listGuestIds()` in the `Promise.all` at
+     `src/app/admin/bookings/[id]/page.tsx:74`. Every page that renders fine
+     (the list, the calendar, the client page) touches Postgres only. Unproven,
+     but it is the one thing that distinguishes the route.
+   - The edit form's "Save changes" produces **no POST at all** — checked in the
+     runtime logs, where the create form's POST does appear. The page flips to
+     "Loading…" on click and stays there. Whether that is the same fault or a
+     second one is not established.
+   - Both are worth a session of their own. The booking detail page is where a
+     stay is read and every quick tool lives; if this is happening for real
+     users, that page is simply unusable.
 
 0a. **Fill in `max_guests` / `nightly_rate` on the real properties.** Until
    someone does, every unit lands in the finder's "missing the figure" group and
