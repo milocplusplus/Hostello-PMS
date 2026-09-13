@@ -139,7 +139,14 @@ export default async function ClientPropertiesPage({
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 text-xs">
+                  {/* On a phone the rates take their own line under the name.
+                      The row already wraps, but `flex-1` on the name column
+                      meant it shrank to nothing instead — so the name and the
+                      location truncated mid-word to make space for a figure
+                      that had a whole line free beneath it. `basis-full` is
+                      what actually breaks the line; `order-last` keeps the
+                      calendar icon up beside the name where it was. */}
+                  <div className="order-last basis-full text-left mt-1 shrink-0 text-xs sm:order-none sm:basis-auto sm:text-right sm:mt-0">
                     {p.nightly_rate ? (
                       <p className="text-ink-primary">
                         {formatPKR(Number(p.nightly_rate))}
