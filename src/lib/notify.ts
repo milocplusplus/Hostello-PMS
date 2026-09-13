@@ -591,6 +591,64 @@ export async function notifyPropertyRemoved(
   });
 }
 
+/**
+ * An owner asking for their unit's capacity or asking price to be changed.
+ * Admin-only: ops cannot write `properties`, so a queue it can't clear would
+ * only be noise in its bell.
+ */
+export async function notifyPropertyChangeRequested(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    propertyId: string;
+    propertyName: string;
+    requestId: string;
+    summary: string;
+  }
+) {
+  const who = await clientName(supabase, args.clientId);
+
+  await emit(supabase, {
+    kind: "property_change_requested",
+    category: "system",
+    audience: "admin",
+    title: `${args.propertyName} — rate change requested`,
+    body: [who, args.summary].filter(Boolean).join(" · "),
+    clientId: args.clientId,
+    propertyId: args.propertyId,
+    // Keyed on the request, not the property: withdrawing and filing again is a
+    // new ask and has to ring.
+    eventKey: `property_change_requested:${args.requestId}`,
+  });
+}
+
+/** The admin's answer, back to the owner who asked. */
+export async function notifyPropertyChangeReviewed(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    propertyId: string;
+    propertyName: string;
+    requestId: string;
+    applied: boolean;
+    summary: string;
+    adminNote?: string | null;
+  }
+) {
+  await emit(supabase, {
+    kind: args.applied ? "property_change_applied" : "property_change_declined",
+    category: "system",
+    audience: "client",
+    title: args.applied
+      ? `${args.propertyName} updated`
+      : `${args.propertyName} — change not applied`,
+    body: [args.summary, args.adminNote].filter(Boolean).join(" · "),
+    clientId: args.clientId,
+    propertyId: args.propertyId,
+    eventKey: `property_change_reviewed:${args.requestId}`,
+  });
+}
+
 export async function notifyClientTermsUpdated(
   supabase: SupabaseClient,
   args: { clientId: string; summary: string; day: string }

@@ -13,6 +13,7 @@ import {
   LockOpen,
   LogIn,
   LogOut,
+  PencilRuler,
   Percent,
   Receipt,
   TriangleAlert,
@@ -78,6 +79,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   channel_reservation: CalendarPlus,
   property_added: Home,
   property_removed: Home,
+  // An owner asking for a capacity or an asking price to change, and the
+  // admin's answer. The ask is admin-only — ops has no policy to write
+  // `properties`, so it could not clear the queue.
+  property_change_requested: PencilRuler,
+  property_change_applied: BadgeCheck,
+  property_change_declined: BadgeX,
   client_terms_updated: Percent,
 };
 
@@ -122,6 +129,12 @@ export function notificationHref(
   // A channel email is a thing to review, not a booking to look at — even when
   // it has already found the booking it is about.
   if (row.kind?.startsWith("ota_")) return "/admin/channel-inbox";
+
+  // A change request is a queue on one side and a status on the other. Neither
+  // is the property's calendar, which is where a bare property_id would land.
+  if (row.kind?.startsWith("property_change_")) {
+    return portal === "admin" ? "/admin/property-requests" : "/client/properties";
+  }
 
   if (portal === "admin") {
     if (row.booking_id) return `/admin/bookings/${row.booking_id}`;

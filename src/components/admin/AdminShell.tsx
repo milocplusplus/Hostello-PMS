@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Plus,
+  PencilRuler,
   ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -90,6 +91,12 @@ function navGroups(role: StaffRole): NavGroup[] {
             label: "Management",
             items: [
               { href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false },
+              {
+                href: "/admin/property-requests",
+                label: "Rate requests",
+                icon: PencilRuler,
+                exact: false,
+              },
               { href: "/admin/staff", label: "Staff", icon: ShieldCheck, exact: false },
             ],
           },
