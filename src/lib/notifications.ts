@@ -2,6 +2,7 @@ import {
   BadgeCheck,
   BadgeX,
   Bell,
+  CalendarClock,
   CalendarCog,
   CalendarDays,
   CalendarPlus,
@@ -47,6 +48,9 @@ const KIND_ICON: Record<string, LucideIcon> = {
   booking_created: CalendarDays,
   booking_updated: CalendarCog,
   booking_cancelled: CalendarX2,
+  // The day-before reminder, so there is a day to act in. A clock rather than
+  // the arrival arrow the two below use: nobody is coming through a door yet.
+  booking_checkin_tomorrow: CalendarClock,
   booking_checkin_today: LogIn,
   booking_checkout_today: LogOut,
   guest_checked_in: LogIn,

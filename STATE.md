@@ -1,6 +1,40 @@
 # State — updated 2026-09-13
 
 ## Done
+- **An arrival is announced the morning before, not the morning of**
+  (2026-09-13). `npm run build` and `npm run lint` clean. Migration
+  `20260913140000_notify_arrival_tomorrow.sql` is **applied**.
+  - `notify_daily_stays()` ran at 02:00 UTC = 07:00 Karachi and only ever spoke
+    about today. Being told at 07:00 that someone arrives *today* is not notice;
+    keys, a cleaner and someone to meet them all need a day. A third event on
+    the **same cron** — no new job, no new table, `hostello-daily-stays` just
+    writes three kinds now instead of two.
+  - `booking_checkin_tomorrow`, category `booking`, audience `both` — the owner
+    and the admins, never ops, same as the two it joins (the body carries
+    `client_payout`). One line in `KIND_ICON` (`CalendarClock`, not the arrival
+    arrow: nobody is coming through a door yet). `notificationHref` needed
+    nothing — the row carries `booking_id`.
+  - The body leads with the dates exactly as its siblings word them, then the
+    **arrival time ahead of the money**, because tomorrow the hour is the thing
+    to act on: `14 Sep → 17 Sep · 3n · arriving 02:00pm · Rs 27,000`, or
+    `· arrival time not given` when it is null. **A short stay says neither** —
+    its window already opens with the hour they arrive, and the booking pages
+    make the same call (`{!shortStay && expected_arrival}`).
+  - **Keyed on the arrival date, not the day the job ran**
+    (`checkin_tomorrow:<id>:<arrival>`), so the reminder and the next morning's
+    `checkin` notice are separate rows and neither can double up.
+  - Verified against the live DB by making six bookings and running the cron
+    function for real: three arriving tomorrow (timed, untimed, short stay), one
+    arriving today, one leaving today, one cancelled. First run wrote 5, second
+    wrote 0, the cancelled one wrote nothing, `checkin_today` / `checkout_today`
+    came out byte-identical to before, and the fan-out reached 2 recipients —
+    one client, one admin. All six bookings and their notifications deleted;
+    counts back to 27 bookings / 118 notifications. `proacl` still
+    `{postgres,service_role}` — the `create or replace` kept the lockdown.
+  - **Not seen in a browser and it cannot send push.** A cron-born notification
+    reaches the bell and Realtime only; push is sent from the Next server and
+    nothing external can call a Server Action. First real one lands 07:00
+    Karachi the day before the next arrival.
 - **An owner can ask for a rate or a capacity change** (2026-09-13). `npm run
   build` and `npm run lint` clean. Migration
   `20260913090000_add_property_change_requests.sql` is **applied**.
