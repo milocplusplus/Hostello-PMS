@@ -1,6 +1,36 @@
 # State — updated 2026-09-14
 
 ## Done
+- **The month as a report Hostello can send** (2026-09-14). `npm run build` and
+  `npm run lint` clean. No migration.
+  - A Statement PDF button beside the CSV on `/client/bookings`. Page one is the
+    month drawn — four tiles, a cumulative payout curve, a source donut and
+    per-unit bars, on the dark brand with a gold-glow masthead and a dot
+    texture. Every page after is the itemised list, 28 stays to a page, with the
+    total under the last of them.
+  - **A canvas makes a PNG, not a PDF**, so `src/lib/pdf.ts` wraps the pages in
+    the minimum PDF a reader needs: catalog, pages tree, and per page a content
+    stream painting one `/DCTDecode` image. ~100 lines and no dependency. It is
+    **not a general PDF writer** — no text object, no font — so the trade the
+    design choice carries is that **nothing in the output is selectable or
+    searchable**. The part that must be exact is the xref: offsets are counted
+    in bytes as the file is assembled, never measured afterwards.
+  - Colours are read off the live theme rather than restated, so `sourceColor()`
+    stays the one definition of what Airbnb's pink is. No `hostello_share`
+    anywhere, same as the CSV.
+  - The properties query joins the bookings one in a `Promise.all`, so occupancy
+    gained a denominator without a second round trip.
+  - Verified by rendering 34 fixture stays across 3 pages and **walking the
+    xref the way a reader does** — every one of the 11 offsets lands exactly on
+    its object, header `%PDF-1.4`, ends `%%EOF`, 610 KB, 1240×1754.
+  - Four defects the first renders caught: the money columns clipped to
+    "Rs 24,1…" and the `SALE`/`YOUR PAYOUT` headings ran together (status is a
+    dot against the dates now, which freed the column); the per-unit nights sat
+    closer to the next unit's name than their own bar; the donut legend showed
+    five sources totalling 87% with the rest silently missing; and the status
+    legend touched the heading because it was placed at a guessed offset rather
+    than a measured one.
+  - **Never seen by a signed-in owner** — fixtures through a throwaway route.
 - **An owner can hand their accountant the month** (2026-09-14). `npm run build`
   and `npm run lint` clean. No migration — nothing new is stored.
   - Nothing in the repo wrote a file before this, so a year of payouts could

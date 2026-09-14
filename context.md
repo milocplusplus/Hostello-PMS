@@ -171,6 +171,15 @@ Pre-launch: real data has not been entered yet.
 - `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`,
   `isOtaSource`, `isPassThroughSource`, `DEAL_MODELS`, `formatPKR`. **The only
   correct revenue math.** Currency is PKR.
+- `src/lib/statement-report.ts` + `src/lib/pdf.ts` +
+  `src/components/shared/StatementPdf.tsx` — the **monthly report PDF**, beside
+  the CSV on `/client/bookings`. Page one is the month drawn — four tiles, a
+  cumulative payout curve, a source donut and per-unit bars — then the itemised
+  stays, 28 to a page. Drawn on a canvas at A4/150 DPI and wrapped by `pdf.ts`,
+  a ~100-line **image-per-page PDF writer, not a general one**: no text object,
+  no font, so nothing in the output is selectable or searchable. Colours are
+  read off the live theme (`sourceColor()` stays the one definition), and it
+  carries no `hostello_share` either.
 - `src/lib/statement.ts` + `src/components/shared/StatementExport.tsx` — the
   owner's **monthly statement** (CSV), on `/client/bookings`. Built during the
   page's own render from the rows it already fetched, so there is no query, no

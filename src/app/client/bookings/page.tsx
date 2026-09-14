@@ -13,6 +13,8 @@ import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { SubmitButton } from "@/components/shared/Busy";
 import { StatementExport } from "@/components/shared/StatementExport";
 import { buildStatementCsv, statementFilename, type StatementRow } from "@/lib/statement";
+import { StatementPdf } from "@/components/shared/StatementPdf";
+import { buildStatementReport, type ReportRow } from "@/lib/statement-report";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -42,18 +44,30 @@ export default async function ClientBookingsPage({
   const monthStart = visibleDates[0];
   const monthEnd = visibleDates[visibleDates.length - 1];
 
-  const { data: bookings } = await supabase
-    .from("bookings_v")
-    .select(
-      // client_payout / settled / settled_date are here for the statement
-      // export only — the table below shows neither. One query, not two.
-      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, guests_count, expected_arrival, booking_properties(properties(name))"
-    )
-    .eq("client_id", clientRecord.id)
-    .neq("status", "cancelled")
-    .lte("check_in", monthEnd)
-    .gt("check_out", monthStart)
-    .order("check_in");
+  // Independent of each other, so one round trip rather than two — the
+  // database is in Sydney and sequential calls are what makes a page feel slow.
+  const [{ data: bookings }, { data: properties }] = await Promise.all([
+    supabase
+      .from("bookings_v")
+      .select(
+        // client_payout / settled / settled_date and the property ids are for
+        // the statement exports only — the table below shows none of them.
+        "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, guests_count, expected_arrival, booking_properties(property_id, properties(name))"
+      )
+      .eq("client_id", clientRecord.id)
+      .neq("status", "cancelled")
+      .lte("check_in", monthEnd)
+      .gt("check_out", monthStart)
+      .order("check_in"),
+    // Active units, so the report's occupancy has a denominator and a unit that
+    // sold nothing still appears at zero rather than vanishing.
+    supabase
+      .from("properties")
+      .select("id, name")
+      .eq("client_id", clientRecord.id)
+      .eq("status", "active")
+      .order("name"),
+  ]);
 
   // Counts about the stays, not a ledger: your payout and whether it has
   // reached you live on /client/settlements, next to the payment proving it.
@@ -77,6 +91,13 @@ export default async function ClientBookingsPage({
     clientRecord.name,
     formatMonthParam(year, month0)
   );
+  const report = buildStatementReport({
+    rows: (bookings ?? []) as unknown as ReportRow[],
+    properties: properties ?? [],
+    days: visibleDates,
+    clientName: clientRecord.name,
+    monthLabel,
+  });
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
@@ -89,6 +110,11 @@ export default async function ClientBookingsPage({
           <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Bookings &amp; Payouts</h1>
         </div>
         <div className="flex items-center gap-2">
+          <StatementPdf
+            report={report}
+            filename={statementName.replace(/\.csv$/, ".pdf")}
+            disabled={(bookings ?? []).length === 0}
+          />
           <StatementExport
             csv={statementCsv}
             filename={statementName}
