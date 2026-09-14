@@ -11,6 +11,8 @@ import { Avatar } from "@/components/shared/Avatar";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { SubmitButton } from "@/components/shared/Busy";
+import { StatementExport } from "@/components/shared/StatementExport";
+import { buildStatementCsv, statementFilename, type StatementRow } from "@/lib/statement";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -43,7 +45,9 @@ export default async function ClientBookingsPage({
   const { data: bookings } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, guests_count, expected_arrival, booking_properties(properties(name))"
+      // client_payout / settled / settled_date are here for the statement
+      // export only — the table below shows neither. One query, not two.
+      "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, guests_count, expected_arrival, booking_properties(properties(name))"
     )
     .eq("client_id", clientRecord.id)
     .neq("status", "cancelled")
@@ -62,6 +66,18 @@ export default async function ClientBookingsPage({
     { gross: 0, nights: 0 }
   );
 
+  // Built here rather than behind a Server Action: these rows are already in
+  // memory, so the file costs nothing extra, and the page stays a plain read.
+  const monthLabel = formatMonthLabel(year, month0);
+  const statementCsv = buildStatementCsv((bookings ?? []) as unknown as StatementRow[], {
+    clientName: clientRecord.name,
+    monthLabel,
+  });
+  const statementName = statementFilename(
+    clientRecord.name,
+    formatMonthParam(year, month0)
+  );
+
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
 
@@ -72,13 +88,20 @@ export default async function ClientBookingsPage({
           <p className="eyebrow">Finance</p>
           <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Bookings &amp; Payouts</h1>
         </div>
-        <Link
-          href="/client/bookings/new"
-          className="btn btn-gold btn-sm"
-        >
-          <Plus size={13} strokeWidth={2.5} />
-          Add booking
-        </Link>
+        <div className="flex items-center gap-2">
+          <StatementExport
+            csv={statementCsv}
+            filename={statementName}
+            disabled={(bookings ?? []).length === 0}
+          />
+          <Link
+            href="/client/bookings/new"
+            className="btn btn-gold btn-sm"
+          >
+            <Plus size={13} strokeWidth={2.5} />
+            Add booking
+          </Link>
+        </div>
       </div>
 
       <div className="card p-3 flex items-center justify-between">
@@ -89,7 +112,7 @@ export default async function ClientBookingsPage({
         >
           <ChevronLeft size={16} />
         </Link>
-        <p className="text-sm font-semibold tracking-tight">{formatMonthLabel(year, month0)}</p>
+        <p className="text-sm font-semibold tracking-tight">{monthLabel}</p>
         <Link
           href={`/client/bookings?month=${formatMonthParam(nextYear, nextMonth0)}`}
           aria-label="Next month"
@@ -132,7 +155,7 @@ export default async function ClientBookingsPage({
 
       {(!bookings || bookings.length === 0) && (
         <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No bookings recorded in {formatMonthLabel(year, month0)}.
+          No bookings recorded in {monthLabel}.
         </div>
       )}
 

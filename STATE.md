@@ -1,6 +1,38 @@
-# State — updated 2026-09-13
+# State — updated 2026-09-14
 
 ## Done
+- **An owner can hand their accountant the month** (2026-09-14). `npm run build`
+  and `npm run lint` clean. No migration — nothing new is stored.
+  - Nothing in the repo wrote a file before this, so a year of payouts could
+    only be read off a screen a month at a time. `/client/bookings` now has an
+    Export statement button: one CSV per month, one row per stay.
+  - **No Server Action and no route handler.** The page already fetches these
+    rows for its table, so the CSV is built during the same server render and
+    handed to a small client component that turns it into a Blob — the pattern
+    `PayoutReceipt` already uses for its PNG. Three columns (`client_payout`,
+    `settled`, `settled_date`) were added to the query the page was already
+    making; it is still one round trip.
+  - **No `hostello_share` column, deliberately.** The client portal shows an
+    owner their own payout and never the other side of the split — the
+    calendar, the day sheet and the check-in board all say so in a comment —
+    and a file forwarded to an accountant is not the place to break it.
+  - Figures are bare numbers, never `formatPKR`: "Rs 14,000" is text to a
+    spreadsheet, and a statement exists to be summed. A UTF-8 BOM leads the
+    file, or Excel reads it as the system codepage and turns an Urdu guest name
+    into mojibake.
+  - Two things the first test run caught: unit names join with `" + "` and not
+    the `", "` the screens use, because a name can itself hold a comma
+    ("Cedar Lodge, Upper") and a two-unit cell was unreadable inside a
+    comma-delimited file even correctly quoted; and `status` is capitalised,
+    since the raw enum reads as a database value.
+  - Verified by rendering the real module against rows built to break it: a
+    quote in a guest name, a comma in two unit names, an Urdu name, a short
+    stay, a settled row. Escaping, the BOM, the short stay's real departure
+    date (`departureDate`, nights 0), and a totals row aligned under the two
+    money columns all came out right; clicking the button produced a blob URL
+    and the filename `hostello-statement-<slug>-<YYYY-MM>.csv`.
+  - **Not seen by a signed-in owner** — verified through a throwaway route with
+    fixtures, since there is no client password here.
 - **An arrival is announced the morning before, not the morning of**
   (2026-09-13). `npm run build` and `npm run lint` clean. Migration
   `20260913140000_notify_arrival_tomorrow.sql` is **applied**.

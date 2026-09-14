@@ -171,6 +171,14 @@ Pre-launch: real data has not been entered yet.
 - `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`,
   `isOtaSource`, `isPassThroughSource`, `DEAL_MODELS`, `formatPKR`. **The only
   correct revenue math.** Currency is PKR.
+- `src/lib/statement.ts` + `src/components/shared/StatementExport.tsx` — the
+  owner's **monthly statement** (CSV), on `/client/bookings`. Built during the
+  page's own render from the rows it already fetched, so there is no query, no
+  round trip and **no route handler** — the button only turns a string the page
+  is holding into a file, the way `PayoutReceipt` saves its PNG. Figures are
+  bare numbers, never `formatPKR`: a statement exists to be summed. **It has no
+  `hostello_share` column** — the client portal shows an owner their own payout
+  and never the other side of the split.
 - `src/lib/short-stay.ts` — everything short stays (hours, not nights) mean:
   `readShortStay` (the form contract), `rowShortStay` (a DB row’s window),
   `shortStayCheckOut`, `departureDate`, `formatShortStayWindow`.
