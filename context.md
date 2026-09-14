@@ -136,7 +136,9 @@ Pre-launch: real data has not been entered yet.
   `block-events.ts` (what a calendar block announces);
   `src/components/shared/{NotificationBell,NotificationFeed,NotificationLive,
   NotificationSettings}.tsx`; `src/app/notifications/actions.ts` — shared read /
-  preference / subscription actions, a folder with no `page.tsx` so it is no route
+  preference / subscription actions, a folder with no `page.tsx` so it is no route.
+  `docs/notifications.svg` draws the whole path: the two writers, where the cron
+  bypasses `emit_notification`, and why only the app path can reach Web Push.
 - `src/components/shared/GlobalSearch.tsx` — top-bar search input. Takes a
   `searchAction` prop; admin passes `admin/search/actions.ts`, the client portal
   `client/search/actions.ts`. `SearchResult` lives in `src/lib/search.ts`.
