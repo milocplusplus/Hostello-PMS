@@ -1,6 +1,17 @@
 # State — updated 2026-09-14
 
 ## Done
+- **The per-unit panel stops filling itself with zeroes** (2026-09-25). `npm run
+  build` and `npm run lint` clean.
+  - Airbnb Suites has 11 units and 2 sold in September, so three of the panel's
+    five rows were empty bars reading `Rs 0`. A checkbox beside the button —
+    "Only units that sold" — **on by default**, since the zeroes were the
+    complaint. What is lost from the rows is still said, as one line under
+    them: `9 units sold nothing`.
+  - In the shared component, so the owner's own page gets it too; both sides
+    still produce the same document. Rendered only when it would change
+    something — with every unit earning there is nothing to hide, and a
+    checkbox that does nothing is worse than no checkbox.
 - **Hostello can generate an owner's statement too** (2026-09-25). `npm run
   build` and `npm run lint` clean. No migration.
   - The same Statement PDF button on `/admin/bookings`, so Hostello can produce

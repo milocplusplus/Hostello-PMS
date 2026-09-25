@@ -448,17 +448,29 @@ function unitBars(
   x: number,
   y: number,
   w: number,
-  h: number
+  h: number,
+  soldOnly: boolean
 ) {
   panel(c, t, x, y, w, h, "How each unit did");
 
-  const shown = r.units.slice(0, 5);
+  // An owner with eleven units and two that sold spends three of five rows on
+  // empty bars. Which units earned nothing is worth knowing, so it is still
+  // said — as a count, not as rows.
+  const sold = r.units.filter((u) => u.payout > 0);
+  const idle = r.units.length - sold.length;
+  const pool = soldOnly ? sold : r.units;
+
+  const shown = pool.slice(0, 5);
   const max = Math.max(...shown.map((u) => u.payout), 1);
 
   if (shown.length === 0) {
     c.fillStyle = t.muted;
     c.font = `400 17px ${t.font}`;
-    c.fillText("No units on the account.", x + 26, y + 120);
+    c.fillText(
+      r.units.length === 0 ? "No units on the account." : "No unit sold a night this month.",
+      x + 26,
+      y + 120
+    );
     return;
   }
 
@@ -498,10 +510,20 @@ function unitBars(
     by += 52;
   }
 
-  if (r.units.length > shown.length) {
+  const overflow = pool.length - shown.length;
+  const note = [
+    overflow > 0 ? `+ ${overflow} more` : null,
+    // Only worth saying when the empty ones were left out; otherwise they are
+    // sitting right there on screen with their zeroes.
+    soldOnly && idle > 0 ? `${idle} unit${idle === 1 ? "" : "s"} sold nothing` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (note) {
     c.fillStyle = t.muted;
     c.font = `400 14px ${t.font}`;
-    c.fillText(`+ ${r.units.length - shown.length} more in the list`, x + 26, by + 6);
+    c.fillText(note, x + 26, by + 6);
   }
 }
 
@@ -585,8 +607,16 @@ function tableRow(c: CanvasRenderingContext2D, t: Theme, y: number, row: ReportR
   return y + RH;
 }
 
+export type RenderOptions = {
+  /** Leave the units that sold nothing out of the per-unit panel. */
+  soldOnly?: boolean;
+};
+
 /** Exported so the drawing can be exercised without going through the button. */
-export async function renderStatementPages(r: StatementReport): Promise<PdfPage[]> {
+export async function renderStatementPages(
+  r: StatementReport,
+  { soldOnly = true }: RenderOptions = {}
+): Promise<PdfPage[]> {
   await document.fonts.ready;
   const t = readTheme();
   const canvases: HTMLCanvasElement[] = [];
@@ -619,7 +649,7 @@ export async function renderStatementPages(r: StatementReport): Promise<PdfPage[
     trend(c, t, r, M, 528, CW, 340);
     const half = (CW - 24) / 2;
     donut(c, t, r, M, 896, half, 330);
-    unitBars(c, t, r, M + half + 24, 896, half, 330);
+    unitBars(c, t, r, M + half + 24, 896, half, 330, soldOnly);
 
     c.fillStyle = t.muted;
     c.font = `400 16px ${t.font}`;
@@ -724,12 +754,16 @@ export function StatementPdf({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // On by default: the empty bars were the complaint, and a unit that sold
+  // nothing is still reported — as a count under the bars, not five rows of it.
+  const [soldOnly, setSoldOnly] = useState(true);
+  const idle = report.units.filter((u) => u.payout <= 0).length;
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      const blob = pagesToPdfBlob(await renderStatementPages(report));
+      const blob = pagesToPdfBlob(await renderStatementPages(report, { soldOnly }));
       const file = new File([blob], filename, { type: "application/pdf" });
 
       // Same call PayoutReceipt makes: a phone hands it to WhatsApp or the OS
@@ -764,6 +798,21 @@ export function StatementPdf({
         <FileText size={13} />
         {busy ? "Building…" : "Statement PDF"}
       </button>
+
+      {/* Offered only when it would change the document. With every unit
+          earning, the toggle is a control that does nothing. */}
+      {!disabled && idle > 0 && (
+        <label className="flex items-center gap-1.5 text-[11px] text-ink-muted cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={soldOnly}
+            onChange={(e) => setSoldOnly(e.target.checked)}
+            className="accent-hostello-gold w-3 h-3 cursor-pointer"
+          />
+          Only units that sold
+        </label>
+      )}
+
       {error && <span className="text-[11px] text-negative">{error}</span>}
     </span>
   );
