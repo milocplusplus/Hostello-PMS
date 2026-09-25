@@ -27,6 +27,14 @@ const H = 1754;
 const M = 80; // margin
 const CW = W - M * 2; // content width
 
+/**
+ * "1 unit", not "1 units". A statement for an owner with a single property said
+ * the latter on all three tiles, which reads as a placeholder nobody finished.
+ */
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
 function cssVar(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -632,13 +640,18 @@ export async function renderStatementPages(
 
     const tw = (CW - 60) / 4;
     const tiles: [string, string, string, string][] = [
-      ["Gross revenue", formatPKR(r.totals.gross), `${r.totals.stays} stays`, t.glow],
+      ["Gross revenue", formatPKR(r.totals.gross), plural(r.totals.stays, "stay"), t.glow],
       ["Your payout", formatPKR(r.totals.payout), "before any settlement", t.gold],
-      ["Nights sold", String(r.occupancy.nightsSold), `across ${r.occupancy.units} units`, t.positive],
+      [
+        "Nights sold",
+        String(r.occupancy.nightsSold),
+        `across ${plural(r.occupancy.units, "unit")}`,
+        t.positive,
+      ],
       [
         "Occupancy",
         `${r.occupancy.pct}%`,
-        `of ${r.occupancy.nightsTotal} nights`,
+        `of ${plural(r.occupancy.nightsTotal, "night")}`,
         cssVar("--color-channel-booking") || "#3b82f6",
       ],
     ];
