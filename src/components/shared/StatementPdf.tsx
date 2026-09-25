@@ -802,9 +802,9 @@ export function StatementPdf({
       {/* Offered only when it would change the document. With every unit
           earning, the toggle is a control that does nothing.
 
-          The label's padding is the hit area. At w-3 the box was 12px and a
-          click on it did nothing useful — only the words worked, which is no
-          good on a phone. */}
+          16px box, and the label's padding carries the hit area, so the whole
+          control is the target. The box alone was 12px before, which is under
+          the 24px WCAG asks for on touch. */}
       {!disabled && idle > 0 && (
         <label className="flex items-center gap-2 text-[11px] text-ink-muted cursor-pointer select-none py-1.5 px-1 -my-1.5">
           <input
