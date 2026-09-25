@@ -1,6 +1,25 @@
 # State — updated 2026-09-14
 
 ## Done
+- **Hostello can generate an owner's statement too** (2026-09-25). `npm run
+  build` and `npm run lint` clean. No migration.
+  - The same Statement PDF button on `/admin/bookings`, so Hostello can produce
+    an owner's month and send it rather than waiting for the owner to pull it.
+  - **Owner-only.** `bookings_v` blanks `client_payout` for ops, so an ops
+    statement would not leak anything — it would render a page of plausible
+    zeroes, which is worse. It sits behind the page's existing `canSeeSplit`.
+  - **It is byte-for-byte the owner's document**, `hostello_share` absent
+    included. Two files both called "the statement" that disagree is a worse
+    problem than one that says less.
+  - Needs a client picked: a month across every client is not a statement. With
+    none selected the page says so in a line of text rather than offering a
+    button that would build the wrong thing.
+  - **The statement runs its own query, not the page's rows.** Built from the
+    list it would inherit whatever channel or status filter was on screen — a
+    document headed "September" holding only the Airbnb stays, totals to match,
+    with nothing on the page admitting it. Caught before shipping. It rides in
+    the existing `Promise.all`, so still one round trip, and the list query went
+    back to exactly the columns it had.
 - **The month as a report Hostello can send** (2026-09-14). `npm run build` and
   `npm run lint` clean. No migration.
   - A Statement PDF button beside the CSV on `/client/bookings`. Page one is the
