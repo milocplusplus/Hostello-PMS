@@ -800,14 +800,18 @@ export function StatementPdf({
       </button>
 
       {/* Offered only when it would change the document. With every unit
-          earning, the toggle is a control that does nothing. */}
+          earning, the toggle is a control that does nothing.
+
+          The label's padding is the hit area. At w-3 the box was 12px and a
+          click on it did nothing useful — only the words worked, which is no
+          good on a phone. */}
       {!disabled && idle > 0 && (
-        <label className="flex items-center gap-1.5 text-[11px] text-ink-muted cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-[11px] text-ink-muted cursor-pointer select-none py-1.5 px-1 -my-1.5">
           <input
             type="checkbox"
             checked={soldOnly}
             onChange={(e) => setSoldOnly(e.target.checked)}
-            className="accent-hostello-gold w-3 h-3 cursor-pointer"
+            className="accent-hostello-gold w-4 h-4 cursor-pointer"
           />
           Only units that sold
         </label>
