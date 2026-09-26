@@ -73,6 +73,12 @@ Pre-launch: real data has not been entered yet.
 - `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
+- `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the
+  owner's own books (spec: `docs/expenses.md`). Tracking only — never read by
+  settlements or payout math. Owner writes; the admin reads it at
+  `/admin/clients/<id>/expenses`; ops has no RLS policy. Bill photos in the
+  private `expense-receipts` bucket at `<client_id>/…`. Shared UI:
+  `ExpenseList` / `ExpenseMonthNav` / `ExpenseSummary`, and `ExpenseForm`.
 - `src/app/{admin,client}/settlements/**` + `src/lib/owed.ts` — **Settlements:
   both directions on one screen, two tabs (`?tab=to-hostello|to-client`).**
   `owed.ts` is settlement only — it adds up what is owed and subtracts what has
@@ -478,8 +484,9 @@ Pre-launch: real data has not been entered yet.
   blanked for ops, and it is not what a guest pays. The asking price is
   `nightly_rate` (per night) / `short_stay_rate` (flat per window). The
   availability finder reads only the latter pair.
-- Pricing / Expenses / Reports have **zero backing tables** — out of scope, no
-  nav for them. Neither do guest messaging, housekeeping, maintenance or staff
+- Pricing / Reports have **zero backing tables** — out of scope, no nav for
+  them. (Owner expenses now have tables — see `docs/expenses.md`.)
+  Neither do guest messaging, housekeeping, maintenance or staff
   assignment, so there are no notifications for them either. Do not invent one;
   add the table first. OTA sync is the one exception and is now fully built:
   `calendar_feeds` in, `calendar_exports` out, a `calendar_conflict`

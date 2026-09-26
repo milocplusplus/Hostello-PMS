@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Wallet,
   HandCoins,
+  Receipt,
   BarChart3,
   Bell,
   Sun,
@@ -37,6 +38,7 @@ const NAV = [
   { href: "/client/availability", label: "Availability", icon: BedDouble, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
   { href: "/client/settlements", label: "Settlements", icon: HandCoins, exact: false },
+  { href: "/client/expenses", label: "Expenses", icon: Receipt, exact: false },
   { href: "/client/stats", label: "Stats", icon: BarChart3, exact: false },
   { href: "/client/notifications", label: "Notifications", icon: Bell, exact: false },
 ];

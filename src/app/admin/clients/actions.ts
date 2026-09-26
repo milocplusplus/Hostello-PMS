@@ -392,7 +392,12 @@ export async function deletePropertyRecord(formData: FormData) {
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
-    redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(error.message)}`);
+    // The owner's own expense records point at the unit, and deleting it must
+    // not quietly delete or re-file their books.
+    const message = error.message.includes("expenses_property_id_fkey")
+      ? "The owner has expenses recorded against this property. They need moving or deleting first."
+      : error.message;
+    redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(message)}`);
   }
 
   if (property) {

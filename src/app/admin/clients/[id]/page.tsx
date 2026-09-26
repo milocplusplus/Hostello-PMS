@@ -129,6 +129,9 @@ export default async function ClientDetailPage({
             <ReceiptText size={13} strokeWidth={2.5} />
             Add booking
           </Link>
+          <Link href={`/admin/clients/${id}/expenses`} className={secondaryButton}>
+            Expenses
+          </Link>
           <Link href={`/admin/clients/${id}/edit`} className={secondaryButton}>
             Edit client
           </Link>

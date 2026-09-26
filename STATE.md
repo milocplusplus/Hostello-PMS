@@ -1,6 +1,30 @@
-# State — updated 2026-09-14
+# State — updated 2026-09-26
 
 ## Done
+- **Owner expenses, phase 1** (2026-09-26). Spec and all four phases in
+  `docs/expenses.md` — read it before phase 2. Tracking only: nothing reads an
+  expense into Settlements, `owed.ts` or `payout.ts`.
+  - Migrations `20260926090000_add_owner_expenses` +
+    `20260926093000_expenses_rls_initplan`, **both applied to the live DB**.
+    Tables `expense_categories` (5 shared defaults, `client_id` null, plus each
+    owner's own) and `expenses`; private bucket `expense-receipts` at
+    `<client_id>/…`. Owner reads/writes own; admin reads only; ops has no policy.
+  - `expenses.property_id` / `category_id` are plain FKs, no cascade: deleting a
+    unit or a category that expenses use is **refused**, on purpose. The admin's
+    property delete names that case instead of showing the raw FK error.
+  - `/client/expenses` (+ `new`, `[id]`), nav item "Expenses";
+    `/admin/clients/<id>/expenses` read-only, linked from the client page.
+    `src/lib/expenses.ts`, `components/shared/ExpenseList.tsx`,
+    `components/client/ExpenseForm.tsx`.
+  - Verified: RLS as real roles in a rolled-back transaction on the live DB —
+    own insert, forged client, another owner's unit, another owner's category,
+    moving an expense onto another owner's unit, in-use category / unit delete,
+    ops sees 0, admin reads all and cannot write, anon sees 0. `npm run lint`
+    and `npm run build` clean.
+  - **Not verified: the pages themselves.** No `.env.local` and no owner login
+    in the session, so nothing was rendered signed in. First real use should
+    add one expense with a bill photo, edit it, delete it, and add/remove a
+    custom category — then open the admin tab for that client.
 - **Both portals exercised against production with real logins** (2026-09-25/26).
   Everything below this line had been fixture-verified only.
   - Admin: Airbnb Suites, September — PDF matches the page and the database
@@ -1916,7 +1940,8 @@ reassign the alias, so nothing broke.
 - Booking `check_out` is exclusive; `calendar_blocks.end_date` is inclusive. The
   calendar's `place()` helper converts check_out to an inclusive last night before
   clipping — keep it that way.
-- Don't build Pricing / Expenses / Reports — no tables back them. Channel sync
+- Don't build Pricing / Reports — no tables back them (owner expenses do now,
+  see `docs/expenses.md`). Channel sync
   now has one (`calendar_feeds`), but import only — see the Phase 1 entry above.
 - Owed to Hostello has real tables now. `share_received` is the owner-owes-Hostello
   direction, `settled` is the Hostello-owes-owner one. Never sum one as the other.
