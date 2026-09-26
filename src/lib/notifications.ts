@@ -17,6 +17,7 @@ import {
   PencilRuler,
   Percent,
   Receipt,
+  ReceiptText,
   TriangleAlert,
   Wallet,
   type LucideIcon,
@@ -90,6 +91,9 @@ const KIND_ICON: Record<string, LucideIcon> = {
   property_change_applied: BadgeCheck,
   property_change_declined: BadgeX,
   client_terms_updated: Percent,
+  // An owner's recurring bill came due (generate_due_expenses, in SQL). Owner
+  // only: it is their own books, and nothing in it is Hostello's to act on.
+  expense_due: ReceiptText,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -138,6 +142,11 @@ export function notificationHref(
   // is the property's calendar, which is where a bare property_id would land.
   if (row.kind?.startsWith("property_change_")) {
     return portal === "admin" ? "/admin/property-requests" : "/client/properties";
+  }
+
+  // A due bill is confirmed from the Expenses page, whatever month it is from.
+  if (row.kind?.startsWith("expense_")) {
+    return portal === "admin" ? "/admin/notifications" : "/client/expenses";
   }
 
   if (portal === "admin") {

@@ -217,7 +217,7 @@ export function ExpenseForm({
         className={`mt-1 ${primaryButton}`}
         busy={expense ? "Saving the expense…" : "Adding the expense…"}
       >
-        {expense ? "Save changes" : "Add expense"}
+        {!expense ? "Add expense" : expense.confirmed ? "Save changes" : "Confirm bill"}
       </SubmitButton>
     </form>
   );

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Tags, X } from "lucide-react";
+import { BellRing, Plus, Repeat, Tags, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
-import { formatMonthLabel, formatMonthParam, parseMonthParam } from "@/lib/calendar";
+import { formatDayMonth, formatMonthLabel, formatMonthParam, parseMonthParam } from "@/lib/calendar";
+import { formatPKR } from "@/lib/payout";
 import {
+  listDueExpenses,
   listExpenseCategories,
   listExpenses,
   unpaidTotal,
@@ -14,7 +16,7 @@ import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { ExpenseList, ExpenseMonthNav, ExpenseSummary } from "@/components/shared/ExpenseList";
-import { addExpenseCategory, removeExpenseCategory } from "./actions";
+import { addExpenseCategory, deleteExpense, removeExpenseCategory } from "./actions";
 
 export default async function ClientExpensesPage({
   searchParams,
@@ -45,9 +47,10 @@ export default async function ClientExpensesPage({
   const filtered = !!(filters.unit || filters.category || filters.status);
 
   const supabase = await createClient();
-  // None of these depends on another, so they cost one round trip, not four.
-  const [expenses, unpaid, categories, { data: properties }] = await Promise.all([
+  // None of these depends on another, so they cost one round trip, not five.
+  const [expenses, due, unpaid, categories, { data: properties }] = await Promise.all([
     listExpenses(supabase, clientRecord.id, { year, month0 }, filters),
+    listDueExpenses(supabase, clientRecord.id),
     unpaidTotal(supabase, clientRecord.id),
     listExpenseCategories(supabase, clientRecord.id),
     supabase.from("properties_v").select("id, name").order("name"),
@@ -67,13 +70,66 @@ export default async function ClientExpensesPage({
             nothing here changes what Hostello owes you or you owe Hostello.
           </p>
         </div>
-        <Link href={`/client/expenses/new?month=${monthStr}`} className="btn btn-gold btn-sm shrink-0">
-          <Plus size={13} strokeWidth={2.5} />
-          Add expense
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/client/expenses/recurring" className="btn btn-ghost btn-sm">
+            <Repeat size={13} />
+            Recurring
+          </Link>
+          <Link href={`/client/expenses/new?month=${monthStr}`} className="btn btn-gold btn-sm">
+            <Plus size={13} strokeWidth={2.5} />
+            Add expense
+          </Link>
+        </div>
       </div>
 
       {sp.error && <p className={errorBanner}>{sp.error}</p>}
+
+      {/* Due bills are reminders, not costs: they sit here whatever month they
+          are from, and count in nothing until confirmed. */}
+      {due.length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="px-4 md:px-5 py-3 border-b border-border-hairline flex items-center gap-2 flex-wrap">
+            <BellRing size={14} className="text-status-pending" />
+            <h2 className="text-sm font-medium text-ink-primary">
+              {due.length === 1 ? "1 bill is due" : `${due.length} bills are due`}
+            </h2>
+            <span className="text-[11px] text-ink-muted ml-auto">Confirm what each came to</span>
+          </div>
+          <ul className="divide-y divide-[var(--color-border-hairline)]">
+            {due.map((e) => (
+              <li key={e.id} className="px-4 md:px-5 py-3 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink-primary truncate">{e.categoryName}</p>
+                  <p className="text-xs text-ink-secondary truncate mt-0.5">
+                    {[e.propertyName ?? "All units", e.vendor, `due ${formatDayMonth(e.incurredOn)}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <p className="num text-sm text-ink-secondary shrink-0">
+                  <span className="text-[11px] text-ink-muted">about </span>
+                  {formatPKR(e.amount)}
+                </p>
+                <div className="flex items-center gap-3 shrink-0">
+                  <form action={deleteExpense}>
+                    <input type="hidden" name="id" value={e.id} />
+                    <input type="hidden" name="month" value={monthStr} />
+                    <ConfirmDeleteButton
+                      confirmText="Skip this one? It won't be added back — next month's still comes."
+                      label="Skip"
+                      busy="Skipping the bill…"
+                      className="text-xs text-ink-muted hover:text-status-booked transition-colors"
+                    />
+                  </form>
+                  <Link href={`/client/expenses/${e.id}`} className="btn btn-gold btn-sm">
+                    Confirm
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <ExpenseMonthNav

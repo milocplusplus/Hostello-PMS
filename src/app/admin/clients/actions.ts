@@ -393,9 +393,10 @@ export async function deletePropertyRecord(formData: FormData) {
 
   if (error) {
     // The owner's own expense records point at the unit, and deleting it must
-    // not quietly delete or re-file their books.
+    // not quietly delete or re-file their books. Matches both `expenses_…` and
+    // `recurring_expenses_property_id_fkey`.
     const message = error.message.includes("expenses_property_id_fkey")
-      ? "The owner has expenses recorded against this property. They need moving or deleting first."
+      ? "The owner has expenses or recurring bills on this property. They need moving or deleting first."
       : error.message;
     redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(message)}`);
   }

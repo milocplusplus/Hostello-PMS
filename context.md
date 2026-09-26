@@ -79,6 +79,11 @@ Pre-launch: real data has not been entered yet.
   `/admin/clients/<id>/expenses`; ops has no RLS policy. Bill photos in the
   private `expense-receipts` bucket at `<client_id>/…`. Shared UI:
   `ExpenseList` / `ExpenseMonthNav` / `ExpenseSummary`, and `ExpenseForm`.
+  **Recurring bills** (`/client/expenses/recurring`, `RecurringForm`) are
+  templates; `generate_due_expenses()` on cron `hostello-expenses-due` writes
+  them as `confirmed = false` expenses, which count in no total until the
+  owner confirms. `last_generated_month` is the idempotency key, and
+  `generatedMarker()` is the one rule the app must share with that job.
 - `src/app/{admin,client}/settlements/**` + `src/lib/owed.ts` — **Settlements:
   both directions on one screen, two tabs (`?tab=to-hostello|to-client`).**
   `owed.ts` is settlement only — it adds up what is owed and subtracts what has

@@ -32,13 +32,27 @@ money goes.
   total and still-to-pay, add / edit / delete, custom categories.
 - `/admin/clients/<id>/expenses`: the same list, read-only.
 
-## Phase 2 — recurring
+## Phase 2 — recurring (built)
 - `recurring_expenses` templates: unit, category, vendor, method, expected
-  amount, day of month, active.
-- A daily pg_cron job writes a **due** expense for each template that comes due
-  (keyed so a re-run is a no-op) and a notification. Due rows are excluded from
-  every total until the owner confirms the real amount. Cron cannot call
-  `emit_notification`; it inserts directly, as `notify_daily_stays()` does.
+  amount, day of month (29–31 fall back to a short month's last day), active.
+- `generate_due_expenses()` on pg_cron `hostello-expenses-due`, 02:05 UTC
+  (07:05 Karachi), writes this month's **due** expense (`expenses.confirmed =
+  false`, `paid = false`, amount = the template's) for each active bill whose
+  day has come, then one `expense_due` notification per owner. Cron cannot
+  call `emit_notification`, so it inserts directly, as `notify_daily_stays()`
+  does — bell and Realtime, no push.
+- **`last_generated_month` is the key.** It makes a re-run a no-op, and it is
+  why skipping (deleting) a due expense does not bring it back next morning.
+  Setting a bill up, moving its day or resuming it on a day already past this
+  month marks this month done (`generatedMarker()` in `src/lib/expenses.ts`) —
+  the first one is next month's. The app and the job agree on the Karachi date.
+- Due expenses are in **no total** (`listExpenses` and `unpaidTotal` read
+  `confirmed = true` only). They sit in a "bills are due" card on
+  `/client/expenses` whatever month they are from, with Confirm (the edit form;
+  any save confirms) and Skip (delete).
+- Deleting a bill keeps the expenses it produced that were confirmed (the link
+  is set null) and removes the ones still due. Templates live at
+  `/client/expenses/recurring` (+ `[id]`); the admin does not see them.
 
 ## Phase 3 — profit and insights
 - Income is `client_payout` from `bookings_v`, **confirmed stays only**,

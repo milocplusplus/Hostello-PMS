@@ -44,6 +44,9 @@ export type Expense = {
   receiptPath: string | null;
   receiptUrl: string | null;
   receiptIsPdf: boolean;
+  /** False for a due bill the daily job wrote: in no total until confirmed. */
+  confirmed: boolean;
+  recurringId: string | null;
 };
 
 export type ExpenseStatusFilter = "paid" | "unpaid";
@@ -56,7 +59,7 @@ export type ExpenseFilters = {
 };
 
 const SELECT =
-  "id, amount, incurred_on, category_id, property_id, vendor, method, paid, due_on, note, receipt_path, expense_categories(name), properties(name)";
+  "id, amount, incurred_on, category_id, property_id, vendor, method, paid, due_on, note, receipt_path, confirmed, recurring_id, expense_categories(name), properties(name)";
 
 type Row = {
   id: string;
@@ -70,6 +73,8 @@ type Row = {
   due_on: string | null;
   note: string | null;
   receipt_path: string | null;
+  confirmed: boolean;
+  recurring_id: string | null;
   expense_categories: { name: string } | null;
   properties: { name: string } | null;
 };
@@ -109,10 +114,13 @@ async function withReceipts(supabase: SupabaseClient, rows: Row[]): Promise<Expe
     receiptPath: r.receipt_path,
     receiptUrl: r.receipt_path ? (urls.get(r.receipt_path) ?? null) : null,
     receiptIsPdf: !!r.receipt_path?.endsWith(".pdf"),
+    confirmed: r.confirmed,
+    recurringId: r.recurring_id,
   }));
 }
 
-/** One owner's expenses billed in a month, newest bill first. */
+/** One owner's confirmed expenses billed in a month, newest bill first. Due
+ *  bills are not in it — they are not a cost until confirmed. */
 export async function listExpenses(
   supabase: SupabaseClient,
   clientId: string,
@@ -125,6 +133,7 @@ export async function listExpenses(
     .from("expenses")
     .select(SELECT)
     .eq("client_id", clientId)
+    .eq("confirmed", true)
     .gte("incurred_on", start)
     .lte("incurred_on", end);
 
@@ -159,6 +168,7 @@ export async function unpaidTotal(
     .from("expenses")
     .select("amount, due_on")
     .eq("client_id", clientId)
+    .eq("confirmed", true)
     .eq("paid", false);
 
   const rows = data ?? [];
@@ -271,4 +281,196 @@ export async function uploadExpenseReceipt(
 
 export async function removeExpenseReceipt(supabase: SupabaseClient, path: string | null) {
   if (path) await supabase.storage.from(EXPENSE_BUCKET).remove([path]);
+}
+
+// ── Recurring bills ──────────────────────────────────────────────────────────
+//
+// A template the daily job (`generate_due_expenses()` in SQL) turns into a due
+// expense each month. The job owns *when*; everything here is display and the
+// one rule the app must agree with it on — see `generatedMarker`.
+
+/** Bills the job wrote that the owner has yet to confirm, any month, oldest first. */
+export async function listDueExpenses(
+  supabase: SupabaseClient,
+  clientId: string
+): Promise<Expense[]> {
+  const { data } = await supabase
+    .from("expenses")
+    .select(SELECT)
+    .eq("client_id", clientId)
+    .eq("confirmed", false)
+    .order("incurred_on", { ascending: true });
+
+  return withReceipts(supabase, (data ?? []) as unknown as Row[]);
+}
+
+export type RecurringExpense = {
+  id: string;
+  amount: number;
+  dayOfMonth: number;
+  categoryId: string;
+  categoryName: string;
+  propertyId: string | null;
+  propertyName: string | null;
+  vendor: string | null;
+  method: ExpenseMethod | null;
+  note: string | null;
+  active: boolean;
+  lastGeneratedMonth: string | null;
+};
+
+const RECURRING_SELECT =
+  "id, amount, day_of_month, category_id, property_id, vendor, method, note, active, last_generated_month, expense_categories(name), properties(name)";
+
+type RecurringRow = {
+  id: string;
+  amount: number | string;
+  day_of_month: number;
+  category_id: string;
+  property_id: string | null;
+  vendor: string | null;
+  method: string | null;
+  note: string | null;
+  active: boolean;
+  last_generated_month: string | null;
+  expense_categories: { name: string } | null;
+  properties: { name: string } | null;
+};
+
+function toRecurring(r: RecurringRow): RecurringExpense {
+  return {
+    id: r.id,
+    amount: Number(r.amount),
+    dayOfMonth: r.day_of_month,
+    categoryId: r.category_id,
+    categoryName: r.expense_categories?.name ?? "Uncategorised",
+    propertyId: r.property_id,
+    propertyName: r.property_id ? (r.properties?.name ?? "Unit") : null,
+    vendor: r.vendor,
+    method: (r.method as ExpenseMethod | null) ?? null,
+    note: r.note,
+    active: r.active,
+    lastGeneratedMonth: r.last_generated_month,
+  };
+}
+
+/** Active ones first, then by the day they fall on. */
+export async function listRecurring(
+  supabase: SupabaseClient,
+  clientId: string
+): Promise<RecurringExpense[]> {
+  const { data } = await supabase
+    .from("recurring_expenses")
+    .select(RECURRING_SELECT)
+    .eq("client_id", clientId)
+    .order("active", { ascending: false })
+    .order("day_of_month", { ascending: true });
+
+  return ((data ?? []) as unknown as RecurringRow[]).map(toRecurring);
+}
+
+export async function getRecurring(
+  supabase: SupabaseClient,
+  id: string
+): Promise<RecurringExpense | null> {
+  const { data } = await supabase
+    .from("recurring_expenses")
+    .select(RECURRING_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  return data ? toRecurring(data as unknown as RecurringRow) : null;
+}
+
+/** Today in Karachi — the calendar the job runs on, not the server's UTC one. */
+export function karachiToday(): string {
+  return new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** The date a bill falls on in a month; 29–31 become the last day of a short month. */
+export function dueDateIn(year: number, month0: number, dayOfMonth: number): string {
+  const lastDay = new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month0, Math.min(dayOfMonth, lastDay))).toISOString().slice(0, 10);
+}
+
+/**
+ * What `last_generated_month` should say when a bill is set up, edited or
+ * resumed. If this month's day has already gone by, this month counts as done —
+ * the owner has most likely logged that one by hand, and the job would
+ * otherwise write it the next morning. Otherwise it is left as it was, so the
+ * job writes this month's when the day comes. Never moves backwards.
+ */
+export function generatedMarker(
+  dayOfMonth: number,
+  previous: string | null,
+  today: string = karachiToday()
+): string | null {
+  const [y, m] = today.split("-").map(Number);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const passed = today >= dueDateIn(y, m - 1, dayOfMonth);
+  if (!passed) return previous;
+  return previous && previous >= monthStart ? previous : monthStart;
+}
+
+/** When the job will next write this bill as due. */
+export function nextDueDate(r: RecurringExpense, today: string = karachiToday()): string {
+  const [y, m] = today.split("-").map(Number);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const doneThisMonth = !!r.lastGeneratedMonth && r.lastGeneratedMonth >= monthStart;
+  if (!doneThisMonth) {
+    const thisMonth = dueDateIn(y, m - 1, r.dayOfMonth);
+    // A day already past but not yet written means tomorrow morning's run.
+    return thisMonth >= today ? thisMonth : today;
+  }
+  return m === 12 ? dueDateIn(y + 1, 0, r.dayOfMonth) : dueDateIn(y, m, r.dayOfMonth);
+}
+
+export function ordinal(n: number): string {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
+  return `${n}${s}`;
+}
+
+export type RecurringInput = {
+  amount: number;
+  dayOfMonth: number;
+  categoryId: string;
+  propertyId: string | null;
+  vendor: string | null;
+  method: ExpenseMethod | null;
+  note: string | null;
+};
+
+export function readRecurringForm(
+  formData: FormData
+): { ok: true; value: RecurringInput } | { ok: false; error: string } {
+  const text = (key: string) => (formData.get(key) as string | null)?.trim() || null;
+
+  const amount = Number(text("amount"));
+  const dayOfMonth = Number(text("day_of_month"));
+  const categoryId = text("category_id");
+  const unit = text("property_id");
+  const method = text("method");
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Enter what it usually comes to — more than zero." };
+  }
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) {
+    return { ok: false, error: "Pick the day of the month it's due." };
+  }
+  if (!categoryId) return { ok: false, error: "Pick a category." };
+  if (method && !EXPENSE_METHODS.some((m) => m.value === method)) {
+    return { ok: false, error: "Pick how it's paid." };
+  }
+
+  return {
+    ok: true,
+    value: {
+      amount: Math.round(amount * 100) / 100,
+      dayOfMonth,
+      categoryId,
+      propertyId: unit && unit !== "general" ? unit : null,
+      vendor: text("vendor"),
+      method: (method as ExpenseMethod | null) ?? null,
+      note: text("note"),
+    },
+  };
 }

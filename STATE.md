@@ -1,6 +1,24 @@
 # State — updated 2026-09-26
 
 ## Done
+- **Owner expenses, phase 2 — recurring bills** (2026-09-26). Details in
+  `docs/expenses.md` under Phase 2.
+  - Migration `20260926120000_add_recurring_expenses`, **applied to the live
+    DB**: `recurring_expenses`, `expenses.recurring_id` + `expenses.confirmed`,
+    `generate_due_expenses()` (EXECUTE: postgres + service_role only, same ACL
+    as `notify_daily_stays`) and cron `hostello-expenses-due` at `5 2 * * *`.
+  - Verified in rolled-back transactions on the live DB: the job writes only
+    bills whose day has come (not paused, not already written, not a later
+    day), one `expense_due` notification that fans out to the owner alone, a
+    second run and a skipped bill both write nothing. RLS as real roles: own
+    templates only, forged client / other owner's unit refused, confirming a
+    due expense works, deleting a template keeps its confirmed expenses,
+    ops sees 0 and cannot run the job, admin reads but cannot write.
+    `npm run lint` and `npm run build` clean.
+  - **Not verified: the pages, and a real cron run.** First scheduled run is
+    02:05 UTC tomorrow; with no templates yet it writes nothing. After someone
+    sets one up: `select * from cron.job_run_details where command like
+    '%generate_due_expenses%' order by start_time desc limit 5;`
 - **Owner expenses, phase 1** (2026-09-26). Spec and all four phases in
   `docs/expenses.md` — read it before phase 2. Tracking only: nothing reads an
   expense into Settlements, `owed.ts` or `payout.ts`.
