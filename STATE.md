@@ -1,6 +1,31 @@
 # State — updated 2026-09-14
 
 ## Done
+- **Both portals exercised against production with real logins** (2026-09-25/26).
+  Everything below this line had been fixture-verified only.
+  - Admin: Airbnb Suites, September — PDF matches the page and the database
+    (Rs 70,000 / 4 stays / 8 nights). **The filter fix is proven**: with the
+    page filtered to Airbnb (1 booking, Rs 28,000) the PDF still came out
+    Rs 70,000 / 4 stays, donut showing Hostello Direct 60% and Airbnb 40%.
+  - Client: Test Client, September, from the owner's own login. Its PDF and the
+    admin's for the same client are **264,424 bytes each — byte-identical**.
+    That is the "both sides produce the same document" rule proven rather than
+    asserted. No `hostello_share` on it; their Rs 32,000 commission appears
+    nowhere.
+  - The toggle correctly **does not render** for Test Client: one unit, and it
+    sold, so there is nothing to hide.
+  - **The rate-change request was already used for real on 2026-09-18** — owner
+    filed (sleeps 2, Rs 6,000), an admin applied it the same day, and
+    `properties` carries both. Not tested by us; used.
+  - Fixed: the tiles said "across 1 units". Every fixture account had several
+    units and several stays, which is exactly why it survived until a real
+    single-unit owner generated one.
+  - **Three things that were the harness, not the app** — do not chase them.
+    Raw-coordinate clicks land wrong when the screenshot frame (799px) differs
+    from the viewport (731px); click by `ref`. A backgrounded pane throttles
+    `requestAnimationFrame`, so React never swaps in streamed Suspense content
+    and the page sits on "Loading…" — a screenshot forces the paint. And a
+    scripted `.click()` does not always drive React where a real click does.
 - **The per-unit panel stops filling itself with zeroes** (2026-09-25). `npm run
   build` and `npm run lint` clean.
   - Airbnb Suites has 11 units and 2 sold in September, so three of the panel's
