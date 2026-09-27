@@ -1,6 +1,21 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 4 of 7: money** (2026-09-27). Both settlements pages
+  are titled "Money"; their explanations moved into `InfoSheet`s.
+  `SettlementTabs`: the active direction is a `card-hero` with an in/out arrow
+  and a count-up; `MoneyStat` tiles (pending / confirmed); "Pay Hostello" /
+  "Send a payout" are big gradient buttons; "Waiting on you" breathes gold
+  (`.pulse-gold`) while something waits. `PayoutHistory` rows restyled.
+  **Behaviour change:** confirming a payment (owner `confirmHostelloPayout`,
+  admin `confirmPayout`) now lands on its receipt with `?celebrate=1`, which
+  shows `Celebration` (confetti, gold check, count-up, Sent→Confirmed) once;
+  Done drops the flag. `confirmPayoutForClient` (admin marking received for a
+  no-login owner) still returns to the list: nobody there to celebrate.
+  Checked on a phone: Money page, the celebration and Done. Not exercised: a
+  real confirm end to end (needs a pending payout). **Build gotcha:** a build
+  run beside `next dev` can fail on a half-written `.next/dev/types/validator.ts`
+  — stop the dev server and delete `.next/dev/types`.
 - **UI redesign, phase 3 of 7: bookings** (2026-09-27). Both booking lists
   are card grids now (`components/shared/BookingCard.tsx`: `BookingCard`,
   `StayBar` — one segment per night, tonight gold, >14 nights a progress bar —

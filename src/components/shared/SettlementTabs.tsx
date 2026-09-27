@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ArrowDownLeft, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
+import { CountUp } from "@/components/shared/CountUp";
 
 export type SettlementTab = "to-hostello" | "to-client";
 
@@ -42,35 +44,68 @@ export function SettlementTabs({
     },
   ];
 
+  // Whichever direction brings money to the viewer points in.
+  const incoming: SettlementTab = portal === "admin" ? "to-hostello" : "to-client";
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {tabs.map((t) => {
         const active = t.key === tab;
+        const Icon = t.key === incoming ? ArrowDownLeft : ArrowUpRight;
         return (
           <Link
             key={t.key}
             href={`${base}?tab=${t.key}`}
             aria-current={active ? "page" : undefined}
-            className={`card p-4 text-left transition-colors ${
-              active
-                ? "border border-hostello-gold/40 bg-surface-2"
-                : "border border-transparent hover:bg-surface-2"
+            className={`p-4 md:p-5 flex flex-col gap-2 text-left active:scale-[0.98] transition-transform ${
+              active ? "card-hero" : "card hover:bg-white/[0.03]"
             }`}
           >
-            <span className={`block text-xs ${active ? "text-ink-primary" : "text-ink-secondary"}`}>
-              {t.label}
-            </span>
             <span
-              className={`block text-lg md:text-2xl font-semibold mt-1.5 truncate ${
-                active ? "text-financial" : "text-ink-secondary"
+              className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                active ? "bg-white/20" : "bg-white/6 text-ink-secondary"
               }`}
             >
-              {formatPKR(t.amount)}
+              <Icon size={18} strokeWidth={2.4} />
             </span>
-            <span className="block text-[11px] text-ink-muted mt-1">{t.caption}</span>
+            <span
+              className={`num block text-lg md:text-2xl font-extrabold truncate ${
+                active ? "text-white" : "text-ink-secondary"
+              }`}
+            >
+              Rs <CountUp value={t.amount} />
+            </span>
+            <span className={`block text-xs font-bold ${active ? "text-white/85" : "text-ink-muted"}`}>
+              {t.caption}
+            </span>
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+/** A small figure tile on the settlements pages: icon, amount, one-word label. */
+export function MoneyStat({
+  icon: Icon,
+  tint,
+  label,
+  value,
+  valueClass = "text-ink-primary",
+}: {
+  icon: LucideIcon;
+  tint: string;
+  label: string;
+  value: number;
+  valueClass?: string;
+}) {
+  return (
+    <div className="card p-4 md:p-5 flex flex-col gap-2">
+      <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${tint}`}>
+        <Icon size={18} />
+      </span>
+      <p className={`num text-lg md:text-2xl font-extrabold truncate ${valueClass}`}>{formatPKR(value)}</p>
+      <p className="text-xs font-bold text-ink-muted">{label}</p>
     </div>
   );
 }

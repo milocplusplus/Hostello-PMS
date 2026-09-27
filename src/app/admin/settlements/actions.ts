@@ -75,7 +75,8 @@ export async function confirmPayout(formData: FormData) {
   });
 
   revalidateMoney();
-  back("to-hostello");
+  // Onto the receipt, which celebrates once: the money has actually arrived.
+  redirect(`/admin/settlements/receipt/${id}?celebrate=1`);
 }
 
 /**

@@ -816,6 +816,22 @@ h3 {
   }
 }
 
+/* Something waiting on the viewer: a slow gold breath around the card */
+.pulse-gold {
+  border-color: rgba(245, 201, 104, 0.4);
+  animation: pulse-gold 2.6s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 201, 104, 0), 0 18px 40px -18px rgba(245, 201, 104, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(245, 201, 104, 0.1), 0 18px 40px -14px rgba(245, 201, 104, 0.6);
+  }
+}
+
 /* A progress ring fills from empty to its own dashoffset (pathLength="100") */
 .ring-in {
   animation: ring-in 1.4s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -835,6 +851,7 @@ h3 {
 
   .ring-in,
   .bar-grow,
+  .pulse-gold,
   .animate-in,
   .animate-fade,
   .animate-receipt-pop,

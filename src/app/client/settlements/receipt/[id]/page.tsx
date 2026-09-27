@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { listPayments, loadAllocations } from "@/lib/owed";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
+import { Celebration } from "@/components/shared/Celebration";
 
 /**
  * The owner's copy of one payment, either direction.
@@ -15,10 +16,13 @@ import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
  */
 export default async function ClientReceiptPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ celebrate?: string }>;
 }) {
   const { id } = await params;
+  const { celebrate } = await searchParams;
 
   const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
@@ -37,6 +41,9 @@ export default async function ClientReceiptPage({
 
   return (
     <div className="mx-auto w-full max-w-[26rem] flex flex-col gap-4 animate-in">
+      {/* Only a confirm lands here with the flag, and only a confirmed entry
+          is worth it. */}
+      {celebrate && entry.status === "received" && <Celebration amount={entry.amount} />}
       <div>
         <Link
           href={`/client/settlements?tab=${outbound ? "to-hostello" : "to-client"}`}

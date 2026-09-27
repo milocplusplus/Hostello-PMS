@@ -26,11 +26,11 @@ export function PayoutHistory({
   actions?: (entry: SettlementPayment) => ReactNode;
 }) {
   if (entries.length === 0) {
-    return <p className="text-xs text-ink-muted px-5 py-6">{empty}</p>;
+    return <p className="text-sm text-ink-muted px-5 py-6">{empty}</p>;
   }
 
   return (
-    <ul className="divide-y divide-border-hairline">
+    <ul className="divide-y divide-white/5">
       {entries.map((e) => {
         const status = PAYOUT_STATUS[e.status];
         return (
@@ -40,7 +40,7 @@ export function PayoutHistory({
                 href={e.receiptUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="shrink-0 w-14 h-16 rounded-md border border-border-hairline overflow-hidden bg-surface-2 hover:border-border-strong transition-colors"
+                className="shrink-0 w-14 h-16 rounded-2xl border border-white/10 overflow-hidden bg-surface-2 hover:border-white/25 transition-colors"
               >
                 {e.receiptIsPdf ? (
                   <span className="h-full w-full flex items-center justify-center text-ink-muted">
@@ -52,18 +52,18 @@ export function PayoutHistory({
                 )}
               </a>
             ) : (
-              <span className="shrink-0 w-14 h-16 rounded-md border border-dashed border-border-hairline flex items-center justify-center text-[10px] text-ink-muted text-center leading-tight px-1">
+              <span className="shrink-0 w-14 h-16 rounded-2xl border border-dashed border-white/15 flex items-center justify-center text-[10px] font-bold text-ink-muted text-center leading-tight px-1">
                 {e.method === "cash" ? "Cash" : "No proof"}
               </span>
             )}
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm text-financial font-medium">{formatPKR(e.amount)}</span>
-                <span className="text-xs text-ink-secondary">{methodLabel(e.method)}</span>
-                <span className={`text-xs ${status.tone}`}>
-                  · {e.confirmedOffline ? "Recorded received" : status.label}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="num text-base font-extrabold text-hostello-gold-bright">{formatPKR(e.amount)}</span>
+                <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-white/6 ${status.tone}`}>
+                  {e.confirmedOffline ? "Recorded received" : status.label}
                 </span>
+                <span className="text-xs font-semibold text-ink-muted">{methodLabel(e.method)}</span>
               </div>
 
               {showClient && e.clientName && (
@@ -104,7 +104,7 @@ export function PayoutHistory({
                   {receiptHref && (
                     <Link
                       href={receiptHref(e)}
-                      className="text-xs text-ink-secondary hover:text-ink-primary transition-colors"
+                      className="text-xs font-bold px-3 py-1.5 rounded-full bg-white/6 text-ink-secondary hover:text-ink-primary transition-colors"
                     >
                       Receipt
                     </Link>

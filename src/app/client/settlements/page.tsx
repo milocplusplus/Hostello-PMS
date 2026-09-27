@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Clock, Send } from "lucide-react";
+import { ChevronRight, CircleCheck, Clock, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { listPayments, loadOwed, type SettlementDirection } from "@/lib/owed";
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
 import { OwedBookings } from "@/components/shared/OwedBookings";
-import { SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
+import { MoneyStat, SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
+import { InfoSheet } from "@/components/shared/InfoSheet";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { SubmitButton } from "@/components/shared/Busy";
 import { errorBanner } from "@/lib/form-styles";
@@ -53,13 +54,16 @@ export default async function ClientSettlementsPage({
   const claimable = Math.max(0, Math.round((owed.balance - owed.pending) * 100) / 100);
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-semibold">Settlements</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">
-          What you owe Hostello and what Hostello owes you, kept apart. Neither moves until the side
-          receiving the money confirms it arrived.
-        </p>
+    <div className="flex flex-col gap-4 stagger">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[28px] md:text-3xl">Money</h1>
+        <InfoSheet title="How settling works" className="bg-white/8 text-ink-secondary">
+          <p>
+            What you owe Hostello and what Hostello owes you are kept apart. Neither moves until the
+            side receiving the money confirms it arrived.
+          </p>
+          <p>A confirmed payment clears your oldest bookings first.</p>
+        </InfoSheet>
       </div>
 
       <SettlementTabs
@@ -72,74 +76,58 @@ export default async function ClientSettlementsPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Clock size={12} />
-            {tab === "to-hostello" ? "Awaiting confirmation" : "Waiting on you"}
-          </p>
-          <p className="text-lg md:text-2xl font-semibold mt-2 truncate text-status-pending">
-            {formatPKR(owed.pending)}
-          </p>
-          <p className="text-[11px] text-ink-muted mt-1">
-            {owed.pending > 0
-              ? tab === "to-hostello"
-                ? "Still counted as owed until Hostello confirms"
-                : "Confirm it once the money reaches you"
-              : "Nothing waiting"}
-          </p>
-        </div>
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">Confirmed to date</p>
-          <p className="text-lg md:text-2xl font-semibold mt-2 truncate text-ink-primary">
-            {formatPKR(confirmedToDate)}
-          </p>
-          <p className="text-[11px] text-ink-muted mt-1">
-            {tab === "to-hostello"
-              ? "Payments Hostello has marked received"
-              : "Payouts you have confirmed receiving"}
-          </p>
-        </div>
+        <MoneyStat
+          icon={Clock}
+          tint="bg-amber-300/15 text-status-pending"
+          label={tab === "to-hostello" ? "Awaiting Hostello" : "Waiting on you"}
+          value={owed.pending}
+          valueClass="text-status-pending"
+        />
+        <MoneyStat
+          icon={CircleCheck}
+          tint="bg-emerald-400/15 text-positive"
+          label="Confirmed"
+          value={confirmedToDate}
+        />
       </div>
 
       {tab === "to-hostello" ? (
         <Link
           href="/client/settlements/send"
-          className="card card-hover p-4 flex items-center gap-3"
+          className="btn btn-primary h-auto justify-start gap-3 p-4 rounded-3xl"
         >
-          <span className="w-10 h-10 rounded-full bg-hostello-gold/15 text-hostello-gold flex items-center justify-center shrink-0">
-            <Send size={16} />
+          <span className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+            <Send size={20} />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm text-ink-primary">Record a payment to Hostello</span>
-            <span className="block text-[11px] text-ink-muted mt-0.5">
-              {claimable > 0
-                ? `Up to ${formatPKR(claimable)} right now`
-                : "Nothing to record — every booking is settled or awaiting confirmation"}
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-base font-extrabold">Pay Hostello</span>
+            <span className="block text-xs font-semibold text-white/80 mt-0.5 whitespace-normal">
+              {claimable > 0 ? `Up to ${formatPKR(claimable)}` : "Nothing to pay right now"}
             </span>
           </span>
-          <ChevronRight size={16} className="shrink-0 text-ink-muted" />
+          <ChevronRight size={20} className="shrink-0" />
         </Link>
       ) : (
-        <section className="card overflow-hidden">
-          <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
-            <h2 className="text-sm font-medium text-ink-primary">Waiting on you</h2>
-            <p className="text-[11px] text-ink-muted mt-0.5">
-              Hostello has recorded these as sent. Nothing settles until you confirm the money
-              reached you — confirming clears your oldest bookings first.
-            </p>
+        <section className={`card overflow-hidden ${pending.length > 0 ? "pulse-gold" : ""}`}>
+          <div className="px-4 md:px-5 py-3.5 border-b border-white/5 flex items-center justify-between gap-3">
+            <h2 className="text-lg">Waiting on you</h2>
+            <InfoSheet title="Waiting on you" className="bg-white/8 text-ink-secondary">
+              <p>
+                Hostello has recorded these as sent. Nothing settles until you confirm the money
+                reached you, and confirming clears your oldest bookings first.
+              </p>
+            </InfoSheet>
           </div>
 
           {pending.length === 0 ? (
-            <p className="text-xs text-ink-muted px-5 py-6">
-              No payout is waiting for your confirmation.
-            </p>
+            <p className="text-sm text-ink-muted px-5 py-6">Nothing to confirm.</p>
           ) : (
             <PayoutHistory
               entries={pending}
               receiptHref={(e) => `/client/settlements/receipt/${e.id}`}
               actions={(e) => (
-                <Link href={`/client/settlements/review/${e.id}`} className="btn btn-gold btn-sm">
-                  Review this payout
+                <Link href={`/client/settlements/review/${e.id}`} className="btn btn-gold">
+                  Review
                 </Link>
               )}
             />
@@ -148,11 +136,11 @@ export default async function ClientSettlementsPage({
       )}
 
       <section className="card overflow-hidden">
-        <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
-          <h2 className="text-sm font-medium text-ink-primary">What makes up the balance</h2>
-          <p className="text-[11px] text-ink-muted mt-0.5">
-            Oldest stay first — that is the order payments clear them in.
-          </p>
+        <div className="px-4 md:px-5 py-3.5 border-b border-white/5 flex items-center justify-between gap-3">
+          <h2 className="text-lg">Open bookings</h2>
+          <InfoSheet title="Open bookings" className="bg-white/8 text-ink-secondary">
+            <p>What makes up the balance, oldest stay first: the order payments clear them in.</p>
+          </InfoSheet>
         </div>
         <OwedBookings
           bookings={owed.bookings}
@@ -166,10 +154,8 @@ export default async function ClientSettlementsPage({
       </section>
 
       <section className="card overflow-hidden">
-        <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
-          <h2 className="text-sm font-medium text-ink-primary">
-            {tab === "to-hostello" ? "Your payments" : "Payouts from Hostello"}
-          </h2>
+        <div className="px-4 md:px-5 py-3.5 border-b border-white/5">
+          <h2 className="text-lg">History</h2>
         </div>
         <PayoutHistory
           entries={entries}

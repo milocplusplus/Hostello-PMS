@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, Clock, Send } from "lucide-react";
+import { ArrowLeft, ChevronRight, CircleCheck, Clock, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
 import {
@@ -10,7 +10,8 @@ import {
 } from "@/lib/owed";
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
 import { OwedBookings } from "@/components/shared/OwedBookings";
-import { SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
+import { MoneyStat, SettlementTabs, isSettlementTab } from "@/components/shared/SettlementTabs";
+import { InfoSheet } from "@/components/shared/InfoSheet";
 import { Avatar } from "@/components/shared/Avatar";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { errorBanner } from "@/lib/form-styles";
@@ -77,13 +78,16 @@ export default async function AdminSettlementsPage({
   const toClientTotal = toClient.reduce((s, b) => s + b.balance, 0);
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-semibold">Settlements</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">
-          Who still owes whom on every confirmed booking, and the payments that clear it. A payment
-          settles nothing until the side receiving it says it arrived.
-        </p>
+    <div className="flex flex-col gap-4 stagger">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[28px] md:text-3xl">Money</h1>
+        <InfoSheet title="How settling works" className="bg-white/8 text-ink-secondary">
+          <p>
+            Who still owes whom on every confirmed booking, and the payments that clear it. A
+            payment settles nothing until the side receiving it says it arrived.
+          </p>
+          <p>A confirmed payment clears the oldest bookings first.</p>
+        </InfoSheet>
       </div>
 
       <SettlementTabs
@@ -96,53 +100,43 @@ export default async function AdminSettlementsPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs flex items-center gap-1">
-            <Clock size={12} />
-            {tab === "to-hostello" ? "Needs confirming" : "Awaiting their confirmation"}
-          </p>
-          <p className="text-lg md:text-2xl font-semibold mt-2 truncate text-status-pending">
-            {formatPKR(pendingTotal)}
-          </p>
-          <p className="text-[11px] text-ink-muted mt-1">
-            {pending.length === 0
-              ? tab === "to-hostello"
-                ? "Nothing waiting on you"
-                : "Nothing waiting on a client"
-              : `${pending.length} ${pending.length === 1 ? "entry" : "entries"}`}
-          </p>
-        </div>
-        <div className="card p-4 md:p-6">
-          <p className="text-ink-muted text-xs">Confirmed to date</p>
-          <p className="text-lg md:text-2xl font-semibold mt-2 truncate text-ink-primary">
-            {formatPKR(confirmedTotal)}
-          </p>
-          <p className="text-[11px] text-ink-muted mt-1">
-            {tab === "to-hostello" ? "Payments you marked received" : "Payouts clients confirmed"}
-          </p>
-        </div>
+        <MoneyStat
+          icon={Clock}
+          tint="bg-amber-300/15 text-status-pending"
+          label={tab === "to-hostello" ? "To confirm" : "Awaiting clients"}
+          value={pendingTotal}
+          valueClass="text-status-pending"
+        />
+        <MoneyStat
+          icon={CircleCheck}
+          tint="bg-emerald-400/15 text-positive"
+          label="Confirmed"
+          value={confirmedTotal}
+        />
       </div>
 
       {tab === "to-hostello" && (
-        <section className="card overflow-hidden">
-          <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
-            <h2 className="text-sm font-medium text-ink-primary">Waiting on you</h2>
-            <p className="text-[11px] text-ink-muted mt-0.5">
-              A payment counts for nothing until you confirm it. Confirming clears the client&apos;s
-              oldest bookings first.
-            </p>
+        <section className={`card overflow-hidden ${pending.length > 0 ? "pulse-gold" : ""}`}>
+          <div className="px-4 md:px-5 py-3.5 border-b border-white/5 flex items-center justify-between gap-3">
+            <h2 className="text-lg">Waiting on you</h2>
+            <InfoSheet title="Waiting on you" className="bg-white/8 text-ink-secondary">
+              <p>
+                A payment counts for nothing until you confirm it. Confirming clears the
+                client&apos;s oldest bookings first.
+              </p>
+            </InfoSheet>
           </div>
 
           {pending.length === 0 ? (
-            <p className="text-xs text-ink-muted px-5 py-6">No payments waiting to be confirmed.</p>
+            <p className="text-sm text-ink-muted px-5 py-6">Nothing to confirm.</p>
           ) : (
             <PayoutHistory
               entries={pending}
               showClient
               receiptHref={(e) => `/admin/settlements/receipt/${e.id}`}
               actions={(e) => (
-                <Link href={`/admin/settlements/review/${e.id}`} className="btn btn-gold btn-sm">
-                  Review this payment
+                <Link href={`/admin/settlements/review/${e.id}`} className="btn btn-gold">
+                  Review
                 </Link>
               )}
             />
@@ -206,30 +200,30 @@ export default async function AdminSettlementsPage({
           href={
             focus ? `/admin/settlements/send?client=${focus.clientId}` : "/admin/settlements/send"
           }
-          className="card card-hover p-4 flex items-center gap-3"
+          className="btn btn-primary h-auto justify-start gap-3 p-4 rounded-3xl"
         >
-          <span className="w-10 h-10 rounded-full bg-hostello-gold/15 text-hostello-gold flex items-center justify-center shrink-0">
-            <Send size={16} />
+          <span className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+            <Send size={20} />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm text-ink-primary truncate">
-              {focus ? `Send ${focus.clientName} a payout` : "Send a payout"}
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-base font-extrabold truncate">
+              {focus ? `Pay ${focus.clientName}` : "Send a payout"}
             </span>
-            <span className="block text-[11px] text-ink-muted mt-0.5">
+            <span className="block text-xs font-semibold text-white/80 mt-0.5 whitespace-normal">
               {focus
                 ? claimable > 0
-                  ? `Up to ${formatPKR(claimable)} right now`
-                  : "Nothing left to send — every booking is settled or awaiting their confirmation"
-                : "Pick who it is for, then the amount"}
+                  ? `Up to ${formatPKR(claimable)}`
+                  : "Nothing to send right now"
+                : "Pick who, then how much"}
             </span>
           </span>
-          <ChevronRight size={16} className="shrink-0 text-ink-muted" />
+          <ChevronRight size={20} className="shrink-0" />
         </Link>
       )}
 
       <section className="card overflow-hidden">
         <div className="px-4 md:px-5 py-3 border-b border-border-hairline flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-ink-primary">
+          <h2 className="text-lg">
             {tab === "to-hostello" ? "Owed by client" : "Owed to client"}
           </h2>
           <span className="text-xs text-ink-muted">
@@ -269,15 +263,15 @@ export default async function AdminSettlementsPage({
       </section>
 
       <section className="card overflow-hidden">
-        <div className="px-4 md:px-5 py-3 border-b border-border-hairline">
-          <h2 className="text-sm font-medium text-ink-primary">
-            {tab === "to-hostello" ? "Reviewed" : "Payouts sent"}
-          </h2>
+        <div className="px-4 md:px-5 py-3.5 border-b border-white/5 flex items-center justify-between gap-3">
+          <h2 className="text-lg">{tab === "to-hostello" ? "Reviewed" : "Payouts sent"}</h2>
           {tab === "to-client" && (
-            <p className="text-[11px] text-ink-muted mt-0.5">
-              Each one waits on the owner — nothing settles until they confirm it arrived. An owner
-              with no portal login has no way to, so those you mark received yourself.
-            </p>
+            <InfoSheet title="Payouts sent" className="bg-white/8 text-ink-secondary">
+              <p>
+                Each one waits on the owner: nothing settles until they confirm it arrived. An
+                owner with no portal login has no way to, so those you mark received yourself.
+              </p>
+            </InfoSheet>
           )}
         </div>
         <PayoutHistory

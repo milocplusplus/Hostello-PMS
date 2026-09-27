@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listPayments, loadAllocations } from "@/lib/owed";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
+import { Celebration } from "@/components/shared/Celebration";
 
 /**
  * One payment, as a receipt — where a send lands, and what either side comes
@@ -15,10 +16,13 @@ import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
  */
 export default async function AdminReceiptPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ celebrate?: string }>;
 }) {
   const { id } = await params;
+  const { celebrate } = await searchParams;
   const supabase = await createClient();
 
   const [sent, received] = await Promise.all([
@@ -35,6 +39,9 @@ export default async function AdminReceiptPage({
 
   return (
     <div className="mx-auto w-full max-w-[26rem] flex flex-col gap-4 animate-in">
+      {/* Only a confirm lands here with the flag, and only a confirmed entry
+          is worth it. */}
+      {celebrate && entry.status === "received" && <Celebration amount={entry.amount} />}
       <div>
         <Link
           href={`/admin/settlements?tab=${outbound ? "to-client" : "to-hostello"}`}

@@ -233,7 +233,8 @@ export async function confirmHostelloPayout(formData: FormData) {
   });
 
   revalidateMoney();
-  back("to-client");
+  // Onto the receipt, which celebrates once: the money has actually arrived.
+  redirect(`/client/settlements/receipt/${id}?celebrate=1`);
 }
 
 /** It never arrived. Nothing settles — the entry goes back to Hostello with why. */
