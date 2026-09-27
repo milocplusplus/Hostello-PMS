@@ -148,3 +148,27 @@ export async function deliverPush(notificationId: string): Promise<void> {
     // Deliberately swallowed — see the note at the top.
   }
 }
+
+/**
+ * The audit log raises its alerts from a trigger (`audit_alert()`), so no
+ * `emit()` is there to hand their ids to `deliverPush`. The Server Actions that
+ * can cause one — a staff price edit or cancel, a deletion, a failed sign-in —
+ * call this after their write. Anything already pushed is skipped by
+ * `deliverPush` itself, so calling it twice costs a query, not a second banner.
+ */
+export async function deliverAuditAlerts(): Promise<void> {
+  if (!pushConfigured) return;
+  const admin = createAdminClient();
+  if (!admin) return;
+
+  try {
+    const { data } = await admin
+      .from("notifications")
+      .select("id")
+      .like("kind", "audit_%")
+      .gte("created_at", new Date(Date.now() - 5 * 60_000).toISOString());
+    for (const row of data ?? []) await deliverPush(row.id as string);
+  } catch {
+    // Best-effort, like every push.
+  }
+}

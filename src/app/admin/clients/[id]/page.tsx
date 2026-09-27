@@ -17,6 +17,8 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { PROPERTY_TYPES } from "@/lib/property-types";
 import { DEAL_MODELS, formatPKR, nightsBetween } from "@/lib/payout";
 import { formatDayMonth, todayISO } from "@/lib/calendar";
+import { loadAudit } from "@/lib/audit";
+import { AuditTrail } from "@/components/admin/AuditTrail";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -59,7 +61,7 @@ export default async function ClientDetailPage({
 
   const today = todayISO();
 
-  const [{ data: properties }, { data: recentBookings }, { data: openBookings }] =
+  const [{ data: properties }, { data: recentBookings }, { data: openBookings }, history] =
     await Promise.all([
       supabase
         .from("properties")
@@ -82,6 +84,7 @@ export default async function ClientDetailPage({
         .eq("client_id", id)
         .neq("status", "cancelled")
         .gte("check_out", today),
+      loadAudit(supabase, { client: id }, 10),
     ]);
 
   const awaiting = (openBookings ?? [])
@@ -398,6 +401,21 @@ export default async function ClientDetailPage({
             })}
           </div>
         )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold tracking-tight">History</h2>
+          {history.more && (
+            <Link
+              href={`/admin/audit?client=${id}`}
+              className="text-xs font-bold text-hostello-purple-light hover:underline"
+            >
+              See all
+            </Link>
+          )}
+        </div>
+        <AuditTrail entries={history.entries} empty="No changes recorded for this client yet." />
       </section>
     </div>
   );

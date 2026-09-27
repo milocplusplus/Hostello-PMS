@@ -25,6 +25,7 @@ import {
   notifyPaymentReceived,
   notifyStayProgress,
 } from "@/lib/notify";
+import { deliverAuditAlerts } from "@/lib/push";
 import { findStayClash } from "@/lib/availability";
 import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
 import { requireStaff } from "@/lib/auth";
@@ -186,7 +187,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   // The split goes in with the server's own credentials, not the caller's —
   // `bookingWriter` explains why a column grant cannot do this job. `requireStaff`
   // above is what stands in for the RLS this write no longer passes through.
-  const writer = bookingWriter();
+  const writer = await bookingWriter();
   if (!writer.ok) return { error: writer.error };
 
   const { error } = await writer.client
@@ -423,7 +424,7 @@ export async function updateBooking(id: string, formData: FormData) {
 
   const updatedAt = new Date().toISOString();
 
-  const writer = bookingWriter();
+  const writer = await bookingWriter();
   if (!writer.ok) back(writer.error);
 
   const { error } = await writer.client
@@ -506,6 +507,8 @@ export async function updateBooking(id: string, formData: FormData) {
       updatedAt,
     });
   }
+  // An ops price edit or cancel raises an audit alert; this is what gets it to phones.
+  await deliverAuditAlerts();
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/bookings/[id]", "page");
@@ -588,6 +591,7 @@ export async function deleteBookingReceipt(formData: FormData) {
   if (receipt?.storage_path) {
     await supabase.storage.from(RECEIPT_BUCKET).remove([receipt.storage_path]);
   }
+  await deliverAuditAlerts();
 
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/client/bookings/[id]", "page");
@@ -640,6 +644,7 @@ export async function deleteGuestId(formData: FormData) {
   if (card?.storage_path) {
     await supabase.storage.from(GUEST_ID_BUCKET).remove([card.storage_path]);
   }
+  await deliverAuditAlerts();
 
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/client/bookings/[id]", "page");
@@ -724,6 +729,7 @@ export async function cancelBooking(formData: FormData) {
       shortStay: rowShortStay(booking),
     });
   }
+  await deliverAuditAlerts();
 
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/bookings/[id]", "page");

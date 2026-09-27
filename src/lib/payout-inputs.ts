@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { currentProfile } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { currentProfile, currentUser } from "@/lib/auth";
+import { createActingAdminClient, createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Who is allowed to *read* the numbers a split is computed from.
@@ -67,8 +67,10 @@ const NO_WRITER =
  * the admin paths call `requireStaff()`. Never reach for this and let the write
  * be the thing that refuses; it will not refuse.
  */
-export function bookingWriter(): PayoutReader {
-  const admin = createAdminClient();
+export async function bookingWriter(): Promise<PayoutReader> {
+  // Named, so the audit log records the person saving rather than "System".
+  const user = await currentUser();
+  const admin = createActingAdminClient(user?.id ?? null);
   if (!admin) return { ok: false, error: NO_WRITER };
   return { ok: true, client: admin };
 }

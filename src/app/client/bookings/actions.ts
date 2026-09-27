@@ -10,6 +10,7 @@ import {
   notifyBookingUpdated,
   notifyStayProgress,
 } from "@/lib/notify";
+import { deliverAuditAlerts } from "@/lib/push";
 import { findStayClash } from "@/lib/availability";
 import {
   attachGuestIds,
@@ -126,7 +127,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   // `bookingWriter`. RLS does not apply to it, which is safe here only because
   // the two checks above already proved this client record and every one of
   // these units belong to the caller.
-  const writer = bookingWriter();
+  const writer = await bookingWriter();
   if (!writer.ok) return { error: writer.error };
 
   const { data: newBooking, error } = await writer.client
@@ -333,7 +334,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
 
   // Ownership of this booking and of every unit on it was established above;
   // this write skips RLS, so those checks are the only thing standing in for it.
-  const writer = bookingWriter();
+  const writer = await bookingWriter();
   if (!writer.ok) back(writer.error);
 
   const { error } = await writer.client
@@ -472,6 +473,8 @@ export async function deleteClientGuestId(formData: FormData) {
   if (card?.storage_path) {
     await supabase.storage.from(GUEST_ID_BUCKET).remove([card.storage_path]);
   }
+  // An owner deleting an ID is an audit alert for the admin.
+  await deliverAuditAlerts();
 
   revalidatePath("/client/bookings/[id]", "page");
   revalidatePath("/admin/bookings/[id]", "page");

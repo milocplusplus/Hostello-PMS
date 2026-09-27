@@ -1,6 +1,29 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Test data wiped** (2026-09-27). All clients, units, bookings, blocks,
+  channel links, payments, notifications, change requests and every login
+  but `hostello48@gmail.com` deleted. Kept: the 5 default expense categories,
+  the admin's push subscriptions / preferences, the unrelated `os_ledger_*`
+  tables. **23 orphaned files remain in storage** (booking-receipts,
+  guest-ids, payout-receipts, hostello-payout-receipts) — Supabase refuses
+  SQL deletes from storage; empty them from the dashboard.
+- **Admin controls 1 of 9: audit log** (2026-09-27). Owner's choices: log
+  bookings & calendar, money, clients & properties, staff & logins and
+  sign-ins (incl. failed); before → after detail; admin-only; automatic
+  changes only when something really changed, as "System"; forever;
+  tamper-proof; filters person / client+unit / type / dates; alerts for ops
+  price edits, ops cancels, non-admin deletions, 5+ failed sign-ins; full
+  snapshot on delete; phone numbers shown. Migrations `audit_log`,
+  `audit_log_cascade_flag`, `audit_log_acting_user` **applied to the live
+  DB** (repo file `20260927170000_audit_log.sql` is all three). Tested in
+  rolled-back transactions: diffs, cascade flag, alerts' wording, actor
+  header (service role only), RLS (admin reads; no one writes). **Not seen
+  in a browser** — no admin session here. Until this is deployed, booking
+  saves on production log as "System" (the header is new app code).
+  Remaining plan, one at a time with questions first: 2 deactivate clients,
+  3 view as owner, 4 business settings, 5 channel sync health, 6 bulk
+  actions, 7 data export, 8 session control, 9 owner notification rules.
 - **Add booking menu, bigger target** (2026-09-27). The ▾ half of the admin
   dashboard split button was ~36px beside the + link, so taps meant for it
   opened New booking instead. Now 48×44 on a phone, menu rows 44px, and the

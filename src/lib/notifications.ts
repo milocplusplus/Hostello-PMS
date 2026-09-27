@@ -8,6 +8,7 @@ import {
   CalendarPlus,
   CalendarX2,
   HandCoins,
+  History,
   Home,
   Inbox,
   Lock,
@@ -18,6 +19,7 @@ import {
   Percent,
   Receipt,
   ReceiptText,
+  ShieldAlert,
   Sun,
   Target,
   TrendingUp,
@@ -103,6 +105,11 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // The owner's 07:15 summary (notify_owner_digest, in SQL). It replaces the
   // per-stay notices above for the owner; those now go to the admin only.
   daily_digest: Sun,
+  // Written by the audit log itself (audit_alert(), in SQL). Admin only.
+  audit_staff_price: History,
+  audit_staff_cancelled: CalendarX2,
+  audit_deleted: History,
+  audit_sign_in_failed: ShieldAlert,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -152,6 +159,11 @@ export function notificationHref(
   if (row.kind?.startsWith("property_change_")) {
     return portal === "admin" ? "/admin/property-requests" : "/client/properties";
   }
+
+  // A staff edit or cancel is about a booking and lands on it (below); a
+  // deletion has nothing left to open, and a sign-in has no record at all.
+  if (row.kind === "audit_sign_in_failed") return "/admin/audit?type=signin";
+  if (row.kind === "audit_deleted") return "/admin/audit";
 
   // The morning summary is the day sheet in one line; the day sheet is where it goes.
   if (row.kind === "daily_digest") return portal === "admin" ? "/admin/today" : "/client/today";

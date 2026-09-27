@@ -71,6 +71,28 @@ Pre-launch: real data has not been entered yet.
   which **delegate to `updateBooking` / `updateClientBooking`** rather than
   restating the clash check and payout recalculation those fields force.
 - `src/app/admin/search/actions.ts` — global search Server Action (Phase 1)
+- **Audit log** — `audit_log` table, **written only by triggers**: `audit_row()`
+  on 13 app tables (bookings, booking_properties, blocks, feeds, exports, both
+  payout tables, receipts, guest IDs, clients, properties, change requests,
+  profiles), `audit_auth_user()` on `auth.users` (logins created/deleted,
+  sign-ins, password/email changes, access on/off) and the anon-callable
+  `log_sign_in_failed()` the login action calls on a wrong password. Update rows
+  hold `changes` `{col: [before, after]}` and are skipped when only bookkeeping
+  columns moved (`updated_at`, `last_synced_at`…, so the per-minute sync is
+  silent); insert/delete rows hold the full `snapshot`. `cascaded` marks a row a
+  parent's delete took with it (detected by the parent being gone —
+  `pg_trigger_depth()` does not count FK cascades). **Actor is `audit_uid()`**:
+  `auth.uid()`, or — for the service-role booking writes — the
+  `x-hostello-actor` header `bookingWriter()` sends via
+  `createActingAdminClient()`, trusted only with the service-role key.
+  Admin SELECT only; no role (admin included) may insert/update/delete.
+  `audit_alert()` (trigger on `audit_log`) writes `audit_*` notifications for
+  ops price edits / cancels, non-admin deletions and 5+ wrong passwords per
+  email in 15 min; `deliverAuditAlerts()` in `push.ts` pushes them from the
+  Server Actions that can cause one. Read side: `src/lib/audit.ts` (wording,
+  field labels, `loadAudit`), `components/admin/{AuditTrail,AuditFilters}.tsx`,
+  `/admin/audit` (owner-only) and a History section on the admin booking and
+  client pages.
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

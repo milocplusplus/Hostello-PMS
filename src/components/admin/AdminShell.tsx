@@ -19,6 +19,7 @@ import {
   Plus,
   PencilRuler,
   ShieldCheck,
+  History,
   Home,
   Search,
 } from "lucide-react";
@@ -100,6 +101,7 @@ function navGroups(role: StaffRole): NavGroup[] {
                 exact: false,
               },
               { href: "/admin/staff", label: "Staff", icon: ShieldCheck, exact: false },
+              { href: "/admin/audit", label: "Audit log", icon: History, exact: false },
             ],
           },
         ]
@@ -130,6 +132,7 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
   "/admin/clients": { label: "Clients", tint: "linear-gradient(135deg, #1d4ed8, #6366f1)" },
   "/admin/property-requests": { label: "Rates", tint: "linear-gradient(135deg, #be123c, #f97316)" },
   "/admin/staff": { tint: "linear-gradient(135deg, #0f766e, #22d3ee)" },
+  "/admin/audit": { label: "Audit", tint: "linear-gradient(135deg, #475569, #a855f7)" },
 };
 
 /** Every page in the sidebar that is not a tab, in sidebar order. */

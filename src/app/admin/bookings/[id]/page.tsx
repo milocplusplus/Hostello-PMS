@@ -18,6 +18,8 @@ import { StayProgressCard } from "@/components/shared/StayProgress";
 import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import { GuestMessages } from "@/components/shared/GuestMessages";
 import { waPhone } from "@/lib/guest-messages";
+import { loadAudit } from "@/lib/audit";
+import { AuditTrail } from "@/components/admin/AuditTrail";
 import {
   markStayProgress,
   changeBookingDates,
@@ -57,7 +59,7 @@ export default async function BookingDetailPage({
 
   // Every unit this booking could move to. Scoped to its own client, because
   // `updateBooking` refuses a mix and there is no point offering the refusal.
-  const [receipts, guestIds, { data: clientUnits }] = await Promise.all([
+  const [receipts, guestIds, { data: clientUnits }, history] = await Promise.all([
     listReceipts(supabase, booking.id),
     listGuestIds(supabase, booking.id),
     supabase
@@ -66,6 +68,8 @@ export default async function BookingDetailPage({
       .eq("client_id", booking.client_id)
       .eq("status", "active")
       .order("name"),
+    // The audit log is the admin's alone; RLS would hand ops an empty list anyway.
+    showMoney ? loadAudit(supabase, { booking: booking.id }, 50) : null,
   ]);
 
   const client = booking.clients as unknown as { name: string } | null;
@@ -232,6 +236,13 @@ export default async function BookingDetailPage({
             All bookings
           </Link>
         </div>
+      )}
+
+      {history && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold tracking-tight">History</h2>
+          <AuditTrail entries={history.entries} empty="No changes recorded for this booking yet." />
+        </section>
       )}
     </div>
   );
