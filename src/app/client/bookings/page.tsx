@@ -23,6 +23,7 @@ import {
   formatMonthParam,
   addMonths,
   formatDayMonth,
+  addDaysISO,
 } from "@/lib/calendar";
 
 export default async function ClientBookingsPage({
@@ -79,12 +80,18 @@ export default async function ClientBookingsPage({
   // a confirmed stay whole in the month it checks in, the rule the dashboard,
   // Stats and Profit use. A stay that began last month is listed here but
   // counted there, and a tentative one is listed but not money made. Nights
-  // are the listed confirmed stays' — a tentative night is not yet booked.
+  // are the listed confirmed stays' — a tentative night is not yet booked —
+  // clipped to the month, so a stay across its start or end counts only the
+  // nights inside it. check_out is exclusive; so is the day after monthEnd.
+  const afterMonth = addDaysISO(monthEnd, 1);
   const totals = (bookings ?? []).reduce(
     (acc, b) => {
       if (b.status !== "confirmed") return acc;
       if (b.check_in >= monthStart) acc.gross += Number(b.sale_price ?? 0);
-      acc.nights += nightsBetween(b.check_in, b.check_out);
+      acc.nights += nightsBetween(
+        b.check_in > monthStart ? b.check_in : monthStart,
+        b.check_out < afterMonth ? b.check_out : afterMonth
+      );
       return acc;
     },
     { gross: 0, nights: 0 }
@@ -194,7 +201,7 @@ export default async function ClientBookingsPage({
           <p className="display num relative text-xl md:text-2xl font-semibold mt-2 truncate text-financial">
             {totals.nights}
           </p>
-          <p className="relative text-[11px] text-ink-muted mt-1">Confirmed stays</p>
+          <p className="relative text-[11px] text-ink-muted mt-1">Confirmed, inside this month</p>
         </div>
       </div>
 

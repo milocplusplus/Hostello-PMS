@@ -3,8 +3,8 @@
 ## Done
 - **Bookings page "Nights booked" is confirmed-only** (2026-09-27). Owner
   Bookings & Payouts: nights now sum the listed *confirmed* stays (captioned
-  "Confirmed stays"); still whole-stay nights of every stay touching the
-  month, as before. The list itself still shows tentative stays. Lint and
+  "Confirmed, inside this month"), clipped to the month the same day: a
+  stay across the month's start or end counts only its nights inside it. The list itself still shows tentative stays. Lint and
   build clean; page not rendered.
 - **Statement is confirmed-only** (2026-09-27). The monthly statement (CSV
   and PDF, owner's and admin's) now holds confirmed stays only, still over the
