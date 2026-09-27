@@ -595,23 +595,16 @@ function tableRow(c: CanvasRenderingContext2D, t: Theme, y: number, row: ReportR
     formatPKR(row.client_payout ?? 0),
   ];
 
-  // Status, in the only space it needs: a dot ahead of the dates.
-  c.fillStyle = row.status === "tentative" ? t.gold : t.positive;
-  c.beginPath();
-  c.arc(M + PAD + 4, y + 23, 4, 0, Math.PI * 2);
-  c.fill();
-
-  let cx = M + PAD + 18;
+  let cx = M + PAD;
   cells.forEach((cell, i) => {
     const right = i >= RIGHT;
     const last = i === COLS.length - 1;
     c.font = `${last ? 500 : 400} 16px ${t.font}`;
     c.fillStyle = last ? t.goldBright : i === 1 ? t.ink : t.dim;
     c.textAlign = right ? "right" : "left";
-    // The dot eats into the first column only.
-    const max = COLS[i] - PAD * 2 - (i === 0 ? 18 : 0);
+    const max = COLS[i] - PAD * 2;
     c.fillText(clip(c, cell, max), right ? cx + COLS[i] - PAD * 2 : cx, y + 28);
-    cx += COLS[i] - (i === 0 ? 18 : 0);
+    cx += COLS[i];
   });
   c.textAlign = "left";
   return y + RH;
@@ -918,25 +911,8 @@ export async function renderStatementPages(
 
     c.fillStyle = t.ink;
     c.font = `500 26px ${t.font}`;
-    const heading = "Every stay this month";
-    c.fillText(heading, M, top + 62);
-
-    // The dot needs saying once, or it is decoration. Placed off the measured
-    // heading rather than a guessed offset, which had it touching the title.
-    let lx = M + c.measureText(heading).width + 34;
-    c.font = `400 14px ${t.font}`;
-    ([
-      [t.positive, "confirmed"],
-      [t.gold, "tentative"],
-    ] as [string, string][]).forEach(([colour, word]) => {
-      c.fillStyle = colour;
-      c.beginPath();
-      c.arc(lx, top + 56, 4, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = t.muted;
-      c.fillText(word, lx + 12, top + 61);
-      lx += 24 + c.measureText(word).width + 18;
-    });
+    // Confirmed stays only — the rows are chosen upstream — so no status mark.
+    c.fillText("Every confirmed stay this month", M, top + 62);
 
     let y = tableHeader(c, t, top + 92);
     chunk.forEach((row, i) => {

@@ -90,6 +90,8 @@ export default async function BookingsPage({
   // would inherit whatever channel or status filter happens to be on screen —
   // a document headed "September" that quietly held only the Airbnb stays, with
   // totals to match. A statement is the client's whole month or it is wrong.
+  // Confirmed stays only: a tentative stay is not money made, and every other
+  // income figure in the app leaves it out too.
   const statementQuery = wantsStatement
     ? supabase
         .from("bookings_v")
@@ -97,7 +99,7 @@ export default async function BookingsPage({
           "guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, booking_properties(property_id, properties:properties_v(name))"
         )
         .eq("client_id", client)
-        .neq("status", "cancelled")
+        .eq("status", "confirmed")
         .lte("check_in", monthEnd)
         .gt("check_out", monthStart)
         .order("check_in")

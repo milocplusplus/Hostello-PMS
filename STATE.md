@@ -1,6 +1,15 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Statement is confirmed-only** (2026-09-27). The monthly statement (CSV
+  and PDF, owner's and admin's) now holds confirmed stays only, still over the
+  overlap window. Admin: its own query is `status = 'confirmed'`; owner: the
+  page filters its list (`statementRows`) — same rows, so the two documents
+  should still match byte for byte (not re-checked). The PDF's confirmed /
+  tentative dot and legend are gone (nothing left to tell apart); its list is
+  headed "Every confirmed stay this month". Export stays disabled for a month
+  with only tentative stays and no expenses. The Bookings list itself still
+  shows tentative stays. Lint and build clean; PDF not drawn.
 - **Bookings page gross is confirmed-only** (2026-09-27). The owner Bookings &
   Payouts "Gross revenue" now sums confirmed stays checking in this month
   (caption says so). Every income figure — dashboards, Stats, Profit, this —

@@ -8,9 +8,9 @@ import type { MonthProfit } from "./profit";
 /**
  * The owner's monthly report, shaped for drawing.
  *
- * Everything here comes off the same rows the CSV and the Bookings & Payouts
- * table are built from, over the same overlap window, so the picture and the
- * itemised list cannot tell different stories. Nothing is re-derived: a stay's
+ * Everything here comes off the same rows the CSV is built from — the month's
+ * confirmed stays over the overlap window — so the picture and the itemised
+ * list cannot tell different stories. Nothing is re-derived: a stay's
  * `sale_price` and `client_payout` were decided by `payout.ts` when it was
  * written.
  *

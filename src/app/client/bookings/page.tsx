@@ -90,8 +90,11 @@ export default async function ClientBookingsPage({
 
   // Built here rather than behind a Server Action: these rows are already in
   // memory, so the file costs nothing extra, and the page stays a plain read.
+  // Confirmed stays only, as the admin's copy reads them — the list shows
+  // tentative ones, but a statement is money made.
+  const statementRows = (bookings ?? []).filter((b) => b.status === "confirmed");
   const monthLabel = formatMonthLabel(year, month0);
-  const statementCsv = buildStatementCsv((bookings ?? []) as unknown as StatementRow[], {
+  const statementCsv = buildStatementCsv(statementRows as unknown as StatementRow[], {
     clientName: clientRecord.name,
     monthLabel,
     profit,
@@ -101,7 +104,7 @@ export default async function ClientBookingsPage({
     formatMonthParam(year, month0)
   );
   const report = buildStatementReport({
-    rows: (bookings ?? []) as unknown as ReportRow[],
+    rows: statementRows as unknown as ReportRow[],
     properties: properties ?? [],
     days: visibleDates,
     clientName: clientRecord.name,
@@ -109,7 +112,7 @@ export default async function ClientBookingsPage({
     profit,
   });
   // A month with no stays but recorded expenses still has something to report.
-  const nothingToReport = (bookings ?? []).length === 0 && !(profit.recorded && profit.items.length > 0);
+  const nothingToReport = statementRows.length === 0 && !(profit.recorded && profit.items.length > 0);
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
