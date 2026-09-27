@@ -119,7 +119,7 @@ export async function findAvailable(
     .select(
       "id, name, client_id, location, city, province, type, max_guests, nightly_rate, short_stay_rate, clients:clients_v(name)"
     )
-    .eq("status", "active");
+    .eq("bookable", true);
 
   if (criteria.province) query = query.eq("province", criteria.province);
   if (criteria.city) query = query.eq("city", criteria.city);

@@ -93,6 +93,18 @@ Pre-launch: real data has not been entered yet.
   field labels, `loadAudit`), `components/admin/{AuditTrail,AuditFilters}.tsx`,
   `/admin/audit` (owner-only) and a History section on the admin booking and
   client pages.
+- **Client deactivation** — `clients.deactivated_at` / `deactivated_note`, set only by
+  `set_client_active()` (admin), which also bans / unbans the owner login. While
+  set: `refuse_deactivated_client` triggers refuse new `bookings` and
+  `calendar_blocks` (edits to existing stays still work); `fan_out_notification`
+  gives the owner no recipient row, so no message or push of any kind;
+  `generate_due_expenses` skips their templates; `sync_calendar_feed_apply`
+  returns `paused` without writing; `ical_export_document` answers as if the
+  link were off; `admin_confirm_hostello_payout` accepts them like a no-login
+  owner. `properties_v.bookable` (active unit of an active client) is what every
+  "pick a unit for a new stay" list filters on; the calendar, Money and Stats
+  still show everything. `src/lib/client-history.ts` decides Delete (no
+  bookings, payments or expenses) vs Deactivate on the client page.
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

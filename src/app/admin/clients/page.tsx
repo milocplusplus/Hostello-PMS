@@ -27,7 +27,7 @@ export default async function ClientsListPage({
 
   let clientQuery = supabase
     .from("clients")
-    .select("id, name, contact_email, contact_phone, deal_model, properties(count)")
+    .select("id, name, contact_email, contact_phone, deal_model, deactivated_at, properties(count)")
     .order("name");
 
   if (term) {
@@ -52,6 +52,10 @@ export default async function ClientsListPage({
       .neq("status", "cancelled")
       .gte("check_out", today),
   ]);
+
+  // A deactivated client keeps its history and its page, under its own heading.
+  const active = (clients ?? []).filter((c) => !c.deactivated_at);
+  const deactivated = (clients ?? []).filter((c) => c.deactivated_at);
 
   const activity = (openBookings ?? []).reduce<Record<string, { count: number; awaiting: number }>>(
     (acc, b) => {
@@ -119,54 +123,68 @@ export default async function ClientsListPage({
         </div>
       )}
 
-      {clients && clients.length > 0 && (
-        <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
-          {clients.map((c) => {
-            const propCount =
-              (c.properties as unknown as { count: number }[])?.[0]?.count ?? 0;
-            const stats = activity[c.id];
-            return (
-              <Link
-                key={c.id}
-                href={`/admin/clients/${c.id}`}
-                className="flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors group"
-              >
-                <Avatar name={c.name} size={36} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-ink-primary truncate">{c.name}</p>
-                  <p className="text-xs text-ink-secondary truncate mt-0.5">
-                    {c.contact_email || c.contact_phone || "No contact info"}
-                    <span className="text-ink-muted"> · {dealModelLabel(c.deal_model)}</span>
-                  </p>
-                </div>
-                <div className="text-right shrink-0 hidden sm:block">
-                  <p className="text-xs text-ink-secondary">
-                    {propCount} {propCount === 1 ? "property" : "properties"}
-                  </p>
-                  <p className="text-xs text-ink-muted mt-0.5">
-                    {stats
-                      ? `${stats.count} ${stats.count === 1 ? "booking" : "bookings"} open`
-                      : "No open bookings"}
-                  </p>
-                </div>
-                <div className="text-right shrink-0 w-24 hidden md:block">
-                  {stats && stats.awaiting > 0 ? (
-                    <>
-                      <p className="text-xs text-status-pending">{formatPKR(stats.awaiting)}</p>
-                      <p className="text-[10px] text-ink-muted mt-0.5">awaiting</p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-ink-muted">—</p>
-                  )}
-                </div>
-                <ChevronRight
-                  size={16}
-                  className="text-ink-muted group-hover:text-ink-secondary transition-colors shrink-0"
-                />
-              </Link>
-            );
-          })}
-        </div>
+      {[
+        { list: active, heading: null },
+        { list: deactivated, heading: "Deactivated" },
+      ].map(({ list, heading }) =>
+        list.length === 0 ? null : (
+          <section key={heading ?? "active"} className="flex flex-col gap-2">
+            {heading && (
+              <h2 className="text-sm font-semibold tracking-tight text-ink-muted">{heading}</h2>
+            )}
+            <div
+              className={`card divide-y divide-[var(--color-border-hairline)] overflow-hidden ${
+                heading ? "opacity-60" : ""
+              }`}
+            >
+              {list.map((c) => {
+                const propCount =
+                  (c.properties as unknown as { count: number }[])?.[0]?.count ?? 0;
+                const stats = activity[c.id];
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/admin/clients/${c.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-surface-2 transition-colors group"
+                  >
+                    <Avatar name={c.name} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-ink-primary truncate">{c.name}</p>
+                      <p className="text-xs text-ink-secondary truncate mt-0.5">
+                        {c.contact_email || c.contact_phone || "No contact info"}
+                        <span className="text-ink-muted"> · {dealModelLabel(c.deal_model)}</span>
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 hidden sm:block">
+                      <p className="text-xs text-ink-secondary">
+                        {propCount} {propCount === 1 ? "property" : "properties"}
+                      </p>
+                      <p className="text-xs text-ink-muted mt-0.5">
+                        {stats
+                          ? `${stats.count} ${stats.count === 1 ? "booking" : "bookings"} open`
+                          : "No open bookings"}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 w-24 hidden md:block">
+                      {stats && stats.awaiting > 0 ? (
+                        <>
+                          <p className="text-xs text-status-pending">{formatPKR(stats.awaiting)}</p>
+                          <p className="text-[10px] text-ink-muted mt-0.5">awaiting</p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-ink-muted">—</p>
+                      )}
+                    </div>
+                    <ChevronRight
+                      size={16}
+                      className="text-ink-muted group-hover:text-ink-secondary transition-colors shrink-0"
+                    />
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )
       )}
 
       {clients && clients.length > 0 && (

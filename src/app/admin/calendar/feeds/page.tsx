@@ -82,7 +82,7 @@ export default async function CalendarFeedsPage({
     supabase
       .from("properties_v")
       .select("id, name, clients:clients_v(name)")
-      .eq("status", "active")
+      .eq("bookable", true)
       .order("name"),
     supabase
       .from("calendar_feeds")

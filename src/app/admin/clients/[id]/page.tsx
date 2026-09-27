@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt } from "lucide-react";
+import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt, PowerOff, Power } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import {
   deleteClientRecord,
+  setClientActive,
   deletePropertyRecord,
   createLoginForClient,
   setClientPassword,
@@ -19,6 +20,7 @@ import { DEAL_MODELS, formatPKR, nightsBetween } from "@/lib/payout";
 import { formatDayMonth, todayISO } from "@/lib/calendar";
 import { loadAudit } from "@/lib/audit";
 import { AuditTrail } from "@/components/admin/AuditTrail";
+import { clientHasHistory } from "@/lib/client-history";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -49,7 +51,7 @@ export default async function ClientDetailPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent")
+    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent, deactivated_at, deactivated_note")
     .eq("id", id)
     .single();
 
@@ -61,7 +63,7 @@ export default async function ClientDetailPage({
 
   const today = todayISO();
 
-  const [{ data: properties }, { data: recentBookings }, { data: openBookings }, history] =
+  const [{ data: properties }, { data: recentBookings }, { data: openBookings }, history, hasHistory] =
     await Promise.all([
       supabase
         .from("properties")
@@ -85,11 +87,16 @@ export default async function ClientDetailPage({
         .neq("status", "cancelled")
         .gte("check_out", today),
       loadAudit(supabase, { client: id }, 10),
+      clientHasHistory(supabase, id),
     ]);
 
   const awaiting = (openBookings ?? [])
     .filter((b) => !b.share_received)
     .reduce((sum, b) => sum + Number(b.hostello_share ?? 0), 0);
+
+  const deactivated = Boolean(clientRecord.deactivated_at);
+  const tile =
+    "flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs";
 
   return (
     <div className="flex flex-col gap-6">
@@ -103,6 +110,30 @@ export default async function ClientDetailPage({
 
       {error && <p className={errorBanner}>{error}</p>}
       {notice && <p className={noticeBanner}>{notice}</p>}
+
+      {deactivated && (
+        <div className="card p-4 flex items-center gap-3 border border-status-booked/35">
+          <PowerOff size={18} className="text-status-booked shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink-primary">
+              Deactivated{" "}
+              {new Date(clientRecord.deactivated_at as string).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                timeZone: "Asia/Karachi",
+              })}
+            </p>
+            <p className="text-xs text-ink-secondary mt-0.5">
+              {clientRecord.deactivated_note ?? "No reason given."} Login blocked, channels paused,
+              no new bookings.
+            </p>
+          </div>
+          <a href="#status" className="btn btn-ghost btn-sm shrink-0">
+            Reactivate
+          </a>
+        </div>
+      )}
 
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4 min-w-0">
@@ -130,10 +161,18 @@ export default async function ClientDetailPage({
         </div>
         {/* Four equal tiles on a phone, a row of buttons on a desk. */}
         <div className="grid grid-cols-4 gap-2 md:flex md:items-center">
-          <Link href={`/admin/clients/${id}/bookings/new`} className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs gradient-gold text-surface-0`}>
-            <ReceiptText size={18} strokeWidth={2.4} />
-            Booking
-          </Link>
+          {deactivated ? (
+            // The database refuses new stays for a deactivated client; say so here.
+            <span className={`${tile} card opacity-40 cursor-not-allowed`} title="Reactivate to add bookings">
+              <ReceiptText size={18} strokeWidth={2.4} />
+              Booking
+            </span>
+          ) : (
+            <Link href={`/admin/clients/${id}/bookings/new`} className={`${tile} gradient-gold text-surface-0`}>
+              <ReceiptText size={18} strokeWidth={2.4} />
+              Booking
+            </Link>
+          )}
           <Link href={`/admin/clients/${id}/expenses`} className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs card`}>
             <Receipt size={18} className="text-hostello-purple-light" />
             Expenses
@@ -142,18 +181,26 @@ export default async function ClientDetailPage({
             <Pencil size={18} className="text-hostello-purple-light" />
             Edit
           </Link>
-          <form action={deleteClientRecord} className="contents">
-            <input type="hidden" name="id" value={id} />
-            <ConfirmDeleteButton
-              confirmText={`Delete ${clientRecord.name}? This will also delete all of their properties. This cannot be undone.`}
-              busy="Deleting the client and their properties…"
-              label="Delete client"
-              className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs w-full border border-status-booked/35 text-status-booked bg-status-booked/10`}
-            >
-              <Trash2 size={18} />
-              Delete
-            </ConfirmDeleteButton>
-          </form>
+          {hasHistory ? (
+            // Stays, payments or books would go with a delete; deactivating keeps them.
+            <a href="#status" className={`${tile} border border-status-booked/35 text-status-booked bg-status-booked/10`}>
+              {deactivated ? <Power size={18} /> : <PowerOff size={18} />}
+              {deactivated ? "Reactivate" : "Deactivate"}
+            </a>
+          ) : (
+            <form action={deleteClientRecord} className="contents">
+              <input type="hidden" name="id" value={id} />
+              <ConfirmDeleteButton
+                confirmText={`Delete ${clientRecord.name}? This will also delete all of their properties. This cannot be undone.`}
+                busy="Deleting the client and their properties…"
+                label="Delete client"
+                className={`${tile} w-full border border-status-booked/35 text-status-booked bg-status-booked/10`}
+              >
+                <Trash2 size={18} />
+                Delete
+              </ConfirmDeleteButton>
+            </form>
+          )}
         </div>
       </header>
 
@@ -401,6 +448,47 @@ export default async function ClientDetailPage({
             })}
           </div>
         )}
+      </section>
+
+      <section id="status" className="card p-5 flex flex-col gap-3 scroll-mt-24">
+        <h2 className="text-sm font-semibold tracking-tight">
+          {deactivated ? "Reactivate this client" : "Deactivate this client"}
+        </h2>
+        <p className="text-xs text-ink-secondary">
+          {deactivated
+            ? "Their login, channel links and messages come back on, and they can be booked again."
+            : "Keeps every booking, payment and figure. Blocks their login, pauses their channel links, bills and messages, and stops new bookings. Stays already booked still happen."}
+        </p>
+        <form action={setClientActive} className="flex flex-col sm:flex-row sm:items-end gap-2">
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="active" value={deactivated ? "true" : "false"} />
+          {!deactivated && (
+            <div className="flex flex-col gap-1.5 flex-1">
+              <label className={fieldLabel} htmlFor="deactivate-note">
+                Reason (optional)
+              </label>
+              <input
+                id="deactivate-note"
+                name="note"
+                maxLength={300}
+                placeholder="e.g. Contract ended Oct 2026"
+                className={fieldInput}
+              />
+            </div>
+          )}
+          {deactivated ? (
+            <SubmitButton className={primaryButton} busy="Reactivating…">
+              Reactivate
+            </SubmitButton>
+          ) : (
+            <ConfirmDeleteButton
+              confirmText={`Deactivate ${clientRecord.name}? Their login is blocked and signed out, channels and messages pause, and no new bookings can be added. You can reactivate any time.`}
+              label="Deactivate"
+              busy="Deactivating…"
+              className="btn border border-status-booked/35 text-status-booked bg-status-booked/10"
+            />
+          )}
+        </form>
       </section>
 
       <section className="flex flex-col gap-3">

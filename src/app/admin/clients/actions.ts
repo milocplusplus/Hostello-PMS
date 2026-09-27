@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEAL_MODELS } from "@/lib/payout";
+import { clientHasHistory } from "@/lib/client-history";
 import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
 import {
   notifyClientTermsUpdated,
@@ -165,6 +166,14 @@ export async function deleteClientRecord(formData: FormData) {
   const id = formData.get("id") as string;
 
   const supabase = await createClient();
+  if (await clientHasHistory(supabase, id)) {
+    redirect(
+      `/admin/clients/${id}?error=${encodeURIComponent(
+        "This client has bookings, payments or expenses. Deactivate them instead — deleting would erase that history."
+      )}`
+    );
+  }
+
   const { error } = await supabase.from("clients").delete().eq("id", id);
 
   if (error) {
@@ -173,6 +182,31 @@ export async function deleteClientRecord(formData: FormData) {
 
   revalidatePath("/admin/clients");
   redirect("/admin/clients");
+}
+
+/** Deactivate or reactivate. Everything it switches is in `set_client_active` and the triggers. */
+export async function setClientActive(formData: FormData) {
+  const id = formData.get("id") as string;
+  const active = formData.get("active") === "true";
+  const note = ((formData.get("note") as string) ?? "").trim().slice(0, 300);
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_client_active", {
+    p_client_id: id,
+    p_active: active,
+    p_note: note || null,
+  });
+
+  if (error) {
+    redirect(`/admin/clients/${id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/admin", "layout");
+  redirect(
+    `/admin/clients/${id}?notice=${encodeURIComponent(
+      active ? "Reactivated. Their login, channels and messages are back on." : "Deactivated."
+    )}`
+  );
 }
 
 export async function createLoginForClient(formData: FormData) {

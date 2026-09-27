@@ -156,7 +156,7 @@ export default async function ChannelInboxPage({
     supabase
       .from("properties_v")
       .select("id, name, clients:clients_v(name)")
-      .eq("status", "active")
+      .eq("bookable", true)
       .order("name"),
   ]);
 

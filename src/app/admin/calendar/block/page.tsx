@@ -26,7 +26,7 @@ export default async function BlockDatesPage({
   const { data: properties } = await supabase
     .from("properties_v")
     .select("id, name, client_id, clients:clients_v(name)")
-    .eq("status", "active")
+    .eq("bookable", true)
     .order("name");
 
   const { data: blocks } = await supabase

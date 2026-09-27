@@ -29,12 +29,14 @@ export default async function NewBookingPage({
   const { data: clients } = await supabase
     .from("clients_v")
     .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
+    // A deactivated client takes no new bookings (the database refuses them too).
+    .is("deactivated_at", null)
     .order("name");
 
   const { data: properties } = await supabase
     .from("properties_v")
     .select("id, name, stack_rate, short_stay_stack_rate, client_id, clients:clients_v(name)")
-    .eq("status", "active")
+    .eq("bookable", true)
     .order("name");
 
   const propertyOptions =

@@ -204,6 +204,9 @@ export function auditSentence(e: AuditEntry): string {
     if (status === "applied") return "approved a rate request";
     if (status === "declined") return "declined a rate request";
   }
+  if (table === "clients" && e.changes?.deactivated_at) {
+    return after(e, "deactivated_at") ? "deactivated a client" : "reactivated a client";
+  }
   if (table === "profiles" && e.changes?.role) return "changed a role";
   return `edited a ${noun}`;
 }
@@ -284,6 +287,8 @@ const FIELDS: Record<string, [string, Kind]> = {
   listing_ref: ["Listing", "text"],
   active: ["Active", "bool"],
   email: ["Email", "text"],
+  deactivated_at: ["Deactivated", "time"],
+  deactivated_note: ["Reason", "text"],
 };
 
 function enumLabel(col: string, v: string): string {

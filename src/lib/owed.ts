@@ -257,7 +257,7 @@ export async function loadOwedByClient(
   const [{ data: bookings }, { data: allocations }, { data: clients }] = await Promise.all([
     bookingQuery,
     supabase.from(spec.allocations).select("booking_id, amount"),
-    supabase.from("clients").select("id, name, owner_user_id").order("name"),
+    supabase.from("clients").select("id, name, owner_user_id, deactivated_at").order("name"),
   ]);
 
   const paidPerBooking = new Map<string, number>();
@@ -281,7 +281,9 @@ export async function loadOwedByClient(
       clientName: c.name,
       balance: Math.round((totals.get(c.id)?.balance ?? 0) * 100) / 100,
       bookings: totals.get(c.id)?.bookings ?? 0,
-      hasLogin: Boolean(c.owner_user_id),
+      // A deactivated owner is signed out for good: as far as confirming goes,
+      // they have no login (admin_confirm_hostello_payout agrees).
+      hasLogin: Boolean(c.owner_user_id) && !c.deactivated_at,
     }))
     .sort((a, b) => b.balance - a.balance);
 }

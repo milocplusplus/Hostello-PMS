@@ -124,7 +124,7 @@ export default async function AdminDashboard({
   ] = await Promise.all([
     // Already fetched by the layout this request — the cache makes it free.
     currentProfile(),
-    supabase.from("properties_v").select("id").eq("status", "active"),
+    supabase.from("properties_v").select("id").eq("bookable", true),
     supabase
       .from("bookings_v")
       .select(bookingFields)

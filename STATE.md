@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 2 of 9: deactivate clients** (2026-09-27). Owner's
+  choices: login blocked; upcoming stays kept; channel import + export
+  paused; still shown greyed on Clients, and on Money, Stats and the
+  calendar, but never on Find dates or any new-booking / block picker; no
+  new bookings; Delete only for a client with no history; all owner messages
+  stop; optional reason; reactivate restores login, channels, messages;
+  recurring bills pause (no back-fill). Migration `client_deactivation`
+  **applied to the live DB**; tested in a rolled-back transaction (switch,
+  note trim, bookable, export off/on, booking + block refused, audit
+  wording). Paying a deactivated owner goes through the no-login
+  "confirmed offline" path. Not seen in a browser (no admin session).
 - **Test data wiped** (2026-09-27). All clients, units, bookings, blocks,
   channel links, payments, notifications, change requests and every login
   but `hostello48@gmail.com` deleted. Kept: the 5 default expense categories,
