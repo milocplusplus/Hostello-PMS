@@ -1,6 +1,15 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 3 of 7: bookings** (2026-09-27). Both booking lists
+  are card grids now (`components/shared/BookingCard.tsx`: `BookingCard`,
+  `StayBar` — one segment per night, tonight gold, >14 nights a progress bar —
+  and `ChannelChip`). Both detail pages open with `BookingHero` (unit colour
+  banner, avatar, stay bar, call / WhatsApp / edit buttons) and
+  `PaymentTiles`; the old Stay card, `Line` rows and the bottom "Edit booking"
+  link are gone (edit is the hero's pencil). Month nav reuses `MonthNav`.
+  Statement PDF / CSV buttons are icon-only on phones. Owner list + detail
+  checked on a phone; admin pages not seen signed in.
 - **UI redesign, phase 2 of 7: calendar** (2026-09-27). Shared
   `components/shared/CalendarControls.tsx` (`MonthNav`, `ViewToggle`,
   `ChannelLegend`) replaces the copies in both calendar pages. Board bars are

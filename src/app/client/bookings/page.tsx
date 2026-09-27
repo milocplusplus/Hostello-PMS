@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarPlus, Moon, Plus, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
-import { sourceLabel } from "@/lib/block-sources";
-import { formatPKR, nightsBetween } from "@/lib/payout";
+import { formatPKR } from "@/lib/payout";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { cancelClientBooking } from "./actions";
-import { Avatar } from "@/components/shared/Avatar";
-import { StatusChip } from "@/components/shared/StatusChip";
-import { ChannelBadge } from "@/components/admin/BookingActivity";
+import { BookingCard } from "@/components/shared/BookingCard";
+import { MonthNav } from "@/components/shared/CalendarControls";
+import { InfoSheet } from "@/components/shared/InfoSheet";
 import { SubmitButton } from "@/components/shared/Busy";
 import { StatementExport } from "@/components/shared/StatementExport";
 import { buildStatementCsv, nightsInMonth, statementFilename, type StatementRow } from "@/lib/statement";
@@ -22,7 +21,7 @@ import {
   parseMonthParam,
   formatMonthParam,
   addMonths,
-  formatDayMonth,
+  todayISO,
 } from "@/lib/calendar";
 
 export default async function ClientBookingsPage({
@@ -122,13 +121,12 @@ export default async function ClientBookingsPage({
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
 
+  const today = todayISO();
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">Finance</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Bookings &amp; Payouts</h1>
-        </div>
+    <div className="flex flex-col gap-5 stagger">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[28px] md:text-3xl">Bookings</h1>
         <div className="flex items-center gap-2">
           <StatementPdf
             report={report}
@@ -142,169 +140,97 @@ export default async function ClientBookingsPage({
           />
           <Link
             href="/client/bookings/new"
-            className="btn btn-gold btn-sm"
+            aria-label="Add booking"
+            className="btn btn-primary h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
           >
-            <Plus size={13} strokeWidth={2.5} />
-            Add booking
+            <Plus size={18} strokeWidth={2.5} />
+            <span className="hidden md:inline">Add booking</span>
           </Link>
         </div>
       </div>
 
-      <div className="card p-3 flex items-center justify-between">
-        <Link
-          href={`/client/bookings?month=${formatMonthParam(prevYear, prevMonth0)}`}
-          aria-label="Previous month"
-          className="p-2 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-        >
-          <ChevronLeft size={16} />
-        </Link>
-        <p className="text-sm font-semibold tracking-tight">{monthLabel}</p>
-        <Link
-          href={`/client/bookings?month=${formatMonthParam(nextYear, nextMonth0)}`}
-          aria-label="Next month"
-          className="p-2 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors"
-        >
-          <ChevronRight size={16} />
-        </Link>
-      </div>
+      <MonthNav
+        label={monthLabel}
+        prevHref={`/client/bookings?month=${formatMonthParam(prevYear, prevMonth0)}`}
+        nextHref={`/client/bookings?month=${formatMonthParam(nextYear, nextMonth0)}`}
+      />
 
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <div className="card card-hover overflow-hidden relative p-4 md:p-5">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-[0.14]"
-            style={{
-              background:
-                "radial-gradient(14rem 5rem at 12% 0%, var(--color-hostello-purple-glow), transparent 70%)",
-            }}
-          />
-          <p className="eyebrow relative">Gross revenue</p>
-          <p className="display num relative text-xl md:text-2xl font-semibold mt-2 truncate text-ink-primary">
-            {formatPKR(totals.gross)}
-          </p>
-          <p className="relative text-[11px] text-ink-muted mt-1">Confirmed stays checking in this month</p>
+        <div className="card-hero p-4 md:p-5 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+              <Wallet size={18} />
+            </span>
+            <InfoSheet title="Gross" className="bg-white/20 text-white">
+              <p>What guests paid for confirmed stays checking in this month.</p>
+            </InfoSheet>
+          </div>
+          <p className="num text-xl md:text-2xl font-extrabold truncate">{formatPKR(totals.gross)}</p>
+          <p className="text-xs font-bold text-white/80">Gross</p>
         </div>
-        <div className="card card-hover overflow-hidden relative p-4 md:p-5 border-hostello-gold/30">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-[0.16]"
-            style={{
-              background:
-                "radial-gradient(14rem 5rem at 12% 0%, var(--color-hostello-gold), transparent 70%)",
-            }}
-          />
-          <p className="eyebrow relative">Nights booked</p>
-          <p className="display num relative text-xl md:text-2xl font-semibold mt-2 truncate text-financial">
-            {totals.nights}
-          </p>
-          <p className="relative text-[11px] text-ink-muted mt-1">Confirmed, inside this month</p>
+        <div className="card p-4 md:p-5 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="w-9 h-9 rounded-xl bg-amber-300/15 text-hostello-gold-bright flex items-center justify-center">
+              <Moon size={18} />
+            </span>
+            <InfoSheet title="Nights booked" className="bg-white/8 text-ink-secondary">
+              <p>Nights of confirmed stays that fall inside this month.</p>
+            </InfoSheet>
+          </div>
+          <p className="num text-xl md:text-2xl font-extrabold text-hostello-gold-bright">{totals.nights}</p>
+          <p className="text-xs font-bold text-ink-muted">Nights</p>
         </div>
       </div>
 
       {(!bookings || bookings.length === 0) && (
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No bookings recorded in {monthLabel}.
+        <div className="card p-8 md:p-10 flex flex-col items-center gap-3 text-center">
+          <span className="w-12 h-12 rounded-2xl gradient-brand-subtle flex items-center justify-center text-hostello-purple-light">
+            <CalendarPlus size={22} />
+          </span>
+          <p className="text-sm text-ink-secondary">No stays in {monthLabel}.</p>
+          <Link href="/client/bookings/new" className="btn btn-primary">
+            <Plus size={16} strokeWidth={2.5} />
+            New booking
+          </Link>
         </div>
       )}
 
       {bookings && bookings.length > 0 && (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="data-table w-full text-sm table-fixed md:table-auto md:min-w-[640px]">
-            <thead>
-              <tr className="text-left border-b border-border-hairline">
-                <th className="px-4 py-3 font-normal">Units</th>
-                <th className="px-4 py-3 font-normal hidden md:table-cell">Dates</th>
-                <th className="px-4 py-3 font-normal hidden md:table-cell">Source</th>
-                <th className="px-4 py-3 font-normal text-right hidden md:table-cell">Sale price</th>
-                <th className="px-4 py-3 font-normal hidden md:table-cell">Status</th>
-                {/* Fixed layout on a phone: this width is what leaves the units
-                    column the rest of the card instead of overflowing it. */}
-                <th className="px-4 py-3 font-normal w-[76px] md:w-auto"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((b) => {
-                const unitNames = (b.booking_properties as unknown as { properties: { name: string } | null }[])
-                  ?.map((bp) => bp.properties?.name)
-                  .filter(Boolean)
-                  .join(", ");
-                const nights = nightsBetween(b.check_in, b.check_out);
-                const shortStay = rowShortStay(b);
-                const statusNode = <StatusChip status={b.status} />;
-                return (
-                  <tr
-                    key={b.id}
-                    className="border-b border-border-hairline last:border-0 hover:bg-surface-2 transition-colors"
-                  >
-                    <td className="p-0">
-                      <Link
-                        href={`/client/bookings/${b.id}`}
-                        className="flex items-center gap-3 px-4 py-3 min-w-0"
-                      >
-                        <Avatar name={unitNames || b.guest_name} size={28} rounded="lg" />
-                        <span className="min-w-0">
-                          <span className="block text-ink-primary truncate">{unitNames || "—"}</span>
-                          <span className="block text-xs text-ink-secondary truncate">
-                            {b.guest_name ?? "Guest"}
-                          </span>
-                          {/* The columns that get hidden on a phone, folded into the row itself */}
-                          <span className="md:hidden flex items-center gap-1.5 flex-wrap text-xs mt-1.5">
-                            <ChannelBadge source={b.source} />
-                            <span className="text-ink-secondary">
-                              {shortStay
-                                ? `${formatDayMonth(b.check_in)} · ${formatShortStayWindow(
-                                    shortStay.start,
-                                    shortStay.end
-                                  )}`
-                                : `${formatDayMonth(b.check_in)} → ${formatDayMonth(
-                                    b.check_out
-                                  )} (${nights}n)`}
-                            </span>
-                            <span className="text-financial">{formatPKR(b.sale_price)}</span>
-                            {statusNode}
-                          </span>
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-ink-secondary whitespace-nowrap hidden md:table-cell">
-                      {shortStay
-                        ? formatDayMonth(b.check_in)
-                        : `${formatDayMonth(b.check_in)} → ${formatDayMonth(b.check_out)}`}
-                      <span className="text-ink-muted">
-                        {" "}
-                        {shortStay
-                          ? formatShortStayWindow(shortStay.start, shortStay.end)
-                          : `(${nights}n)`}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-ink-secondary hidden md:table-cell">
-                      <span className="flex items-center gap-1.5">
-                        <ChannelBadge source={b.source} />
-                        {sourceLabel(b.source) ?? b.source}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-financial hidden md:table-cell">
-                      {formatPKR(b.sale_price)}
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">{statusNode}</td>
-                    <td className="px-4 py-3 text-right">
-                      <form action={cancelClientBooking}>
-                        <input type="hidden" name="id" value={b.id} />
-                        <SubmitButton
-                          className="text-xs text-ink-muted hover:text-status-booked transition-colors"
-                          busy="Cancelling the booking…"
-                        >
-                          Cancel
-                        </SubmitButton>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
+          {bookings.map((b) => {
+            const unitNames = (b.booking_properties as unknown as { properties: { name: string } | null }[])
+              ?.map((bp) => bp.properties?.name)
+              .filter(Boolean)
+              .join(", ");
+            const shortStay = rowShortStay(b);
+            return (
+              <BookingCard
+                key={b.id}
+                href={`/client/bookings/${b.id}`}
+                guestName={b.guest_name}
+                units={unitNames ?? ""}
+                source={b.source}
+                status={b.status}
+                checkIn={b.check_in}
+                checkOut={b.check_out}
+                hours={shortStay ? formatShortStayWindow(shortStay.start, shortStay.end) : null}
+                guests={b.guests_count}
+                price={formatPKR(b.sale_price)}
+                today={today}
+                footer={
+                  <form action={cancelClientBooking}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <SubmitButton
+                      className="text-xs font-bold text-ink-muted hover:text-negative transition-colors"
+                      busy="Cancelling the booking…"
+                    >
+                      Cancel
+                    </SubmitButton>
+                  </form>
+                }
+              />
+            );
+          })}
         </div>
       )}
     </div>

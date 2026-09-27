@@ -1025,10 +1025,11 @@ export function StatementPdf({
         onClick={save}
         disabled={disabled || busy}
         title={disabled ? "Nothing to report for this month" : undefined}
-        className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+        aria-label="Statement PDF"
+        className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        <FileText size={13} />
-        {busy ? "Building…" : "Statement PDF"}
+        <FileText size={16} />
+        <span className="hidden md:inline">{busy ? "Building…" : "Statement PDF"}</span>
       </button>
 
       {/* Offered only when it would change the document. With every unit

@@ -45,10 +45,11 @@ export function StatementExport({
       onClick={save}
       disabled={disabled}
       title={disabled ? "Nothing to export for this month" : undefined}
-      className="btn btn-ghost btn-sm disabled:opacity-40 disabled:cursor-not-allowed"
+      aria-label="Export statement"
+      className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      <Download size={13} />
-      {saved ? "Saved" : "Export statement"}
+      <Download size={16} />
+      <span className="hidden md:inline">{saved ? "Saved" : "Export statement"}</span>
     </button>
   );
 }
