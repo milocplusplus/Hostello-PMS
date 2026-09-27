@@ -1,9 +1,16 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isStaffRole } from "@/lib/auth";
 import { deliverAuditAlerts } from "@/lib/push";
+import { VIEW_AS_COOKIE, VIEW_AS_PATH } from "@/lib/view-as";
+
+/** A "view as owner" left open must never follow the next person to sign in. */
+async function endViewAs() {
+  (await cookies()).set(VIEW_AS_COOKIE, "", { path: VIEW_AS_PATH, maxAge: 0 });
+}
 
 export async function login(formData: FormData) {
   const email = (formData.get("email") as string)?.trim();
@@ -13,6 +20,7 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Enter your email and password.")}`);
   }
 
+  await endViewAs();
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -61,6 +69,7 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
+  await endViewAs();
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");

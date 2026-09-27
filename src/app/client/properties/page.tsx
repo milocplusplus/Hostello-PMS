@@ -65,6 +65,7 @@ export default async function ClientPropertiesPage({
       .select(
         "id, name, location, city, province, type, status, max_guests, nightly_rate, short_stay_rate, stack_rate, short_stay_stack_rate, photo_path"
       )
+      .eq("client_id", clientRecord.id)
       .order("name"),
     supabase
       .from("property_change_requests")

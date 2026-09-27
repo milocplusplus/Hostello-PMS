@@ -24,7 +24,7 @@ export default async function ClientAvailabilityPage({
   if (!client) redirect("/login");
 
   const criteria = readCriteria(await searchParams);
-  const result = await findAvailable(supabase, criteria);
+  const result = await findAvailable(supabase, criteria, client.id);
 
   return (
     <div className="flex flex-col gap-6">

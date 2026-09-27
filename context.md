@@ -105,6 +105,19 @@ Pre-launch: real data has not been entered yet.
   "pick a unit for a new stay" list filters on; the calendar, Money and Stats
   still show everything. `src/lib/client-history.ts` decides Delete (no
   bookings, payments or expenses) vs Deactivate on the client page.
+- **View as owner** (admin only, read-only) — `viewAsOwner` (admin clients
+  actions) calls `log_portal_view()` (audit entry, owner not told) and sets the
+  `hostello_view_as` cookie **scoped to path `/client`** (`src/lib/view-as.ts`).
+  `viewingAs()` in `auth.ts` honours it only for an admin; `currentClient()`
+  then returns that client and `portalUserId()` the owner's login (for their
+  bell / Alerts, read without marking). **Writes are refused in
+  `middleware.ts`**: no POST reaches `/client` while the cookie is set;
+  `ViewAsBanner` stops write forms up front (React action forms are spotted by
+  their `javascript:` action, not their method). Exit is
+  `/client?view_as=exit`, handled by the middleware; sign-in and sign-out also
+  clear it. **Consequence: every owner page must filter by `clientRecord.id`
+  itself — never lean on RLS/view scoping**, because the admin's session reads
+  every client (`findAvailable` takes a `clientId` for this).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

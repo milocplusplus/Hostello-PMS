@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 3 of 9: view as owner** (2026-09-27). Owner's choices:
+  read-only; audit log only (owner not told); any owner incl. no-login and
+  deactivated; button on the client page + gold banner with Exit; ends only
+  on Exit (and sign-in/out); admin only; the owner's alerts shown without
+  marking read. Migration `audit_portal_view` **applied to the live DB**.
+  Owner pages that leaned on RLS now filter by client explicitly: the six
+  expense pages' unit lists, Properties, dashboard + Today blocks, Find
+  dates. Checked in the browser (admin session in the pane): Audit log page
+  on desktop + phone (date filters restacked for phones), Clients page; with
+  a fake view-as cookie a POST to /client got 403 and Exit cleared it. **Not
+  seen with a real client** — there are none; nothing was created to test.
 - **Admin controls 2 of 9: deactivate clients** (2026-09-27). Owner's
   choices: login blocked; upcoming stays kept; channel import + export
   paused; still shown greyed on Clients, and on Money, Stats and the

@@ -23,7 +23,7 @@ export default async function EditRecurringPage({
   const [recurring, categories, { data: properties }] = await Promise.all([
     getRecurring(supabase, id),
     listExpenseCategories(supabase, clientRecord.id),
-    supabase.from("properties_v").select("id, name").order("name"),
+    supabase.from("properties_v").select("id, name").eq("client_id", clientRecord.id).order("name"),
   ]);
 
   if (!recurring) notFound();

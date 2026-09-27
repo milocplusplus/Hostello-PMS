@@ -100,7 +100,9 @@ export function stayCheckOut(stay: StayShape): string {
 
 export async function findAvailable(
   supabase: SupabaseClient,
-  criteria: AvailabilityCriteria
+  criteria: AvailabilityCriteria,
+  /** The owner portal passes its client: an admin viewing as that owner sees every unit otherwise. */
+  clientId?: string
 ): Promise<AvailabilityResult> {
   const { first, last, nights } = stayNights(criteria.stay);
   const empty: AvailabilityResult = {
@@ -121,6 +123,7 @@ export async function findAvailable(
     )
     .eq("bookable", true);
 
+  if (clientId) query = query.eq("client_id", clientId);
   if (criteria.province) query = query.eq("province", criteria.province);
   if (criteria.city) query = query.eq("city", criteria.city);
   if (criteria.type) query = query.eq("type", criteria.type);

@@ -1,10 +1,13 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEAL_MODELS } from "@/lib/payout";
 import { clientHasHistory } from "@/lib/client-history";
+import { requireOwner } from "@/lib/auth";
+import { VIEW_AS_COOKIE, VIEW_AS_PATH } from "@/lib/view-as";
 import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
 import {
   notifyClientTermsUpdated,
@@ -476,4 +479,30 @@ export async function deletePropertyRecord(formData: FormData) {
   revalidatePath(`/admin/clients/${client_id}`);
   revalidatePath("/client", "layout");
   redirect(`/admin/clients/${client_id}`);
+}
+
+/**
+ * Open the owner portal as this client, read-only. Recorded in the audit log;
+ * the owner is not told. The cookie and what it allows: `src/lib/view-as.ts`,
+ * `viewingAs()` in auth.ts, and the write block in middleware.ts.
+ */
+export async function viewAsOwner(formData: FormData) {
+  await requireOwner();
+  const id = formData.get("id") as string;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("log_portal_view", { p_client_id: id });
+  if (error) {
+    redirect(`/admin/clients/${id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  (await cookies()).set(VIEW_AS_COOKIE, id, {
+    path: VIEW_AS_PATH,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    // Ends on Exit (or on sign-in / sign-out), not on a timer.
+    maxAge: 60 * 60 * 24 * 30,
+  });
+  redirect("/client");
 }

@@ -115,24 +115,24 @@ export function AuditFilters({
         ))}
       </select>
 
-      <label className="flex items-center gap-2 text-xs text-ink-muted">
+      <label className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs text-ink-muted min-w-0">
         From
         <input
           type="date"
           value={from}
           max={to || undefined}
           onChange={(e) => update({ from: e.target.value })}
-          className="field h-10 md:h-auto rounded-xl px-3 py-1.5 text-xs w-full md:w-auto"
+          className="field h-10 md:h-auto rounded-xl px-3 py-1.5 text-xs w-full min-w-0 md:w-auto"
         />
       </label>
-      <label className="flex items-center gap-2 text-xs text-ink-muted">
+      <label className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs text-ink-muted min-w-0">
         To
         <input
           type="date"
           value={to}
           min={from || undefined}
           onChange={(e) => update({ to: e.target.value })}
-          className="field h-10 md:h-auto rounded-xl px-3 py-1.5 text-xs w-full md:w-auto"
+          className="field h-10 md:h-auto rounded-xl px-3 py-1.5 text-xs w-full min-w-0 md:w-auto"
         />
       </label>
 

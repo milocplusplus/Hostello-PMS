@@ -1,7 +1,9 @@
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { VIEW_AS_COOKIE } from "@/lib/view-as";
 import type { DealModel, OtaModel } from "@/lib/payout";
 
 /**
@@ -92,6 +94,7 @@ export async function requireStaff(): Promise<CurrentProfile> {
 export type CurrentClient = {
   id: string;
   name: string;
+  owner_user_id: string | null;
   deal_model: DealModel;
   share_percent: number | null;
   deduct_percent: number | null;
@@ -99,16 +102,48 @@ export type CurrentClient = {
   ota_share_percent: number | null;
 };
 
-/** The client record the signed-in owner belongs to. Selects the superset of
- *  columns the portal uses so one cached row serves every page. */
+const CLIENT_COLUMNS =
+  "id, name, owner_user_id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent";
+
+/**
+ * "View as owner": the admin browsing the owner portal as one client, read-only.
+ *
+ * The cookie is scoped to `/client`, so it only ever reaches owner-portal
+ * requests, and it only counts when the signed-in user is the admin — anyone
+ * else holding it gets nothing from it. Writes are refused in `middleware.ts`:
+ * every Server Action is a POST, and no POST to `/client` passes while the
+ * cookie is set. That is also why every owner page has to filter by
+ * `clientRecord.id` itself rather than lean on RLS — the admin's session can
+ * read every client.
+ */
+export const viewingAs = cache(async (): Promise<string | null> => {
+  const id = (await cookies()).get(VIEW_AS_COOKIE)?.value;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const profile = await currentProfile();
+  return profile?.role === "admin" ? id : null;
+});
+
+/** The client record the signed-in owner belongs to — or, for the admin viewing
+ *  as an owner, that owner's. Selects the superset of columns the portal uses
+ *  so one cached row serves every page. */
 export const currentClient = cache(async (): Promise<CurrentClient | null> => {
   const user = await currentUser();
   if (!user) return null;
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select("id, name, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent")
-    .eq("owner_user_id", user.id)
-    .single();
+  const viewAs = await viewingAs();
+  const { data } = await (viewAs
+    ? supabase.from("clients").select(CLIENT_COLUMNS).eq("id", viewAs)
+    : supabase.from("clients").select(CLIENT_COLUMNS).eq("owner_user_id", user.id)
+  ).single();
   return data as CurrentClient | null;
 });
+
+/**
+ * Whose notifications the owner portal shows: the signed-in owner's, or while
+ * viewing as, the viewed owner's login (null when they have none).
+ */
+export async function portalUserId(): Promise<string | null> {
+  const [user, viewAs, client] = await Promise.all([currentUser(), viewingAs(), currentClient()]);
+  if (!user) return null;
+  return viewAs ? (client?.owner_user_id ?? null) : user.id;
+}

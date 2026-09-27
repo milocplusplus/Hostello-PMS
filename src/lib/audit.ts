@@ -169,6 +169,8 @@ export function auditSentence(e: AuditEntry): string {
       return "removed a login's access";
     case "access_restored":
       return "restored a login's access";
+    case "viewed_portal":
+      return "viewed an owner's portal (read-only)";
   }
 
   const table = e.table_name ?? "";

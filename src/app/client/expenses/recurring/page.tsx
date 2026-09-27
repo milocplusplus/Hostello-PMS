@@ -34,7 +34,7 @@ export default async function RecurringExpensesPage({
   const [bills, categories, { data: properties }] = await Promise.all([
     listRecurring(supabase, clientRecord.id),
     listExpenseCategories(supabase, clientRecord.id),
-    supabase.from("properties_v").select("id, name").order("name"),
+    supabase.from("properties_v").select("id, name").eq("client_id", clientRecord.id).order("name"),
   ]);
 
   const today = karachiToday();

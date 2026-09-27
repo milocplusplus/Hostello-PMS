@@ -59,7 +59,7 @@ export default async function ClientExpensesPage({
     listDueExpenses(supabase, clientRecord.id),
     unpaidTotal(supabase, clientRecord.id),
     listExpenseCategories(supabase, clientRecord.id),
-    supabase.from("properties_v").select("id, name").order("name"),
+    supabase.from("properties_v").select("id, name").eq("client_id", clientRecord.id).order("name"),
     sp.view === "profit" ? loadProfit(supabase, clientRecord.id, { year, month0 }) : null,
   ]);
 

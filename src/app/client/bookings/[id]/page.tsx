@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient, currentUser } from "@/lib/auth";
+import { currentClient, currentUser, portalUserId } from "@/lib/auth";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { formatNightly } from "@/lib/booking-price";
@@ -188,7 +188,7 @@ export default async function ClientBookingDetailPage({
         guestIds={guestIds}
         uploadAction={uploadClientGuestIds}
         deleteAction={deleteClientGuestId}
-        viewerId={user.id}
+        viewerId={(await portalUserId()) ?? ""}
         error={id_error}
       />
 

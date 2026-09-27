@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BedDouble, CalendarPlus, Plus, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient, currentProfile, currentUser } from "@/lib/auth";
+import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
 import { formatPKR, isPassThroughSource } from "@/lib/payout";
 import {
   getMonthGrid,
@@ -60,7 +60,11 @@ export default async function ClientDashboard({
   const user = await currentUser();
   if (!user) redirect("/login");
 
-  const [clientRecord, profile] = await Promise.all([currentClient(), currentProfile()]);
+  const [clientRecord, profile, viewAs] = await Promise.all([
+    currentClient(),
+    currentProfile(),
+    viewingAs(),
+  ]);
 
   if (!clientRecord) redirect("/client");
 
@@ -124,7 +128,8 @@ export default async function ClientDashboard({
       .order("check_in"),
     supabase
       .from("calendar_blocks")
-      .select("property_id, start_date, end_date, block_type")
+      .select("property_id, start_date, end_date, block_type, properties!inner(client_id)")
+      .eq("properties.client_id", clientRecord.id)
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
     supabase
@@ -245,12 +250,14 @@ export default async function ClientDashboard({
     )
   );
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const firstName = (profile?.full_name ?? clientRecord.name).trim().split(/\s+/)[0];
+  // Viewing as an owner, greet the owner — not the admin who is looking.
+  const displayName = (viewAs ? null : profile?.full_name) ?? clientRecord.name;
+  const firstName = displayName.trim().split(/\s+/)[0];
 
   return (
     <div className="flex flex-col gap-6 stagger">
       <header className="flex items-center gap-3">
-        <Avatar name={profile?.full_name ?? clientRecord.name} size={46} />
+        <Avatar name={displayName} size={46} />
         <div className="flex-1 min-w-0">
           <p className="text-[13px] text-ink-secondary">{greeting}</p>
           <h1 className="text-xl md:text-2xl truncate">{firstName}</h1>

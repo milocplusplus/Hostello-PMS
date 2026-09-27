@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { currentClient, currentProfile, currentUser } from "@/lib/auth";
+import { currentClient, currentProfile, currentUser, portalUserId, viewingAs } from "@/lib/auth";
+import { ViewAsBanner } from "@/components/client/ViewAsBanner";
 import { logout } from "@/app/login/actions";
 import { ClientShell } from "@/components/client/ClientShell";
 import { NavProgress } from "@/components/shared/NavProgress";
@@ -8,6 +9,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { NotificationLive } from "@/components/shared/NotificationLive";
 import { searchClient } from "@/app/client/search/actions";
 import { markAllNotificationsRead } from "@/app/notifications/actions";
+import type { NotificationItem } from "@/lib/notifications";
 import {
   readNotificationPreferences,
   readNotifications,
@@ -23,9 +25,14 @@ export default async function ClientLayout({
   if (!user) redirect("/login");
 
   // Independent of each other — one round trip instead of two.
-  const [profile, clientRecord] = await Promise.all([currentProfile(), currentClient()]);
+  const [profile, clientRecord, viewAs] = await Promise.all([
+    currentProfile(),
+    currentClient(),
+    viewingAs(),
+  ]);
 
-  if (profile?.role === "admin") redirect("/admin");
+  // The admin only ever sees this portal through "View as owner".
+  if (profile?.role === "admin" && !viewAs) redirect("/admin");
 
   if (!clientRecord) {
     // Signed-in client user with no linked client record yet — nothing to show.
@@ -48,11 +55,15 @@ export default async function ClientLayout({
     );
   }
 
-  const [notifications, unreadCount, preferences] = await Promise.all([
-    readNotifications(user.id, { limit: 8, portal: "client" }),
-    unreadNotificationCount(user.id),
-    readNotificationPreferences(user.id),
-  ]);
+  // The viewed owner's own alerts; an owner with no login has none.
+  const feedUser = await portalUserId();
+  const [notifications, unreadCount, preferences] = feedUser
+    ? await Promise.all([
+        readNotifications(feedUser, { limit: 8, portal: "client" }),
+        unreadNotificationCount(feedUser),
+        readNotificationPreferences(feedUser),
+      ])
+    : ([[], 0, null] as [NotificationItem[], number, null]);
 
   return (
     <>
@@ -60,8 +71,9 @@ export default async function ClientLayout({
       <Suspense fallback={null}>
         <NavProgress />
       </Suspense>
+      {viewAs && <ViewAsBanner clientName={clientRecord.name} />}
       <ClientShell
-        userName={profile?.full_name ?? clientRecord.name}
+        userName={viewAs ? clientRecord.name : (profile?.full_name ?? clientRecord.name)}
         clientName={clientRecord.name}
         unreadCount={unreadCount}
         notifications={notifications}
@@ -71,12 +83,15 @@ export default async function ClientLayout({
       >
         {children}
       </ClientShell>
-      <NotificationLive
-        userId={user.id}
-        portal="client"
-        soundEnabled={preferences.soundEnabled}
-        mutedCategories={preferences.mutedCategories}
-      />
+      {/* Live tones are for the owner's own session, never a viewer's. */}
+      {!viewAs && preferences && (
+        <NotificationLive
+          userId={user.id}
+          portal="client"
+          soundEnabled={preferences.soundEnabled}
+          mutedCategories={preferences.mutedCategories}
+        />
+      )}
     </>
   );
 }

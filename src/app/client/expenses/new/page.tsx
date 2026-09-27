@@ -19,7 +19,7 @@ export default async function NewExpensePage({
   const supabase = await createClient();
   const [categories, { data: properties }] = await Promise.all([
     listExpenseCategories(supabase, clientRecord.id),
-    supabase.from("properties_v").select("id, name").order("name"),
+    supabase.from("properties_v").select("id, name").eq("client_id", clientRecord.id).order("name"),
   ]);
 
   // Opened from a past month's list, the bill most likely belongs to that month.

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { currentClient, currentUser } from "@/lib/auth";
-import { isCategory } from "@/lib/notifications";
+import { currentClient, currentUser, portalUserId } from "@/lib/auth";
+import { DEFAULT_PREFERENCES, isCategory } from "@/lib/notifications";
 import {
   readNotificationPreferences,
   readNotifications,
@@ -25,11 +25,15 @@ export default async function ClientNotificationsPage({
   const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
 
-  const [items, unreadCount, preferences] = await Promise.all([
-    readNotifications(user.id, { limit: 100, unreadOnly, category, portal: "client" }),
-    unreadNotificationCount(user.id),
-    readNotificationPreferences(user.id),
-  ]);
+  // While viewing as an owner, their alerts; an owner with no login has none.
+  const feedUser = await portalUserId();
+  const [items, unreadCount, preferences] = feedUser
+    ? await Promise.all([
+        readNotifications(feedUser, { limit: 100, unreadOnly, category, portal: "client" }),
+        unreadNotificationCount(feedUser),
+        readNotificationPreferences(feedUser),
+      ])
+    : [[], 0, DEFAULT_PREFERENCES];
 
   return (
     <div className="flex flex-col gap-6">

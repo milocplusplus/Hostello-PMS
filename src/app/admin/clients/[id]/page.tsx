@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt, PowerOff, Power } from "lucide-react";
+import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt, PowerOff, Power, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import {
   deleteClientRecord,
   setClientActive,
+  viewAsOwner,
   deletePropertyRecord,
   createLoginForClient,
   setClientPassword,
@@ -203,6 +204,15 @@ export default async function ClientDetailPage({
           )}
         </div>
       </header>
+
+      {/* Read-only: the owner portal exactly as this client sees it. */}
+      <form action={viewAsOwner} className="-mt-2">
+        <input type="hidden" name="id" value={id} />
+        <SubmitButton className={secondaryButton} busy="Opening their portal…">
+          <Eye size={14} />
+          View as owner
+        </SubmitButton>
+      </form>
 
       <div className="card p-4 flex items-center gap-4 md:gap-6 text-xs flex-wrap">
         <span className="text-ink-secondary">

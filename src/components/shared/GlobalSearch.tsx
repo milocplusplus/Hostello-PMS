@@ -60,7 +60,9 @@ export function GlobalSearch({
     }
     const handle = setTimeout(() => {
       startTransition(async () => {
-        const r = await searchAction(query);
+        // A refused lookup (a read-only "view as owner" refuses every action)
+        // is no results, not an error page.
+        const r = await searchAction(query).catch(() => [] as SearchResult[]);
         setResults(r);
       });
     }, 200);

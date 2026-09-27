@@ -68,7 +68,8 @@ export default async function ClientTodayPage() {
       .not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`),
     supabase
       .from("calendar_blocks")
-      .select("id, start_date, end_date, block_type, notes, properties(name)")
+      .select("id, start_date, end_date, block_type, notes, properties!inner(name, client_id)")
+      .eq("properties.client_id", clientRecord.id)
       .lte("start_date", today)
       .gte("end_date", today),
   ]);
