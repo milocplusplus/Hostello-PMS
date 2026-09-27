@@ -2,7 +2,7 @@ import { addDaysISO } from "./calendar";
 import { nightsBetween } from "./payout";
 import { rowShortStay } from "./short-stay";
 import { sourceLabel, sourceColor } from "./block-sources";
-import { statementTotals, type StatementRow, type StatementTotals } from "./statement";
+import { nightsInMonth, statementTotals, type StatementRow, type StatementTotals } from "./statement";
 import type { MonthProfit } from "./profit";
 
 /**
@@ -92,7 +92,8 @@ export function buildStatementReport(input: {
   const monthStart = days[0];
   const monthEnd = days[days.length - 1];
 
-  const totals = statementTotals(rows);
+  const month = { start: monthStart, end: monthEnd };
+  const totals = statementTotals(rows, month);
 
   // ── Cumulative payout ──────────────────────────────────────────────────────
   // Each stay lands on its check-in day, clamped into the month, so the last
@@ -126,14 +127,17 @@ export function buildStatementReport(input: {
   const sources = [...bySource.values()].sort((a, b) => b.gross - a.gross);
 
   // ── Per unit ───────────────────────────────────────────────────────────────
-  // Split by `unitShares`, so the bars still add up to the month's total.
+  // Split by `unitShares`, so the bars still add up to the month's total. Its
+  // nights are the whole stay's, which is right for profit (a stay counts whole
+  // in its check-in month); a statement counts only the month's own nights.
   const byUnit = new Map<string, UnitLine>();
   for (const p of properties) byUnit.set(p.name, { name: p.name, nights: 0, payout: 0 });
 
   for (const r of rows) {
+    const nights = nightsInMonth(r, month);
     for (const share of unitShares(r)) {
       const line = byUnit.get(share.name) ?? { name: share.name, nights: 0, payout: 0 };
-      line.nights += share.nights;
+      line.nights += nights;
       line.payout += share.payout;
       byUnit.set(share.name, line);
     }

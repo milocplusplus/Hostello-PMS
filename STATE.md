@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Statement nights are the month's own** (2026-09-27). `nightsInMonth()`
+  in `src/lib/statement.ts` clips a stay to the month (short stay = 0). Used
+  by the CSV's per-stay column (now "Nights this month") and Total row, the
+  PDF's per-unit bars, `statementTotals`, and the owner Bookings page's
+  "Nights booked" — so page and file agree (that page now counts a short
+  stay as 0 nights, as the statement always did). `unitShares()` still
+  gives whole-stay nights: profit's cost per night counts a stay whole in its
+  check-in month. Occupancy was already clipped and is unchanged. Checked:
+  builders run under Node on four stays (across start, across end, two-unit,
+  short stay) — rows 2/3/5/0, total 10, units 7/8. Lint, build, tsc clean;
+  PDF not drawn.
 - **Bookings page "Nights booked" is confirmed-only** (2026-09-27). Owner
   Bookings & Payouts: nights now sum the listed *confirmed* stays (captioned
   "Confirmed, inside this month"), clipped to the month the same day: a

@@ -12,7 +12,7 @@ import { StatusChip } from "@/components/shared/StatusChip";
 import { ChannelBadge } from "@/components/admin/BookingActivity";
 import { SubmitButton } from "@/components/shared/Busy";
 import { StatementExport } from "@/components/shared/StatementExport";
-import { buildStatementCsv, statementFilename, type StatementRow } from "@/lib/statement";
+import { buildStatementCsv, nightsInMonth, statementFilename, type StatementRow } from "@/lib/statement";
 import { StatementPdf } from "@/components/shared/StatementPdf";
 import { buildStatementReport, type ReportRow } from "@/lib/statement-report";
 import { loadProfit } from "@/lib/profit";
@@ -23,7 +23,6 @@ import {
   formatMonthParam,
   addMonths,
   formatDayMonth,
-  addDaysISO,
 } from "@/lib/calendar";
 
 export default async function ClientBookingsPage({
@@ -81,17 +80,13 @@ export default async function ClientBookingsPage({
   // Stats and Profit use. A stay that began last month is listed here but
   // counted there, and a tentative one is listed but not money made. Nights
   // are the listed confirmed stays' — a tentative night is not yet booked —
-  // clipped to the month, so a stay across its start or end counts only the
-  // nights inside it. check_out is exclusive; so is the day after monthEnd.
-  const afterMonth = addDaysISO(monthEnd, 1);
+  // inside the month, by the statement's own rule, so screen and file agree.
+  const month = { start: monthStart, end: monthEnd };
   const totals = (bookings ?? []).reduce(
     (acc, b) => {
       if (b.status !== "confirmed") return acc;
       if (b.check_in >= monthStart) acc.gross += Number(b.sale_price ?? 0);
-      acc.nights += nightsBetween(
-        b.check_in > monthStart ? b.check_in : monthStart,
-        b.check_out < afterMonth ? b.check_out : afterMonth
-      );
+      acc.nights += nightsInMonth(b, month);
       return acc;
     },
     { gross: 0, nights: 0 }
@@ -106,6 +101,7 @@ export default async function ClientBookingsPage({
   const statementCsv = buildStatementCsv(statementRows as unknown as StatementRow[], {
     clientName: clientRecord.name,
     monthLabel,
+    month,
     profit,
   });
   const statementName = statementFilename(

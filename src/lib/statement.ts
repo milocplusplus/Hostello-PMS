@@ -1,3 +1,4 @@
+import { addDaysISO } from "./calendar";
 import { nightsBetween } from "./payout";
 import { departureDate, formatShortStayWindow, rowShortStay } from "./short-stay";
 import { sourceLabel } from "./block-sources";
@@ -6,8 +7,9 @@ import type { MonthProfit } from "./profit";
 /**
  * The owner's monthly statement, as a spreadsheet.
  *
- * One row per stay, the same set the Bookings & Payouts page is showing and
- * over the same overlap window, so the file and the screen can never disagree.
+ * One row per confirmed stay touching the month — the confirmed part of what
+ * the Bookings & Payouts page lists — with nights counted inside the month
+ * (`nightsInMonth`), the same figure the page shows.
  * Nothing is re-derived here: `sale_price` and `client_payout` were decided by
  * `payout.ts` when the booking was written and snapshotted onto the row.
  *
@@ -39,7 +41,7 @@ export type StatementRow = {
 const COLUMNS = [
   "Check-in",
   "Check-out",
-  "Nights",
+  "Nights this month",
   "Type",
   "Units",
   "Guest",
@@ -69,7 +71,26 @@ function unitNames(row: { booking_properties: unknown }): string {
     .join(" + ");
 }
 
-function line(row: StatementRow): (string | number | null)[] {
+export type StatementMonth = { start: string; end: string };
+
+/**
+ * A stay's nights inside the month, so a stay across its start or end counts
+ * only its own part. check_out is exclusive, and so is the day after the
+ * month's last. A short stay is no night, as it is everywhere on the statement.
+ */
+export function nightsInMonth(
+  row: Pick<StatementRow, "check_in" | "check_out" | "is_short_stay" | "short_stay_start" | "short_stay_end">,
+  month: StatementMonth
+): number {
+  if (rowShortStay(row)) return 0;
+  const after = addDaysISO(month.end, 1);
+  return nightsBetween(
+    row.check_in > month.start ? row.check_in : month.start,
+    row.check_out < after ? row.check_out : after
+  );
+}
+
+function line(row: StatementRow, month: StatementMonth): (string | number | null)[] {
   const shortStay = rowShortStay(row);
   return [
     row.check_in,
@@ -77,7 +98,7 @@ function line(row: StatementRow): (string | number | null)[] {
     // working; it actually leaves the day it arrives. `departureDate` is the
     // one place that knows it, so the file says the day they really left.
     departureDate(row.check_in, row.check_out, row.is_short_stay),
-    shortStay ? 0 : nightsBetween(row.check_in, row.check_out),
+    nightsInMonth(row, month),
     shortStay ? `Short stay ${formatShortStayWindow(shortStay.start, shortStay.end)}` : "Night stay",
     unitNames(row),
     row.guest_name ?? "",
@@ -94,12 +115,12 @@ function line(row: StatementRow): (string | number | null)[] {
 
 export type StatementTotals = { gross: number; payout: number; nights: number; stays: number };
 
-export function statementTotals(rows: StatementRow[]): StatementTotals {
+export function statementTotals(rows: StatementRow[], month: StatementMonth): StatementTotals {
   return rows.reduce(
     (acc, r) => {
       acc.gross += Number(r.sale_price ?? 0);
       acc.payout += Number(r.client_payout ?? 0);
-      acc.nights += rowShortStay(r) ? 0 : nightsBetween(r.check_in, r.check_out);
+      acc.nights += nightsInMonth(r, month);
       acc.stays += 1;
       return acc;
     },
@@ -141,16 +162,16 @@ function expenseSection(profit: MonthProfit): (string | number | null)[][] {
 
 export function buildStatementCsv(
   rows: StatementRow[],
-  meta: { clientName: string; monthLabel: string; profit?: MonthProfit | null }
+  meta: { clientName: string; monthLabel: string; month: StatementMonth; profit?: MonthProfit | null }
 ): string {
-  const totals = statementTotals(rows);
+  const totals = statementTotals(rows, meta.month);
 
   const body = [
     [`Hostello statement — ${meta.clientName}`],
     [meta.monthLabel],
     [],
     COLUMNS as unknown as string[],
-    ...rows.map(line),
+    ...rows.map((r) => line(r, meta.month)),
     [],
     // Sits under the two money columns it adds up, so a reader can see at a
     // glance that the rows above come to this.
