@@ -26,9 +26,9 @@ export default async function ClientStatsPage({
 
   const period = periodRange(parsePeriod(periodParam), todayISO());
 
-  // A stay counts whole in the month it checks in, confirmed only — the rule the
-  // Profit tab uses, so the two agree. The dashboards and the Bookings page still
-  // use the overlap window, and count tentative stays too.
+  // A stay counts whole in the month it checks in — the rule the Profit tab and
+  // the dashboards use. Confirmed only, though: a tentative stay is not money
+  // made, so Stats is stricter than the dashboards.
   const [{ data: bookings }, { data: prevBookings }] = await Promise.all([
     supabase
       .from("bookings_v")

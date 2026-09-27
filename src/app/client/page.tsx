@@ -113,8 +113,8 @@ export default async function ClientDashboard({
       .select("sale_price, client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
-      .lte("check_in", prevEnd)
-      .gt("check_out", prevStart),
+      .gte("check_in", prevStart)
+      .lte("check_in", prevEnd),
     supabase
       .from("bookings_v")
       .select(bookingFields)
@@ -133,29 +133,31 @@ export default async function ClientDashboard({
       .select("check_in, client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
-      .lte("check_in", period.end)
-      .gt("check_out", period.start),
+      .gte("check_in", period.start)
+      .lte("check_in", period.end),
     supabase
       .from("bookings_v")
       .select("client_payout")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
-      .lte("check_in", period.prevEnd)
-      .gt("check_out", period.prevStart),
+      .gte("check_in", period.prevStart)
+      .lte("check_in", period.prevEnd),
   ]);
 
   // ── Money ──────────────────────────────────────────────────────────────────
-  // Same overlap window the Bookings & Payouts page uses, so the two never
-  // disagree — check_out is exclusive, so overlap is check_out > start.
+  // A stay counts whole in the month it checks in — the rule Stats and the
+  // Profit tab use. `rows` is the overlap window because occupancy needs every
+  // night in the month; the money is the part of it that checked in.
   const rows = (monthBookings ?? []) as unknown as BookingRow[];
-  const grossThisMonth = rows.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
-  const payoutThisMonth = rows.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
+  const monthStays = rows.filter((b) => b.check_in >= monthStart);
+  const grossThisMonth = monthStays.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
+  const payoutThisMonth = monthStays.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
   const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const payoutLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
   // Only what Hostello actually has to send: on a booking the owner sourced
   // themselves they already hold the guest's money, so it is not awaited.
   const awaiting = (
-    (monthBookings ?? []) as unknown as {
+    monthStays as unknown as {
       source: string;
       client_payout: number | null;
       settled: boolean;
@@ -165,13 +167,13 @@ export default async function ClientDashboard({
     0
   );
 
-  // Cumulative daily series: each booking lands on its check-in day (clamped into
-  // the month), so the last point equals the month total on the KPI card.
+  // Cumulative daily series: each booking lands on its check-in day, so the last
+  // point equals the month total on the KPI card.
   const dayIndex = new Map(days.map((d, i) => [d, i]));
   const payoutPerDay = new Array(days.length).fill(0);
   const grossPerDay = new Array(days.length).fill(0);
-  for (const b of rows) {
-    const i = dayIndex.get(b.check_in > monthStart ? b.check_in : monthStart) ?? 0;
+  for (const b of monthStays) {
+    const i = dayIndex.get(b.check_in) ?? 0;
     payoutPerDay[i] += Number(b.client_payout ?? 0);
     grossPerDay[i] += Number(b.sale_price ?? 0);
   }
@@ -191,7 +193,7 @@ export default async function ClientDashboard({
   const periodIndex = new Map(period.days.map((d, i) => [d, i]));
   const periodPerDay = new Array(period.days.length).fill(0);
   for (const b of periodBookings ?? []) {
-    const i = periodIndex.get(b.check_in > period.start ? b.check_in : period.start) ?? 0;
+    const i = periodIndex.get(b.check_in) ?? 0;
     periodPerDay[i] += Number(b.client_payout ?? 0);
   }
   const periodSeries = cumulate(periodPerDay);

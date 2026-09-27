@@ -76,9 +76,9 @@ The plan as agreed:
 - Breakdowns by category, unit and vendor, against previous months.
 - The monthly statement CSV / PDF gains an expenses section and a profit line.
 - **Separate decision, own change:** Stats moves to check-in month so it
-  agrees with Profit — **done 2026-09-27**. The dashboards (KPI row, revenue
-  period chart) and the Bookings page stay on the overlap window: the KPI row
-  shares its query with occupancy, which is per night by nature.
+  agrees with Profit — **done 2026-09-27**, and the dashboards' money (KPI
+  row, revenue period chart) the same day. Occupancy and the Bookings page stay
+  on the overlap window: both are about the nights in the month, not income.
 
 ## Phase 4 — budgets and alerts (built)
 - `expense_budgets`: monthly limit per category, unit optional. **No unit is
