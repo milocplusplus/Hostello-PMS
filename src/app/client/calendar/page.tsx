@@ -48,7 +48,7 @@ export default async function ClientCalendarPage({
 
   const { data: properties } = await supabase
     .from("properties")
-    .select("id, name, type, city, stack_rate, short_stay_stack_rate")
+    .select("id, name, type, city, stack_rate, short_stay_stack_rate, photo_path")
     .eq("client_id", clientRecord.id)
     .eq("status", "active")
     .order("name");
@@ -275,6 +275,7 @@ export default async function ClientCalendarPage({
       lanes: Math.max(1, laneEnds.length),
       covered,
       segments,
+      photo: p.photo_path,
     };
   }
 

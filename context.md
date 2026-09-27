@@ -150,8 +150,15 @@ Pre-launch: real data has not been entered yet.
   one client's properties; `CalendarOverview` is the admin-only portfolio heat map;
   `CalendarAgenda` renders the same `rows` as a day sheet. `CalendarSegment` /
   `CalendarRow` are exported from `CalendarBoard`.
-- `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (no photo columns
-  exist) and the confirmed/tentative/cancelled chip
+- `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (guests have no
+  photo) and the confirmed/tentative/cancelled chip
+- **Property photos** — `src/lib/property-photos.ts` is the only code that touches the
+  public `property-photos` bucket (`<client_id>/<property_id>-<ts>.<ext>`);
+  `properties.photo_path` is set only through `set_property_photo()` (admin, or the
+  unit's owner — owners have no UPDATE on `properties`). `unitArt()` in
+  `src/lib/unit-tint.ts` is the photo-or-colour-tile background every card, banner,
+  calendar row and stay row uses. Upload UI: `PropertyPhotoField`, on the admin
+  property edit page and the owner's Properties page.
 - **Notifications** — `src/lib/notify.ts` (the only writer), `notifications.ts`
   (kind → icon, categories), `notification-feed.ts` (the only reader),
   `notification-sounds.ts` (Web Audio tones), `push.ts` (Web Push sender),
@@ -239,8 +246,8 @@ Pre-launch: real data has not been entered yet.
   — the loading boundary for every route in both portals. It is also what makes
   `<Link>` prefetch work on these dynamic routes.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
-- `supabase/migrations/` — the live DB tracks **48** migrations; the repo holds
-  18 of them, and the filenames don't all match the versions Supabase recorded.
+- `supabase/migrations/` — the live DB tracks **79** migrations; the repo holds
+  38 of them, and the filenames don't all match the versions Supabase recorded.
   The gap is the early core work (bookings, booking_properties, calendar_blocks,
   the extra `properties` columns) plus the whole ops-role and masked-view set,
   all applied straight to Supabase. **Read the live schema, not these files** —
@@ -263,7 +270,8 @@ Pre-launch: real data has not been entered yet.
   what a guest is quoted, and they are **not** blanked: ops answers enquiries.
   All three of the new columns are nullable, and null means "not recorded yet";
   the availability finder lists such a unit separately rather than guessing.
-  **No image_url and no bedrooms columns.**
+  `photo_path` (nullable) names the unit's cover photo — see **Property photos**.
+  **No bedrooms column.**
 - `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
   is_short_stay, short_stay_start, short_stay_end,
   source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),

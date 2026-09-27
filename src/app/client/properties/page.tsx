@@ -15,7 +15,13 @@ import {
 import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { requestPropertyChange, withdrawPropertyChangeRequest } from "./actions";
+import {
+  clearOwnPropertyPhoto,
+  requestPropertyChange,
+  uploadOwnPropertyPhoto,
+  withdrawPropertyChangeRequest,
+} from "./actions";
+import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -57,7 +63,7 @@ export default async function ClientPropertiesPage({
     supabase
       .from("properties_v")
       .select(
-        "id, name, location, city, province, type, status, max_guests, nightly_rate, short_stay_rate, stack_rate, short_stay_stack_rate"
+        "id, name, location, city, province, type, status, max_guests, nightly_rate, short_stay_rate, stack_rate, short_stay_stack_rate, photo_path"
       )
       .order("name"),
     supabase
@@ -113,6 +119,14 @@ export default async function ClientPropertiesPage({
 
             return (
               <div key={p.id} className="px-5 py-4 flex flex-col gap-3">
+                <PropertyPhotoField
+                  name={p.name}
+                  photoPath={p.photo_path ?? null}
+                  fields={{ property_id: p.id }}
+                  uploadAction={uploadOwnPropertyPhoto}
+                  removeAction={clearOwnPropertyPhoto}
+                  className="h-36"
+                />
                 <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-ink-primary truncate">{p.name}</p>

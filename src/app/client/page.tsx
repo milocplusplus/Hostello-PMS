@@ -28,6 +28,7 @@ import {
   TodayStories,
 } from "@/components/shared/DashboardBits";
 import { parsePeriod, periodRange } from "@/lib/period";
+import { firstUnitPhoto } from "@/lib/property-photos";
 
 type BookingRow = {
   id: string;
@@ -83,7 +84,7 @@ export default async function ClientDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, settled, booking_properties(property_id, properties(name))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, settled, booking_properties(property_id, properties(name, photo_path))";
 
   const [
     { data: properties },
@@ -362,6 +363,7 @@ export default async function ClientDashboard({
                   checkIn={b.check_in}
                   checkOut={b.check_out}
                   source={b.source}
+                  photo={firstUnitPhoto(b.booking_properties)}
                   // The owner's own money, and only once the stay is confirmed.
                   amount={b.status === "confirmed" ? Number(b.client_payout ?? 0) : null}
                 />

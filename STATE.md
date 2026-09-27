@@ -1,6 +1,25 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 7 of 7: property photos** (2026-09-27). Three
+  migrations, **applied to the live DB**: `20260927150000_property_photos`
+  (`properties.photo_path`, `properties_v` exposes it — still
+  `security_invoker=false`; public `property-photos` bucket, 8 MB, jpg/png/webp;
+  admin and owner-own-folder insert/delete policies; `set_property_photo()`
+  security definer, authenticated only, checks admin-or-owner and that the
+  path is in the unit's client folder, returns the replaced path),
+  `…151000_property_photos_policy_fix` (the owner policies said
+  `foldername(name)` inside a `clients` subquery, so `name` meant
+  clients.name and every owner upload was refused — now `objects.name`) and
+  `…152000_property_photos_read` (select policies: Storage won't delete what
+  the caller can't select, so replacing left the old file). App:
+  `src/lib/property-photos.ts`, `unitArt()` in `unit-tint.ts`,
+  `PropertyPhotoField`, admin `uploadPropertyPhoto` / `clearPropertyPhoto`,
+  owner `uploadOwnPropertyPhoto` / `clearOwnPropertyPhoto` (client id from
+  the session). Photos show on booking cards, the booking header, calendar
+  rows and dashboard stay rows. Checked end to end as the test owner: upload,
+  shown on Properties / Bookings / Calendar, remove — bucket and column back
+  to empty. **Admin upload not exercised** (no admin session here).
 - **UI redesign, phase 6 of 7: remaining pages + login** (2026-09-27).
   `components/shared/PageHeader.tsx` (title, optional back link, actions, one
   short `sub` line, longer text in `info` behind an (i)) now heads Today,

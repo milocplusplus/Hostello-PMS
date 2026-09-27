@@ -4,7 +4,7 @@ import { Clock, Home, Users } from "lucide-react";
 import { addDaysISO, daysBetweenISO, formatDayMonth } from "@/lib/calendar";
 import { nightsBetween } from "@/lib/payout";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
-import { unitTint } from "@/lib/unit-tint";
+import { unitArt } from "@/lib/unit-tint";
 import { Avatar } from "@/components/shared/Avatar";
 
 /**
@@ -95,6 +95,7 @@ export function BookingCard({
   price,
   today,
   footer,
+  photo,
 }: {
   href: string;
   guestName: string | null;
@@ -109,6 +110,8 @@ export function BookingCard({
   price: string | null;
   today: string;
   footer?: ReactNode;
+  /** The first unit's photo path, when it has one. */
+  photo?: string | null;
 }) {
   const cancelled = status === "cancelled";
   return (
@@ -116,14 +119,16 @@ export function BookingCard({
       <Link href={href} className="block active:scale-[0.99] transition-transform">
         <div
           className="relative h-20 px-3.5 py-3 flex items-end justify-between gap-2 overflow-hidden"
-          style={{ background: unitTint(units || "unit") }}
+          style={{ background: unitArt(units || "unit", photo) }}
         >
-          <Home
-            size={112}
-            strokeWidth={1.2}
-            className="absolute -right-3 -top-5 text-white/20"
-            aria-hidden
-          />
+          {!photo && (
+            <Home
+              size={112}
+              strokeWidth={1.2}
+              className="absolute -right-3 -top-5 text-white/20"
+              aria-hidden
+            />
+          )}
           <span className="relative min-w-0 truncate px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-xs font-bold text-white">
             {units || "No unit"}
           </span>

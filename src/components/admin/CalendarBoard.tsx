@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Clock, Home, Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
 import { sourceInitial } from "@/lib/block-sources";
-import { unitTint } from "@/lib/unit-tint";
+import { unitArt } from "@/lib/unit-tint";
 import { BookingForm } from "@/components/admin/BookingForm";
 import type { UnavailableRange } from "@/lib/availability";
 
@@ -42,6 +42,7 @@ export type CalendarRow = {
   lanes: number;
   covered: boolean[];
   segments: CalendarSegment[];
+  photo?: string | null;
 };
 
 const LANE_HEIGHT = 42;
@@ -153,10 +154,10 @@ export function CalendarBoard({
               >
                 <span
                   className="w-7 h-7 md:w-8 md:h-8 rounded-[10px] shrink-0 flex items-center justify-center text-white/90"
-                  style={{ background: unitTint(row.name) }}
+                  style={{ background: unitArt(row.name, row.photo) }}
                   aria-hidden
                 >
-                  <Home size={15} />
+                  {!row.photo && <Home size={15} />}
                 </span>
                 <span className="min-w-0">
                   {/* A narrow phone column truncates most names to nothing

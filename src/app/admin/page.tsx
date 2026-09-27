@@ -17,6 +17,7 @@ import { AddBookingMenu } from "@/components/admin/AddBookingMenu";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { PeriodSelect } from "@/components/shared/PeriodSelect";
 import { parsePeriod, periodRange } from "@/lib/period";
+import { firstUnitPhoto } from "@/lib/property-photos";
 import { Avatar } from "@/components/shared/Avatar";
 import { Delta } from "@/components/shared/Kpi";
 import { CountUp } from "@/components/shared/CountUp";
@@ -106,7 +107,7 @@ export default async function AdminDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients:clients_v(name), booking_properties(property_id, properties:properties_v(name))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients:clients_v(name), booking_properties(property_id, properties:properties_v(name, photo_path))";
 
   const [
     profile,
@@ -371,6 +372,7 @@ export default async function AdminDashboard({
                     checkIn={b.check_in}
                     checkOut={b.check_out}
                     source={b.source}
+                    photo={firstUnitPhoto(b.booking_properties)}
                     amount={b.sale_price === null ? null : Number(b.sale_price)}
                   />
                 </li>
@@ -425,6 +427,7 @@ export default async function AdminDashboard({
                   checkIn={b.check_in}
                   checkOut={b.check_out}
                   source={b.source}
+                  photo={firstUnitPhoto(b.booking_properties)}
                   amount={b.sale_price === null ? null : Number(b.sale_price)}
                 />
               </li>

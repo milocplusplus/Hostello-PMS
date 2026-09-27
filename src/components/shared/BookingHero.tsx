@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ArrowLeft, Clock, Home, MessageCircle, Pencil, Phone, Users } from "lucide-react";
-import { unitTint } from "@/lib/unit-tint";
+import { unitArt } from "@/lib/unit-tint";
 import { Avatar } from "@/components/shared/Avatar";
 import { ChannelChip, StayBar } from "@/components/shared/BookingCard";
 
-export type HeroUnit = { id: string; name: string; detail: string; href?: string };
+export type HeroUnit = { id: string; name: string; detail: string; href?: string; photo?: string | null };
 
 /**
  * The top of a booking: a colour banner for the unit (a photo, once units have
@@ -52,9 +52,11 @@ export function BookingHero({
     <section className="card overflow-hidden">
       <div
         className="relative h-36 md:h-40 p-4 flex flex-col justify-between overflow-hidden"
-        style={{ background: unitTint(units[0]?.name ?? "unit") }}
+        style={{ background: unitArt(units[0]?.name ?? "unit", units[0]?.photo) }}
       >
-        <Home size={180} strokeWidth={1} className="absolute -right-6 -top-8 text-white/20" aria-hidden />
+        {!units[0]?.photo && (
+          <Home size={180} strokeWidth={1} className="absolute -right-6 -top-8 text-white/20" aria-hidden />
+        )}
         <div className="relative flex items-center justify-between gap-3">
           <Link href={backHref} aria-label="Back" className={`${round} bg-black/35 backdrop-blur-sm text-white`}>
             <ArrowLeft size={20} />

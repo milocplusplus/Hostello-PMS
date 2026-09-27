@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { updateProperty } from "../../../../actions";
+import { clearPropertyPhoto, updateProperty, uploadPropertyPhoto } from "../../../../actions";
+import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
 import { PropertyForm } from "@/components/admin/PropertyForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 
@@ -24,7 +25,7 @@ export default async function EditPropertyPage({
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, name, location, city, province, type, status, stack_rate, short_stay_stack_rate, max_guests, nightly_rate, short_stay_rate")
+    .select("id, name, location, city, province, type, status, stack_rate, short_stay_stack_rate, max_guests, nightly_rate, short_stay_rate, photo_path")
     .eq("id", propertyId)
     .single();
 
@@ -35,6 +36,14 @@ export default async function EditPropertyPage({
       <PageHeader
         title="Edit property"
         back={{ href: `/admin/clients/${id}`, label: clientRecord.name }}
+      />
+
+      <PropertyPhotoField
+        name={property.name}
+        photoPath={property.photo_path ?? null}
+        fields={{ id: property.id, client_id: id }}
+        uploadAction={uploadPropertyPhoto}
+        removeAction={clearPropertyPhoto}
       />
 
       <PropertyForm

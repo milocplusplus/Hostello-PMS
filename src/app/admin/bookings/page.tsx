@@ -4,6 +4,7 @@ import { BedDouble, CalendarPlus, Moon, Plus, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR, nightsBetween } from "@/lib/payout";
+import { firstUnitPhoto } from "@/lib/property-photos";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
 import { cancelBooking } from "./actions";
 import { BookingCard } from "@/components/shared/BookingCard";
@@ -66,7 +67,7 @@ export default async function BookingsPage({
   let filter = supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guests_count, expected_arrival, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, clients:clients_v(name), booking_properties(properties:properties_v(name))"
+      "id, guest_name, guests_count, expected_arrival, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, clients:clients_v(name), booking_properties(properties:properties_v(name, photo_path))"
     );
 
   filter = status ? filter.eq("status", status) : filter.neq("status", "cancelled");
@@ -290,6 +291,7 @@ export default async function BookingsPage({
                 hours={shortStay ? formatShortStayWindow(shortStay.start, shortStay.end) : null}
                 guests={b.guests_count}
                 price={formatPKR(b.sale_price)}
+                photo={firstUnitPhoto(b.booking_properties)}
                 today={today}
                 footer={
                   b.status === "cancelled" ? undefined : (

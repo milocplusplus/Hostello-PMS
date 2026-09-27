@@ -58,7 +58,7 @@ export default async function CalendarPage({
   const [{ data: allProperties }, { data: clientTerms }] = await Promise.all([
     supabase
       .from("properties_v")
-      .select("id, name, type, city, stack_rate, short_stay_stack_rate, client_id, clients:clients_v(name)")
+      .select("id, name, type, city, stack_rate, short_stay_stack_rate, client_id, photo_path, clients:clients_v(name)")
       .eq("status", "active")
       .order("name"),
     supabase
@@ -99,6 +99,7 @@ export default async function CalendarPage({
       shortStayRate: Number(p.short_stay_stack_rate ?? 0),
       clientId: p.client_id as string,
       clientName: (p.clients as unknown as { name: string } | null)?.name ?? "—",
+      photo: (p.photo_path as string | null) ?? null,
     }))
     .sort((a, b) => a.clientName.localeCompare(b.clientName) || a.name.localeCompare(b.name));
 
@@ -367,6 +368,7 @@ export default async function CalendarPage({
       lanes: Math.max(1, laneEnds.length),
       covered,
       segments,
+      photo: p.photo,
     };
   }
 

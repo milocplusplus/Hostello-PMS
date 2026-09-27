@@ -15,8 +15,8 @@ function initials(name: string): string {
 }
 
 /**
- * Initials avatar. There are no guest or property photos in the schema, so this
- * stands in for them rather than shipping a broken image slot.
+ * Initials avatar. Guests have no photo in the schema, so this stands in for
+ * one rather than shipping a broken image slot.
  */
 export function Avatar({
   name,

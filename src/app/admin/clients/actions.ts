@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEAL_MODELS } from "@/lib/payout";
+import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
 import {
   notifyClientTermsUpdated,
   notifyPropertyAdded,
@@ -374,6 +375,35 @@ export async function updateProperty(formData: FormData) {
 
   revalidatePath(`/admin/clients/${client_id}`);
   redirect(`/admin/clients/${client_id}`);
+}
+
+// A unit's cover photo. `set_property_photo()` checks the caller and keeps the
+// file in the unit's own client folder, so a forged client id only fails.
+export async function uploadPropertyPhoto(formData: FormData) {
+  const id = formData.get("id") as string;
+  const client_id = formData.get("client_id") as string;
+  const file = formData.get("photo");
+  const back = `/admin/clients/${client_id}/properties/${id}/edit`;
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${back}?error=${encodeURIComponent("Choose a photo.")}`);
+  }
+
+  const supabase = await createClient();
+  const error = await setPropertyPhoto(supabase, { clientId: client_id, propertyId: id, file });
+  // The photo shows on cards, calendars and dashboards in both portals.
+  revalidatePath("/", "layout");
+  redirect(error ? `${back}?error=${encodeURIComponent(error)}` : back);
+}
+
+export async function clearPropertyPhoto(formData: FormData) {
+  const id = formData.get("id") as string;
+  const client_id = formData.get("client_id") as string;
+  const back = `/admin/clients/${client_id}/properties/${id}/edit`;
+
+  const supabase = await createClient();
+  const error = await removePropertyPhoto(supabase, id);
+  revalidatePath("/", "layout");
+  redirect(error ? `${back}?error=${encodeURIComponent(error)}` : back);
 }
 
 export async function deletePropertyRecord(formData: FormData) {

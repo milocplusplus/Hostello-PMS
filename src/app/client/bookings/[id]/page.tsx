@@ -47,7 +47,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type, photo_path))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -69,10 +69,13 @@ export default async function ClientBookingDetailPage({
   ]);
 
   const units =((booking.booking_properties as unknown as {
-    properties: { id: string; name: string; city: string | null; type: string | null } | null;
+    properties: { id: string; name: string; city: string | null; type: string | null; photo_path: string | null } | null;
   }[]) ?? [])
     .map((bp) => bp.properties)
-    .filter((p): p is { id: string; name: string; city: string | null; type: string | null } => Boolean(p));
+    .filter(
+      (p): p is { id: string; name: string; city: string | null; type: string | null; photo_path: string | null } =>
+        Boolean(p)
+    );
 
   const nights = nightsBetween(booking.check_in, booking.check_out);
   const shortStay = rowShortStay(booking);
@@ -103,6 +106,7 @@ export default async function ClientBookingDetailPage({
           id: u.id,
           name: u.name,
           detail: [propertyTypeLabel(u.type), u.city].filter(Boolean).join(" · "),
+          photo: u.photo_path,
         }))}
         checkIn={booking.check_in}
         checkOut={booking.check_out}

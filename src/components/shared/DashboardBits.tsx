@@ -3,7 +3,7 @@ import { Home, Sun } from "lucide-react";
 import { formatDayMonth } from "@/lib/calendar";
 import { formatPKR } from "@/lib/payout";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
-import { unitTint } from "@/lib/unit-tint";
+import { unitArt } from "@/lib/unit-tint";
 import { Avatar } from "@/components/shared/Avatar";
 import { CountUp } from "@/components/shared/CountUp";
 
@@ -238,6 +238,7 @@ export function StayRow({
   checkOut,
   source,
   amount,
+  photo,
 }: {
   href: string;
   guestName: string | null;
@@ -247,14 +248,15 @@ export function StayRow({
   checkOut: string;
   source: string;
   amount: number | null;
+  photo?: string | null;
 }) {
   return (
     <Link href={href} className="card card-hover p-2.5 flex items-center gap-3">
       <span
         className="w-[3.25rem] h-[3.25rem] rounded-[17px] flex items-center justify-center shrink-0 text-white/90"
-        style={{ background: unitTint(units || "unit") }}
+        style={{ background: unitArt(units || "unit", photo) }}
       >
-        <Home size={22} />
+        {!photo && <Home size={22} />}
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-[15px] font-extrabold truncate">{guestName ?? "Guest"}</span>
