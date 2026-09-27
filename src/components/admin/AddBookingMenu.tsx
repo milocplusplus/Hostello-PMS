@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, ChevronDown, Lock, CalendarDays, HandCoins, Users } from "lucide-react";
 
 const MENU = [
+  // Also here, not only on the + half: on a phone the two halves sit close
+  // enough that a tap meant for one lands on the other.
+  { href: "/admin/bookings/new", label: "New booking", icon: Plus },
   { href: "/admin/calendar/block", label: "Block dates", icon: Lock },
   { href: "/admin/calendar", label: "Check calendar", icon: CalendarDays },
   {
@@ -46,10 +49,10 @@ export function AddBookingMenu({ isOwner = true }: { isOwner?: boolean }) {
           onClick={() => setOpen((v) => !v)}
           aria-label="More actions"
           aria-expanded={open}
-          className="px-2.5 py-2.5 text-surface-0 border-l border-black/15 hover:bg-black/10 transition-colors"
+          className="w-12 md:w-auto h-11 md:h-auto flex items-center justify-center md:px-2.5 md:py-2.5 text-surface-0 border-l border-black/20 hover:bg-black/10 transition-colors"
         >
           <ChevronDown
-            size={15}
+            size={18}
             strokeWidth={2.5}
             className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
@@ -63,9 +66,9 @@ export function AddBookingMenu({ isOwner = true }: { isOwner?: boolean }) {
               key={m.href}
               href={m.href}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
+              className="flex items-center gap-2.5 px-3 py-3 md:py-2 rounded-lg text-sm font-semibold text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
             >
-              <m.icon size={14} className="text-hostello-purple-light" />
+              <m.icon size={16} className="text-hostello-purple-light" />
               {m.label}
             </Link>
           ))}

@@ -1,6 +1,12 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Add booking menu, bigger target** (2026-09-27). The ▾ half of the admin
+  dashboard split button was ~36px beside the + link, so taps meant for it
+  opened New booking instead. Now 48×44 on a phone, menu rows 44px, and the
+  menu starts with New booking. Checked with real taps on a phone viewport:
+  opens on top, Block dates navigates. Production had `d6d5c81` (the z-index
+  fix) live when this was reported.
 - **Admin on a phone, walked through signed in** (2026-09-27). Checked at
   375px: dashboard, calendar (overview + one client), bookings, Money (both
   tabs + send), clients (+ one client), today, check-ins, find dates, stats,
