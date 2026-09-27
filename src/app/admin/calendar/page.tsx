@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Lock, ArrowLeft, CalendarSync } from "lucide-react";
+import { Plus, Lock, ArrowLeft, CalendarSync, Building2, Users, LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
@@ -14,8 +14,9 @@ import {
   type CalendarRow,
   type CalendarSegment,
 } from "@/components/admin/CalendarBoard";
-import { CalendarOverview, type OverviewClient } from "@/components/admin/CalendarOverview";
+import { CalendarOverview, shade, type OverviewClient } from "@/components/admin/CalendarOverview";
 import { CalendarAgenda } from "@/components/shared/CalendarAgenda";
+import { ChannelLegend, MonthNav, ViewToggle } from "@/components/shared/CalendarControls";
 import { CalendarFilters } from "@/components/admin/CalendarFilters";
 import {
   getMonthGrid,
@@ -397,58 +398,44 @@ export default async function CalendarPage({
   );
 
   const header = (
-    <div className="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <p className="eyebrow">Availability</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">
-          {scope ? scope.name : "Calendar"}
-        </h1>
-      </div>
-      <div className="flex items-center gap-2">
-        <Link href={`/admin/calendar/block?month=${monthStr}`} className="btn btn-ghost btn-sm">
-          <Lock size={13} />
-          Block dates
+    <div className="flex items-center justify-between gap-3">
+      <h1 className="text-[28px] md:text-3xl truncate min-w-0">{scope ? scope.name : "Calendar"}</h1>
+      <div className="flex items-center gap-2 shrink-0">
+        <Link
+          href={`/admin/calendar/block?month=${monthStr}`}
+          aria-label="Block dates"
+          className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
+        >
+          <Lock size={16} />
+          <span className="hidden md:inline">Block dates</span>
         </Link>
-        <Link href="/admin/calendar/feeds" className="btn btn-ghost btn-sm">
-          <CalendarSync size={13} />
-          Channels
+        <Link
+          href="/admin/calendar/feeds"
+          aria-label="Channels"
+          className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
+        >
+          <CalendarSync size={16} />
+          <span className="hidden md:inline">Channels</span>
         </Link>
         <Link
           href="/admin/bookings/new"
-          className="btn btn-gold btn-sm"
+          aria-label="Add booking"
+          className="btn btn-primary h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
         >
-          <Plus size={13} strokeWidth={2.5} />
-          Add booking
+          <Plus size={18} strokeWidth={2.5} />
+          <span className="hidden md:inline">Add booking</span>
         </Link>
       </div>
     </div>
   );
 
   const monthNav = (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-0.5 p-1 rounded-xl bg-surface-2/60 border border-border-hairline">
-        <Link
-          href={prevHref}
-          aria-label="Previous"
-          className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
-        >
-          <ChevronLeft size={16} />
-        </Link>
-        <p className="text-sm font-medium min-w-[150px] text-center">{rangeLabel}</p>
-        <Link
-          href={nextHref}
-          aria-label="Next"
-          className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
-        >
-          <ChevronRight size={16} />
-        </Link>
-      </div>
-      {(sp.month || sp.start) && (
-        <Link href={href({ month: undefined, start: undefined })} className="btn btn-ghost btn-sm">
-          Today
-        </Link>
-      )}
-    </div>
+    <MonthNav
+      label={rangeLabel}
+      prevHref={prevHref}
+      nextHref={nextHref}
+      todayHref={sp.month || sp.start ? href({ month: undefined, start: undefined }) : undefined}
+    />
   );
 
   // ---- Portfolio overview -------------------------------------------------
@@ -480,46 +467,39 @@ export default async function CalendarPage({
     const arrivals = clients.reduce((sum, c) => sum + c.arrivals, 0);
 
     return (
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 stagger">
         {header}
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {monthNav}
-          <p className="text-xs text-ink-muted">
-            {visible.length} {visible.length === 1 ? "property" : "properties"} ·{" "}
-            {clients.length} {clients.length === 1 ? "client" : "clients"} · {pct}% booked ·{" "}
-            {arrivals} {arrivals === 1 ? "arrival" : "arrivals"}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[
+              { icon: Building2, value: visible.length, label: "units" },
+              { icon: Users, value: clients.length, label: "clients" },
+              { icon: LogIn, value: arrivals, label: "arrivals" },
+            ].map((c) => (
+              <span
+                key={c.label}
+                className="card inline-flex items-center gap-2 h-10 px-3.5 rounded-full text-xs font-bold"
+              >
+                <c.icon size={14} className="text-hostello-purple-light" />
+                <span className="num text-ink-primary">{c.value}</span>
+                <span className="text-ink-muted">{c.label}</span>
+              </span>
+            ))}
+            <span className="pill-active inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-xs font-extrabold">
+              <span className="num">{pct}%</span> booked
+            </span>
+          </div>
         </div>
 
         <CalendarOverview days={days} today={today} clients={clients} />
 
-        <div className="flex items-center gap-2 text-[11px] text-ink-secondary flex-wrap">
-          <span className="text-ink-muted mr-1">Pick a client to open their property calendar.</span>
-          {[
-            { label: "All free", color: "var(--color-surface-2)" },
-            {
-              label: "Some units taken",
-              color:
-                "color-mix(in srgb, var(--color-hostello-purple-glow) 45%, var(--color-surface-2))",
-            },
-            {
-              label: "Fully booked",
-              color:
-                "color-mix(in srgb, var(--color-hostello-purple-glow) 85%, var(--color-surface-2))",
-            },
-          ].map((l) => (
-            <span
-              key={l.label}
-              className="tile inline-flex items-center gap-1.5 px-2 py-1 rounded-lg"
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-[3px] border border-white/10"
-                style={{ backgroundColor: l.color }}
-              />
-              {l.label}
-            </span>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-ink-muted">
+          {[0, 0.5, 1].map((r) => (
+            <span key={r} className="w-4 h-4 rounded-[5px]" style={{ background: shade(r) }} />
           ))}
+          <span className="ml-1">Free → full</span>
         </div>
       </div>
     );
@@ -543,7 +523,7 @@ export default async function CalendarPage({
   ];
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 stagger">
       <Link
         href={href({ client: undefined, property: undefined, view: undefined, start: undefined })}
         className="group flex items-center gap-1.5 text-xs text-ink-muted hover:text-hostello-purple-light transition-colors w-fit"
@@ -557,30 +537,15 @@ export default async function CalendarPage({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           {monthNav}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-2/60 border border-border-hairline">
-            {(["month", "week", "agenda"] as const).map((v) => (
-              <Link
-                key={v}
-                href={href({ view: v, start: undefined })}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
-                  // With autoAgenda the phone is really on agenda and the desktop
-                  // on month, so the highlight has to say so at each width. Each
-                  // arm is spelled out — Tailwind can't see an interpolated
-                  // variant prefix, and `md:${...}` would only prefix the first
-                  // class of the run anyway.
-                  view === v
-                    ? autoAgenda && v === "month"
-                      ? "text-ink-secondary md:bg-gradient-to-b md:from-hostello-purple-glow md:to-hostello-purple-mid md:text-white md:shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)]"
-                      : "bg-gradient-to-b from-hostello-purple-glow to-hostello-purple-mid text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)]"
-                    : autoAgenda && v === "agenda"
-                      ? "bg-gradient-to-b from-hostello-purple-glow to-hostello-purple-mid text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)] md:bg-none md:text-ink-secondary md:shadow-none"
-                      : "text-ink-secondary hover:text-ink-primary hover:bg-surface-3/60"
-                }`}
-              >
-                {v}
-              </Link>
-            ))}
-          </div>
+          <ViewToggle
+            view={view}
+            autoAgenda={autoAgenda}
+            hrefs={{
+              month: href({ view: "month", start: undefined }),
+              week: href({ view: "week", start: undefined }),
+              agenda: href({ view: "agenda", start: undefined }),
+            }}
+          />
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto min-w-0">
@@ -603,28 +568,7 @@ export default async function CalendarPage({
         </div>
       </div>
 
-      {/* Six colour swatches cost a phone three rows above the board itself, and
-          every bar already carries its channel badge — this is a desk affordance. */}
-      {view !== "agenda" && (
-        <div className="hidden md:flex items-center gap-2 text-[11px] text-ink-secondary flex-wrap">
-          {legend.map((l) => (
-            <span
-              key={l.label}
-              className="tile inline-flex items-center gap-1.5 px-2 py-1 rounded-lg"
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-[3px]"
-                style={{ backgroundColor: l.color, boxShadow: `0 0 8px -2px ${l.color}` }}
-              />
-              {l.label}
-            </span>
-          ))}
-          <span className="tile inline-flex items-center gap-1.5 px-2 py-1 rounded-lg">
-            <span className="inline-block w-2.5 h-2.5 rounded-[3px] border border-border-strong" />
-            Available — click to book
-          </span>
-        </div>
-      )}
+      {view !== "agenda" && <ChannelLegend items={legend} />}
 
       {rows.length === 0 ? (
         <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
@@ -654,9 +598,6 @@ export default async function CalendarPage({
         </>
       )}
 
-      <p className="text-xs text-ink-muted">
-        {rows.length} {rows.length === 1 ? "property" : "properties"} · {scope.name}
-      </p>
     </div>
   );
 }

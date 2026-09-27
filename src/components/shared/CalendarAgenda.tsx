@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Lock } from "lucide-react";
-import { ChannelBadge } from "@/components/admin/BookingActivity";
+import { CalendarDays, Clock, Lock, LogIn, LogOut } from "lucide-react";
+import { sourceInitial } from "@/lib/block-sources";
 import type { CalendarRow, CalendarSegment } from "@/components/admin/CalendarBoard";
 import { weekdayShort, daysBetweenISO } from "@/lib/calendar";
 
@@ -45,8 +45,11 @@ export function CalendarAgenda({
 
   if (shown.length === 0) {
     return (
-      <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-        Nothing scheduled this month. Switch to Month to book a night.
+      <div className="card p-8 md:p-10 flex flex-col items-center gap-3 text-center">
+        <span className="w-12 h-12 rounded-2xl gradient-brand-subtle flex items-center justify-center text-hostello-purple-light">
+          <CalendarDays size={22} />
+        </span>
+        <p className="text-sm text-ink-secondary">Nothing scheduled this month.</p>
       </div>
     );
   }
@@ -64,26 +67,19 @@ export function CalendarAgenda({
     const date = days[i];
     const isToday = date === today;
     return (
-      <div
-        key={date}
-        className={`flex gap-3 p-3 md:p-4 transition-colors ${
-          isToday ? "bg-hostello-gold/[0.06]" : "hover:bg-surface-2/40"
-        }`}
-      >
+      <div key={date} className="flex gap-3">
         <div
-          className={`w-12 shrink-0 text-center rounded-xl py-1.5 ${
-            isToday ? "bg-hostello-gold/10 border border-hostello-gold/30" : ""
+          className={`w-14 h-[4.25rem] shrink-0 rounded-2xl flex flex-col items-center justify-center ${
+            isToday
+              ? "gradient-gold text-surface-0 shadow-[0_8px_22px_-8px_var(--color-hostello-gold-bright)]"
+              : "card"
           }`}
         >
-          <p className="text-[10px] uppercase tracking-wide text-ink-muted">{weekdayShort(date)}</p>
-          <p
-            className={`display num text-lg leading-tight ${
-              isToday ? "font-semibold text-hostello-gold" : "text-ink-primary"
-            }`}
-          >
-            {Number(date.slice(8, 10))}
+          <p className={`text-[10px] font-bold uppercase ${isToday ? "" : "text-ink-muted"}`}>
+            {weekdayShort(date)}
           </p>
-          <p className="text-[10px] text-ink-muted">
+          <p className="num text-xl font-extrabold leading-tight">{Number(date.slice(8, 10))}</p>
+          <p className={`text-[10px] font-semibold ${isToday ? "" : "text-ink-muted"}`}>
             {new Date(date + "T00:00:00Z").toLocaleDateString("en-US", {
               month: "short",
               timeZone: "UTC",
@@ -91,32 +87,45 @@ export function CalendarAgenda({
           </p>
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <div className="flex-1 min-w-0 flex flex-col gap-2 py-0.5">
           {departures[i].map((e) => (
             <AgendaEntry key={`out-${e.seg.key}`} entry={e} direction="out" />
           ))}
           {arrivals[i].map((e) => (
             <AgendaEntry key={`in-${e.seg.key}`} entry={e} direction="in" />
           ))}
-          <p className="text-[10px] text-ink-muted">
-            {occupied[i]} of {rows.length} {rows.length === 1 ? "unit" : "units"} occupied
-            {isToday && " · today"}
-          </p>
+          {/* One dot per unit, lit when it is taken that night */}
+          <div
+            className="flex items-center gap-1.5 flex-wrap"
+            title={`${occupied[i]} of ${rows.length} occupied`}
+          >
+            {rows.map((r, n) => (
+              <span
+                key={r.id}
+                className={`w-2 h-2 rounded-full ${
+                  n < occupied[i]
+                    ? "bg-hostello-purple-glow shadow-[0_0_8px_var(--color-hostello-purple-glow)]"
+                    : "bg-white/10"
+                }`}
+              />
+            ))}
+            <span className="num text-[11px] font-bold text-ink-muted ml-1">
+              {occupied[i]}/{rows.length}
+            </span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="card divide-y divide-border-hairline">
+    <div className="flex flex-col gap-4 stagger">
       {past.length > 0 && (
-        <details>
-          <summary className="px-4 py-2.5 text-xs text-ink-muted cursor-pointer hover:text-ink-secondary transition-colors">
-            Earlier this month ({past.length} {past.length === 1 ? "day" : "days"})
+        <details className="card px-4 py-3">
+          <summary className="text-xs font-bold text-ink-muted cursor-pointer hover:text-ink-secondary transition-colors">
+            Earlier this month · {past.length}
           </summary>
-          <div className="divide-y divide-border-hairline border-t border-border-hairline">
-            {past.map(dayRow)}
-          </div>
+          <div className="flex flex-col gap-4 mt-3">{past.map(dayRow)}</div>
         </details>
       )}
       {current.map(dayRow)}
@@ -127,46 +136,46 @@ export function CalendarAgenda({
 function AgendaEntry({ entry, direction }: { entry: Entry; direction: "in" | "out" }) {
   const { seg, property } = entry;
   const nights = daysBetweenISO(seg.startDate, seg.endDate) + 1;
+  const Icon = direction === "in" ? LogIn : LogOut;
 
   return (
     <Link
       href={seg.href}
-      className={`flex items-center gap-2 rounded-xl border px-2 py-2 min-w-0 transition-all duration-150 hover:brightness-125 hover:-translate-y-px ${
+      className={`flex items-center gap-3 rounded-2xl border p-2.5 min-w-0 active:scale-[0.98] transition-transform ${
         seg.tentative ? "border-dashed" : ""
       }`}
       style={{
-        backgroundImage: `linear-gradient(180deg, color-mix(in srgb, ${seg.color} 22%, var(--color-surface-1)) 0%, color-mix(in srgb, ${seg.color} 11%, var(--color-surface-1)) 100%)`,
+        backgroundImage: `linear-gradient(90deg, color-mix(in srgb, ${seg.color} 34%, transparent), color-mix(in srgb, ${seg.color} 8%, transparent))`,
         borderColor: `color-mix(in srgb, ${seg.color} 45%, transparent)`,
-        boxShadow: `0 1px 0 rgba(255,255,255,0.05) inset`,
       }}
     >
       <span
-        className={`w-8 shrink-0 text-center text-[9px] font-semibold uppercase tracking-wide rounded-md py-0.5 ${
-          direction === "in"
-            ? "text-hostello-purple-light bg-hostello-purple-glow/15"
-            : "text-ink-muted bg-surface-3/60"
-        }`}
+        className="relative w-10 h-10 rounded-xl shrink-0 flex items-center justify-center text-white"
+        style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${seg.color} 70%, #000), ${seg.color})` }}
+        aria-label={direction === "in" ? "Arriving" : "Leaving"}
       >
-        {direction}
-      </span>
-      {seg.kind === "booking" ? (
-        <ChannelBadge source={seg.source ?? ""} />
-      ) : (
-        <Lock size={12} className="shrink-0 text-ink-secondary" />
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs text-ink-primary truncate">
-          {seg.title}
-          <span className="text-ink-muted"> · {property}</span>
+        <Icon size={17} strokeWidth={2.4} />
+        <span className="absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full bg-surface-1 border border-white/10 text-[9px] font-extrabold flex items-center justify-center">
+          {seg.kind === "booking" ? sourceInitial(seg.source) : <Lock size={9} />}
         </span>
-        <span className="block text-[10px] text-ink-muted">
-          {seg.hours
-            ? `${seg.dateRange} · ${seg.hours}`
-            : `${seg.dateRange} · ${nights} ${nights === 1 ? "night" : "nights"}`}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-ink-primary truncate">{seg.title}</span>
+        <span className="block text-xs text-ink-secondary truncate">
+          {property} ·{" "}
+          {seg.hours ? (
+            <>
+              <Clock size={10} className="inline -mt-0.5" /> {seg.hours}
+            </>
+          ) : (
+            `${nights}N`
+          )}
         </span>
       </span>
       {seg.amount && (
-        <span className="text-[10px] text-financial whitespace-nowrap shrink-0">{seg.amount}</span>
+        <span className="num text-xs font-extrabold text-hostello-gold-bright whitespace-nowrap shrink-0">
+          {seg.amount}
+        </span>
       )}
     </Link>
   );

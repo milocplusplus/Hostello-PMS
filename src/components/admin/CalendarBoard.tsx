@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Clock, Lock, X } from "lucide-react";
+import { Clock, Home, Lock, X } from "lucide-react";
 import { weekdayShort, isWeekend, addDaysISO, formatDayMonth } from "@/lib/calendar";
-import { ChannelBadge } from "@/components/admin/BookingActivity";
+import { sourceInitial } from "@/lib/block-sources";
+import { unitTint } from "@/lib/unit-tint";
 import { BookingForm } from "@/components/admin/BookingForm";
 import type { UnavailableRange } from "@/lib/availability";
 
@@ -43,7 +44,7 @@ export type CalendarRow = {
   segments: CalendarSegment[];
 };
 
-const LANE_HEIGHT = 38;
+const LANE_HEIGHT = 42;
 
 /** The quick-add write. Admin and client portals each pass their own. */
 export type InlineCreate = (formData: FormData) => Promise<{ error: string | null }>;
@@ -98,8 +99,9 @@ export function CalendarBoard({
   }, [days, today]);
 
   function dayTint(date: string) {
-    if (date === today) return "bg-hostello-gold/[0.09] border-l border-hostello-gold/50";
-    if (isWeekend(date)) return "bg-surface-2/50";
+    if (date === today)
+      return "bg-hostello-gold/[0.1] shadow-[inset_1px_0_0_rgba(245,201,104,0.45),inset_-1px_0_0_rgba(245,201,104,0.45)]";
+    if (isWeekend(date)) return "bg-white/[0.025]";
     return "";
   }
 
@@ -109,7 +111,7 @@ export function CalendarBoard({
           show as a flat patch over a gradient card face. */}
       <div
         ref={scroller}
-        className="card card-flat overflow-x-auto [--cal-name:96px] md:[--cal-name:200px]"
+        className="card card-flat overflow-x-auto [--cal-name:112px] md:[--cal-name:210px]"
       >
         <div style={{ minWidth }}>
           {/* Day header */}
@@ -117,18 +119,16 @@ export function CalendarBoard({
             className="grid border-b border-border-hairline"
             style={{ gridTemplateColumns: columns }}
           >
-            <div className="eyebrow sticky left-0 z-20 bg-surface-1 px-3 md:px-4 py-3.5 border-r border-border-hairline">
-              Property
-            </div>
+            <div className="sticky left-0 z-20 bg-surface-1 border-r border-border-hairline" />
             {days.map((d) => (
               <div key={d} className={`py-2 text-center ${dayTint(d)}`}>
-                <p className="text-[9px] uppercase tracking-wide text-ink-muted">
+                <p className="text-[10px] font-bold uppercase text-ink-muted">
                   {weekdayShort(d).charAt(0)}
                 </p>
                 <p
-                  className={`num text-xs mt-1 ${
+                  className={`num text-[13px] font-bold mt-1 ${
                     d === today
-                      ? "font-semibold text-surface-0 mx-auto w-5 h-5 leading-5 rounded-full gradient-gold shadow-[0_0_12px_-2px_var(--color-hostello-gold)]"
+                      ? "font-extrabold text-surface-0 mx-auto w-6 h-6 leading-6 rounded-full gradient-gold shadow-[0_0_14px_-2px_var(--color-hostello-gold-bright)]"
                       : "text-ink-secondary"
                   }`}
                 >
@@ -148,21 +148,29 @@ export function CalendarBoard({
               }}
             >
               <div
-                className="sticky left-0 z-20 bg-surface-1 px-3 md:px-4 flex flex-col justify-center border-r border-border-hairline"
+                className="sticky left-0 z-20 bg-surface-1 px-2.5 md:px-4 flex items-center gap-2 md:gap-2.5 border-r border-border-hairline"
                 style={{ gridColumn: 1, gridRow: `1 / -1` }}
               >
-                {/* A 96px column truncates most property names to nothing
-                    useful, and the lane is tall enough for two short lines. */}
-                <p className="text-[11px] leading-tight line-clamp-2 md:text-xs md:leading-normal md:line-clamp-none md:truncate font-medium text-ink-primary">
-                  {row.name}
-                </p>
-                {/* At 96px the subtext only ever renders as an ellipsis, and the
-                    row it costs is a row of calendar. Desks keep it. */}
-                {row.subtext && (
-                  <p className="hidden md:block text-[10px] text-ink-muted truncate mt-0.5">
-                    {row.subtext}
-                  </p>
-                )}
+                <span
+                  className="w-7 h-7 md:w-8 md:h-8 rounded-[10px] shrink-0 flex items-center justify-center text-white/90"
+                  style={{ background: unitTint(row.name) }}
+                  aria-hidden
+                >
+                  <Home size={15} />
+                </span>
+                <span className="min-w-0">
+                  {/* A narrow phone column truncates most names to nothing
+                      useful, and the lane is tall enough for two short lines. */}
+                  <span className="block text-[11px] leading-tight line-clamp-2 md:text-[13px] md:leading-normal md:line-clamp-none md:truncate font-bold text-ink-primary">
+                    {row.name}
+                  </span>
+                  {/* On a phone the subtext only ever renders as an ellipsis. */}
+                  {row.subtext && (
+                    <span className="hidden md:block text-[11px] text-ink-muted truncate">
+                      {row.subtext}
+                    </span>
+                  )}
+                </span>
               </div>
 
               {days.map((d, i) =>
@@ -302,6 +310,16 @@ function QuickAddBooking({
 function Bar({ seg }: { seg: CalendarSegment }) {
   const showAmount = seg.span >= 3 && seg.amount;
   const showRange = seg.span >= 6;
+  const block = seg.kind === "block";
+
+  // Filled with the channel colour so the board reads at a glance. A tentative
+  // stay is an outline and a block is hatched: neither is a stay being paid for.
+  const face = block
+    ? `repeating-linear-gradient(135deg, color-mix(in srgb, ${seg.color} 55%, transparent) 0 6px, color-mix(in srgb, ${seg.color} 22%, transparent) 6px 12px)`
+    : seg.tentative
+      ? `linear-gradient(90deg, color-mix(in srgb, ${seg.color} 30%, var(--color-surface-1)), color-mix(in srgb, ${seg.color} 16%, var(--color-surface-1)))`
+      : `linear-gradient(90deg, color-mix(in srgb, ${seg.color} 72%, #000) 0%, ${seg.color} 100%)`;
+  const outlined = seg.tentative || block;
 
   return (
     <Link
@@ -309,44 +327,39 @@ function Bar({ seg }: { seg: CalendarSegment }) {
       title={`${seg.title} · ${seg.dateRange}${seg.hours ? ` · ${seg.hours}` : ""}${
         seg.amount ? ` · ${seg.amount}` : ""
       }`}
-      className={`relative z-10 my-[4px] flex items-center gap-1.5 overflow-hidden border px-1.5 min-w-0 transition-all duration-150 hover:brightness-125 hover:-translate-y-px ${
+      className={`bar-grow relative z-10 my-[5px] flex items-center gap-1.5 overflow-hidden border px-1.5 min-w-0 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.45)] transition-[filter,transform] duration-150 hover:brightness-110 hover:-translate-y-px ${
         seg.tentative ? "border-dashed" : ""
-      } ${seg.clippedStart ? "ml-0 rounded-l-none" : "ml-[3px] rounded-l-lg"} ${
-        seg.clippedEnd ? "mr-0 rounded-r-none" : "mr-[3px] rounded-r-lg"
+      } ${seg.clippedStart ? "ml-0 rounded-l-none" : "ml-[3px] rounded-l-xl"} ${
+        seg.clippedEnd ? "mr-0 rounded-r-none" : "mr-[3px] rounded-r-xl"
       }`}
       style={{
         gridColumn: `${seg.startIdx + 2} / span ${seg.span}`,
         gridRow: seg.lane + 1,
-        // Lit from the channel's own colour rather than filled flat with it, so
-        // a dozen bars on one board still read as distinct objects.
-        backgroundImage: `linear-gradient(180deg, color-mix(in srgb, ${seg.color} 34%, var(--color-surface-1)) 0%, color-mix(in srgb, ${seg.color} 18%, var(--color-surface-1)) 100%)`,
-        borderColor: `color-mix(in srgb, ${seg.color} 55%, transparent)`,
-        boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 12px -6px ${seg.color}`,
+        backgroundImage: face,
+        borderColor: outlined ? `color-mix(in srgb, ${seg.color} 70%, transparent)` : "transparent",
+        boxShadow: outlined ? undefined : `0 6px 16px -8px ${seg.color}`,
+        animationDelay: `${Math.min(seg.startIdx * 14, 420)}ms`,
       }}
     >
-      <span
-        className="absolute left-0 top-0 bottom-0 w-[3px]"
-        style={{ backgroundColor: seg.color, boxShadow: `0 0 8px -1px ${seg.color}` }}
-        aria-hidden
-      />
-      {seg.kind === "booking" ? (
-        <ChannelBadge source={seg.source ?? ""} />
+      {block ? (
+        <Lock size={11} className="shrink-0" />
       ) : (
-        <Lock size={11} className="shrink-0 text-ink-secondary" />
-      )}
-      {/* A short stay is one cell wide like a one-night booking — the clock is
-          what tells them apart at a glance. */}
-      {seg.hours && <Clock size={10} className="shrink-0 text-ink-muted" />}
-      <span className="text-[11px] text-ink-primary truncate">{seg.title}</span>
-      {showRange && (
-        <span className="text-[10px] text-ink-muted whitespace-nowrap shrink-0">
-          {seg.dateRange}
+        <span
+          className="w-[18px] h-[18px] rounded-full bg-black/25 text-[9px] font-extrabold flex items-center justify-center shrink-0"
+          aria-hidden
+        >
+          {sourceInitial(seg.source)}
         </span>
+      )}
+      {/* A short stay is one cell wide like a one-night booking; the clock is
+          what tells them apart at a glance. */}
+      {seg.hours && <Clock size={10} className="shrink-0" />}
+      <span className="text-[11px] font-bold truncate">{seg.title}</span>
+      {showRange && (
+        <span className="text-[10px] text-white/75 whitespace-nowrap shrink-0">{seg.dateRange}</span>
       )}
       {showAmount && (
-        <span className="ml-auto text-[10px] text-financial whitespace-nowrap shrink-0">
-          {seg.amount}
-        </span>
+        <span className="num ml-auto text-[10px] font-extrabold whitespace-nowrap shrink-0">{seg.amount}</span>
       )}
     </Link>
   );

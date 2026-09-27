@@ -625,6 +625,15 @@ h3 {
 }
 /* end @layer components */
 
+/* The selected item in any segmented control or tab row: the same violet →
+   magenta pill the navigation uses, so "selected" looks one way everywhere.
+   A utility rather than a component class so `md:pill-active` works. */
+@utility pill-active {
+  color: #fff;
+  background-image: linear-gradient(135deg, var(--color-hostello-purple-glow), var(--color-hostello-magenta));
+  box-shadow: 0 6px 18px -6px rgba(168, 85, 247, 0.85);
+}
+
 /* ── Motion ──────────────────────────────────────────────────────────────── */
 
 @keyframes fade-in-up {
@@ -793,6 +802,20 @@ h3 {
   }
 }
 
+/* Calendar bars grow in from their start day. `backwards`, not `both`: once
+   it has played, the bar's own hover transform is free to apply again. */
+.bar-grow {
+  transform-origin: left center;
+  animation: bar-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
 /* A progress ring fills from empty to its own dashoffset (pathLength="100") */
 .ring-in {
   animation: ring-in 1.4s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -811,6 +834,7 @@ h3 {
   }
 
   .ring-in,
+  .bar-grow,
   .animate-in,
   .animate-fade,
   .animate-receipt-pop,

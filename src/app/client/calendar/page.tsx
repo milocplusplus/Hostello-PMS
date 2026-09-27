@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus, Lock } from "lucide-react";
+import { Plus, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
@@ -15,6 +15,7 @@ import {
   type CalendarSegment,
 } from "@/components/admin/CalendarBoard";
 import { CalendarAgenda } from "@/components/shared/CalendarAgenda";
+import { ChannelLegend, MonthNav, ViewToggle } from "@/components/shared/CalendarControls";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -316,106 +317,48 @@ export default async function ClientCalendarPage({
   ];
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">AVAILABILITY</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Calendar</h1>
-        </div>
+    <div className="flex flex-col gap-5 stagger">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[28px] md:text-3xl">Calendar</h1>
         <div className="flex items-center gap-2">
           <Link
             href={`/client/calendar/block?month=${monthStr}`}
-            className="rounded-md py-2 px-3 text-xs font-medium text-ink-secondary border border-border-hairline flex items-center gap-1.5 hover:border-border-strong transition-colors"
+            aria-label="Block dates"
+            className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
           >
-            <Lock size={13} />
-            Block dates
+            <Lock size={16} />
+            <span className="hidden md:inline">Block dates</span>
           </Link>
           <Link
             href="/client/bookings/new"
-            className="btn btn-gold btn-sm"
+            aria-label="Add booking"
+            className="btn btn-primary h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
           >
-            <Plus size={13} strokeWidth={2.5} />
-            Add booking
+            <Plus size={18} strokeWidth={2.5} />
+            <span className="hidden md:inline">Add booking</span>
           </Link>
         </div>
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-surface-2/60 border border-border-hairline">
-            <Link
-              href={prevHref}
-              aria-label="Previous"
-              className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </Link>
-            <p className="text-sm font-medium min-w-[150px] text-center">{rangeLabel}</p>
-            <Link
-              href={nextHref}
-              aria-label="Next"
-              className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-colors"
-            >
-              <ChevronRight size={16} />
-            </Link>
-          </div>
-          {(sp.month || sp.start) && (
-            <Link
-              href={href({ month: undefined, start: undefined })}
-              className="btn btn-ghost btn-sm"
-            >
-              Today
-            </Link>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-2/60 border border-border-hairline">
-          {(["month", "week", "agenda"] as const).map((v) => (
-            <Link
-              key={v}
-              href={href({ view: v, start: undefined })}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
-                // With autoAgenda the phone is really on agenda and the desktop
-                // on month, so the highlight has to say so at each width. Each
-                // arm is spelled out — Tailwind can't see an interpolated
-                // variant prefix.
-                view === v
-                  ? autoAgenda && v === "month"
-                    ? "text-ink-secondary md:bg-gradient-to-b md:from-hostello-purple-glow md:to-hostello-purple-mid md:text-white md:shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)]"
-                    : "bg-gradient-to-b from-hostello-purple-glow to-hostello-purple-mid text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)]"
-                  : autoAgenda && v === "agenda"
-                    ? "bg-gradient-to-b from-hostello-purple-glow to-hostello-purple-mid text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_4px_12px_-4px_rgba(139,92,246,0.7)] md:bg-none md:text-ink-secondary md:shadow-none"
-                    : "text-ink-secondary hover:text-ink-primary hover:bg-surface-3/60"
-              }`}
-            >
-              {v}
-            </Link>
-          ))}
-        </div>
+        <MonthNav
+          label={rangeLabel}
+          prevHref={prevHref}
+          nextHref={nextHref}
+          todayHref={sp.month || sp.start ? href({ month: undefined, start: undefined }) : undefined}
+        />
+        <ViewToggle
+          view={view}
+          autoAgenda={autoAgenda}
+          hrefs={{
+            month: href({ view: "month", start: undefined }),
+            week: href({ view: "week", start: undefined }),
+            agenda: href({ view: "agenda", start: undefined }),
+          }}
+        />
       </div>
 
-      {/* Desk affordance — see the note on the admin board. On a phone the
-          swatches push the calendar itself below the fold. */}
-      {view !== "agenda" && (
-        <div className="hidden md:flex items-center gap-4 text-[11px] text-ink-secondary flex-wrap">
-          {legend.map((l) => (
-            <span
-              key={l.label}
-              className="tile inline-flex items-center gap-1.5 px-2 py-1 rounded-lg"
-            >
-              <span
-                className="inline-block w-2.5 h-2.5 rounded-[3px]"
-                style={{ backgroundColor: l.color, boxShadow: `0 0 8px -2px ${l.color}` }}
-              />
-              {l.label}
-            </span>
-          ))}
-          <span className="tile inline-flex items-center gap-1.5 px-2 py-1 rounded-lg">
-            <span className="inline-block w-2.5 h-2.5 rounded-[3px] border border-border-strong" />
-            Available — click to book
-          </span>
-        </div>
-      )}
+      {view !== "agenda" && <ChannelLegend items={legend} />}
 
       {(view === "agenda" || autoAgenda) && (
         <div className={autoAgenda ? "md:hidden" : undefined}>
@@ -437,10 +380,6 @@ export default async function ClientCalendarPage({
           />
         </div>
       )}
-
-      <p className="text-xs text-ink-muted">
-        {properties.length} {properties.length === 1 ? "property" : "properties"}
-      </p>
     </div>
   );
 }

@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 2 of 7: calendar** (2026-09-27). Shared
+  `components/shared/CalendarControls.tsx` (`MonthNav`, `ViewToggle`,
+  `ChannelLegend`) replaces the copies in both calendar pages. Board bars are
+  filled with the channel colour (tentative = dashed outline, block = hatched),
+  grow in (`.bar-grow`), carry the channel initial; property column has a
+  `unitTint()` tile (`src/lib/unit-tint.ts`, moved out of the dashboard). The
+  agenda (the phone view) is day chips + colour entries + an occupancy dot row.
+  Admin overview: sold-out days are the violet→magenta gradient (`shade()` is
+  exported for its legend), stats are chips. `pill-active` is an `@utility`
+  (so `md:pill-active` works) — use it for any selected segment. Owner
+  calendar checked on phone + desktop; admin calendar not seen signed in.
 - **UI redesign, phase 1 of 7: foundation + owner nav + owner dashboard**
   (2026-09-27). Direction the owner approved from a clickable mockup: bold
   fintech, dark only, phone first, vivid purple/gold, lively motion, icons +
