@@ -7,11 +7,11 @@
   comparison too, and the revenue-period chart queries check-in in the period.
   The month query itself stays the overlap window — occupancy needs every
   night — and the money is filtered from it (`monthStays`), no extra query.
-  Still counts tentative stays, as before; Stats is confirmed only. **Not
-  moved:** the owner Bookings & Payouts page's "Gross revenue" — it sums the
-  stays it lists, which overlap the month, so it can now differ from the
-  dashboard for a month with a stay across its start. Lint and build clean;
-  pages not rendered.
+  Still counts tentative stays, as before; Stats is confirmed only. The owner
+  Bookings & Payouts page's "Gross revenue" followed the same day: it sums only
+  the listed stays that check in this month (labelled "Stays checking in this
+  month"); the list, "Nights booked" and the statement still cover every stay
+  touching the month. Lint and build clean; pages not rendered.
 - **Stats counts by check-in month** (2026-09-27). Both Stats pages now take
   confirmed stays with `check_in` inside the period (current and comparison
   window), whole — the rule `profit.ts` uses — instead of the overlap window.
@@ -2010,8 +2010,8 @@ reassign the alias, so nothing broke.
   Do not fabricate trend data to make the UI look good.
 - Money by month is **check-in month** everywhere a figure is income: Stats,
   the dashboards' KPI row and revenue chart, the Profit tab. The overlap window
-  (`check_in ≤ monthEnd AND check_out > monthStart`) is for nights: occupancy,
-  and the Bookings page's list of the month's stays (and its gross).
+  (`check_in ≤ monthEnd AND check_out > monthStart`) is for stays and nights:
+  occupancy, the Bookings page's list and "Nights booked", and the statement.
 - Booking `check_out` is exclusive; `calendar_blocks.end_date` is inclusive. The
   calendar's `place()` helper converts check_out to an inclusive last night before
   clipping — keep it that way.
