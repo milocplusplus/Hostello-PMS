@@ -1,22 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Outfit } from "next/font/google";
+import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { PwaSetup } from "@/components/shared/PwaSetup";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
-/** Display face. Headings and hero figures only — globals.css binds it to
- *  h1/h2/h3 and `.display`, so pages don't each have to opt in. */
-const outfit = Outfit({
-  variable: "--font-outfit",
+/** The one face for text, headings and figures. globals.css makes headings
+ *  heavy, so weight carries the hierarchy rather than a second family. */
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
   display: "swap",
 });
@@ -36,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0910",
+  themeColor: "#07060c",
   colorScheme: "dark",
   // Lets the UI run under the notch and home indicator; globals.css pays the
   // safe-area insets back so nothing important sits beneath them.
@@ -47,7 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} h-full antialiased`}
+      className={`${jakarta.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

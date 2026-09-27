@@ -67,7 +67,7 @@ export function PwaSetup() {
   const showIosHint = state === "ios";
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-none">
+    <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-[calc(1rem+var(--tabbar-space,env(safe-area-inset-bottom)))] pointer-events-none">
       <div className="card mx-auto max-w-sm p-3 flex items-center gap-3 pointer-events-auto animate-in">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 gradient-brand text-white text-sm font-semibold">
           H

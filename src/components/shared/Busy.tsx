@@ -108,7 +108,7 @@ export function BusyToast({ label, only }: { label: string } & Only) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed z-[60] bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 rounded-full border border-border-hairline bg-surface-2 pl-3.5 pr-4 py-2 shadow-[var(--shadow-pop)] animate-in"
+      className="fixed z-[60] bottom-[calc(1rem+var(--tabbar-space,0px))] left-1/2 -translate-x-1/2 flex items-center gap-2.5 rounded-full border border-border-hairline bg-surface-2 pl-3.5 pr-4 py-2 shadow-[var(--shadow-pop)] animate-in"
     >
       <span className="text-hostello-gold">
         <Spinner size={13} />

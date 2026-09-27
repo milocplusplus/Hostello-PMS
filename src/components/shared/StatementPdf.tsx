@@ -86,7 +86,7 @@ function readTheme(): Theme {
     "ui-sans-serif, system-ui, sans-serif";
   return {
     font,
-    bg: cssVar("--color-surface-0") || "#0a0910",
+    bg: cssVar("--color-surface-0") || "#07060c",
     card: cssVar("--color-surface-1") || "#15121f",
     raised: cssVar("--color-surface-2") || "#1e1a2c",
     ink: "#f4f2f8",

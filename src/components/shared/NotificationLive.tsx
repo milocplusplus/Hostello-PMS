@@ -116,7 +116,7 @@ export function NotificationLive({
     <div
       role="status"
       aria-live="polite"
-      className="fixed z-50 bottom-4 right-4 left-4 sm:left-auto sm:w-80 animate-in"
+      className="fixed z-50 bottom-[calc(1rem+var(--tabbar-space,0px))] right-4 left-4 sm:left-auto sm:w-80 animate-in"
     >
       <div
         className={`card p-3 flex gap-3 shadow-[var(--shadow-card)] ${

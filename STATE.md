@@ -1,6 +1,32 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 1 of 7: foundation + owner nav + owner dashboard**
+  (2026-09-27). Direction the owner approved from a clickable mockup: bold
+  fintech, dark only, phone first, vivid purple/gold, lively motion, icons +
+  tap-for-info instead of helper text. Plan: 2 calendar, 3 bookings, 4 money,
+  5 admin shell + dashboard, 6 remaining pages + login, 7 property photos
+  (needs a live migration — ask first). Commit + push at the end of each.
+  - Tokens in `globals.css`: deeper surfaces, brighter gold, new
+    `--color-hostello-magenta`, status colours bright enough to read as text,
+    radii 24/14, glass `.card`, `.card-hero` (violet→magenta, gold corner,
+    sheen), springy `.btn`, drifting ambient light on `body::before`,
+    `.draw-in` / `.ring-in`, livelier `.stagger`. Font is Plus Jakarta Sans
+    (`--font-jakarta`) everywhere; headings are 800/700 by an unlayered rule.
+  - `motion` added (Motion for React, `motion/react`). `CountUp` and
+    `InfoSheet` in `components/shared/`.
+  - Owner shell: phone bottom tab bar (Home, Calendar, Bookings, Money, More)
+    + a swipe-down More sheet; the drawer is gone. A shell with `[data-tabbar]`
+    sets `--tabbar-space` so toasts / install banner / `.safe-main` clear it.
+  - Owner dashboard rebuilt: greeting, payout hero with drawn trend line and
+    an (i) breakdown, occupancy ring, stays + awaiting tiles, Today story
+    circles, Coming up list, the period payout chart. Dropped: the four quick
+    action cards and the booked/blocked/available donut.
+  - `HostelloMark` gradient ids are per instance (`useId`) — two marks on one
+    page used to leave the visible one blank.
+  - Checked signed in (phone + desktop): figures, More sheet, info sheet, no
+    console errors. Lint, tsc, build clean. **Dev-server gotcha:** Tailwind
+    classes added by an edit may not reach the CSS until `next dev` restarts.
 - **Owner morning summary** (2026-09-27). Migration
   `20260927120000_owner_morning_digest`, **applied to the live DB**:
   `notify_owner_digest()` + cron `hostello-owner-digest` at `15 2 * * *`
