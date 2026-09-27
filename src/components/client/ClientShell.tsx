@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useState } from "react";
+import { motion } from "motion/react";
 import {
   LayoutDashboard,
   CalendarDays,
@@ -18,9 +18,7 @@ import {
   LogIn,
   Plus,
   Home,
-  LayoutGrid,
   Search,
-  type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
@@ -28,6 +26,7 @@ import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import { GlobalSearch } from "@/components/shared/GlobalSearch";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { UserMenu } from "@/components/shared/UserMenu";
+import { MoreSheet, PILL, TabBar, isActive, type MoreItem, type TabItem } from "@/components/shared/PhoneNav";
 import { SubmitButton } from "@/components/shared/Busy";
 import type { NotificationItem } from "@/lib/notifications";
 import type { SearchResult } from "@/lib/search";
@@ -47,14 +46,14 @@ const NAV = [
 ];
 
 /** The phone's bottom bar. Everything else in NAV lives behind "More". */
-const TABS = [
+const TABS: TabItem[] = [
   { href: "/client", label: "Home", icon: Home, exact: true },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: BedDouble, exact: false },
   { href: "/client/settlements", label: "Money", icon: Wallet, exact: false },
 ];
 
-const MORE: { href: string; label: string; icon: LucideIcon; tint: string }[] = [
+const MORE: MoreItem[] = [
   { href: "/client/today", label: "Today", icon: Sun, tint: "linear-gradient(135deg, #ea580c, #db2777)" },
   { href: "/client/checkins", label: "Check-ins", icon: LogIn, tint: "linear-gradient(135deg, #059669, #0d9488)" },
   { href: "/client/properties", label: "Properties", icon: Building2, tint: "linear-gradient(135deg, #1d4ed8, #6366f1)" },
@@ -63,159 +62,6 @@ const MORE: { href: string; label: string; icon: LucideIcon; tint: string }[] = 
   { href: "/client/stats", label: "Stats", icon: BarChart3, tint: "linear-gradient(135deg, #7c3aed, #c026d3)" },
   { href: "/client/notifications", label: "Alerts", icon: Bell, tint: "linear-gradient(135deg, #a16207, #d97706)" },
 ];
-
-const isActive = (pathname: string, href: string, exact: boolean) =>
-  exact ? pathname === href : pathname.startsWith(href);
-
-const PILL = {
-  background: "linear-gradient(135deg, var(--color-hostello-purple-glow), var(--color-hostello-magenta))",
-  boxShadow: "0 6px 20px -4px rgba(168, 85, 247, 0.9)",
-};
-
-function TabBar({
-  pathname,
-  unreadCount,
-  onMore,
-}: {
-  pathname: string;
-  unreadCount: number;
-  onMore: () => void;
-}) {
-  const moreActive = MORE.some((m) => pathname.startsWith(m.href));
-  const item = "relative flex flex-col items-center gap-1 text-[11px] font-bold transition-colors";
-  const pill = (active: boolean) =>
-    active ? (
-      <motion.span
-        layoutId="tab-pill"
-        className="absolute inset-0 rounded-xl"
-        style={PILL}
-        transition={{ type: "spring", stiffness: 520, damping: 34 }}
-      />
-    ) : null;
-
-  return (
-    <nav
-      data-tabbar
-      aria-label="Main"
-      className="md:hidden fixed z-30 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[4.5rem] rounded-[26px] bg-surface-1/90 backdrop-blur-xl border border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] grid grid-cols-5 items-center px-1"
-    >
-      {TABS.map((t) => {
-        const active = isActive(pathname, t.href, t.exact);
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={active ? "page" : undefined}
-            className={`${item} ${active ? "text-white" : "text-ink-muted"}`}
-          >
-            <span className="relative w-12 h-8 flex items-center justify-center">
-              {pill(active)}
-              <t.icon size={20} strokeWidth={2.2} className="relative" />
-            </span>
-            {t.label}
-          </Link>
-        );
-      })}
-      <button
-        type="button"
-        onClick={onMore}
-        aria-haspopup="dialog"
-        className={`${item} ${moreActive ? "text-white" : "text-ink-muted"}`}
-      >
-        <span className="relative w-12 h-8 flex items-center justify-center">
-          {pill(moreActive)}
-          <LayoutGrid size={20} strokeWidth={2.2} className="relative" />
-          {unreadCount > 0 && (
-            <span className="absolute top-0.5 right-2.5 w-2 h-2 rounded-full bg-hostello-gold-bright shadow-[0_0_0_2px_var(--color-surface-1),0_0_8px_var(--color-hostello-gold-bright)]" />
-          )}
-        </span>
-        More
-      </button>
-    </nav>
-  );
-}
-
-function MoreSheet({
-  open,
-  onClose,
-  unreadCount,
-  footer,
-}: {
-  open: boolean;
-  onClose: () => void;
-  unreadCount: number;
-  footer: ReactNode;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <div className="md:hidden fixed inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal aria-label="More">
-          <motion.button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          />
-          <motion.div
-            className="relative bg-surface-1 border-t border-white/10 rounded-t-[30px] pt-2.5 pb-[env(safe-area-inset-bottom)] flex flex-col gap-4 shadow-[var(--shadow-pop)]"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 32, stiffness: 340 }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, info) => {
-              if (info.offset.y > 80 || info.velocity.y > 500) onClose();
-            }}
-          >
-            <span className="w-10 h-1.5 rounded-full bg-white/20 self-center" />
-            <div className="grid grid-cols-4 gap-y-5 gap-x-2 px-5 pt-2">
-              {MORE.map((m, i) => (
-                <motion.div
-                  key={m.href}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 + i * 0.03, type: "spring", stiffness: 420, damping: 28 }}
-                >
-                  <Link
-                    href={m.href}
-                    onClick={onClose}
-                    className="flex flex-col items-center gap-2 text-xs font-bold text-ink-primary active:scale-95 transition-transform"
-                  >
-                    <span
-                      className="relative w-14 h-14 rounded-[20px] flex items-center justify-center text-white shadow-[0_10px_24px_-10px_rgba(0,0,0,0.9)]"
-                      style={{ background: m.tint }}
-                    >
-                      <m.icon size={24} strokeWidth={2} />
-                      {m.href === "/client/notifications" && unreadCount > 0 && (
-                        <span className="num absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full text-[10px] font-extrabold text-surface-0 gradient-gold flex items-center justify-center">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </span>
-                      )}
-                    </span>
-                    {m.label}
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-            {footer}
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
-}
 
 function Logo({ clientName }: { clientName: string }) {
   return (
@@ -372,11 +218,11 @@ export function ClientShell({
         />
       </div>
 
-      <TabBar pathname={pathname} unreadCount={unreadCount} onMore={openMore} />
+      <TabBar tabs={TABS} more={MORE} pathname={pathname} dot={unreadCount > 0} onMore={openMore} />
       <MoreSheet
         open={menuOpen}
         onClose={closeMore}
-        unreadCount={unreadCount}
+        items={MORE.map((m) => (m.href === "/client/notifications" ? { ...m, badge: unreadCount } : m))}
         footer={<SidebarFooter userName={userName} logoutAction={logoutAction} />}
       />
 

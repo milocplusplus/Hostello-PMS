@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BedDouble, CalendarPlus, Home, Plus, Sun, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { BedDouble, CalendarPlus, Plus, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR, isPassThroughSource } from "@/lib/payout";
-import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import {
   getMonthGrid,
   formatMonthLabel,
-  formatDayMonth,
   parseMonthParam,
   addMonths,
   todayISO,
@@ -20,8 +18,16 @@ import { PeriodSelect } from "@/components/shared/PeriodSelect";
 import { Avatar } from "@/components/shared/Avatar";
 import { CountUp } from "@/components/shared/CountUp";
 import { InfoSheet } from "@/components/shared/InfoSheet";
+import {
+  HeroChange,
+  HeroStat,
+  HeroTrend,
+  OccupancyRing,
+  StatTile,
+  StayRow,
+  TodayStories,
+} from "@/components/shared/DashboardBits";
 import { parsePeriod, periodRange } from "@/lib/period";
-import { unitTint } from "@/lib/unit-tint";
 
 type BookingRow = {
   id: string;
@@ -41,36 +47,6 @@ function unitNames(row: { booking_properties: unknown }): string {
     .filter(Boolean)
     .join(", ");
 }
-
-/** The hero's trend line: the month's cumulative payout, scaled into a box. */
-function trendPaths(series: number[], w: number, h: number) {
-  const max = Math.max(...series, 0);
-  if (max === 0 || series.length < 2) return null;
-  const pts = series.map((v, i) => [
-    (i / (series.length - 1)) * w,
-    h - 4 - (v / max) * (h - 12),
-  ]);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
-  return { line, area: `${line} L${w} ${h} L0 ${h}Z`, end: pts[pts.length - 1] };
-}
-
-const STORY = {
-  arriving: {
-    tag: "Arriving",
-    ring: "linear-gradient(135deg, #34d399, #0ea5e9)",
-    chip: "bg-emerald-400/15 text-emerald-300",
-  },
-  leaving: {
-    tag: "Leaving",
-    ring: "linear-gradient(135deg, #fb923c, #f43f5e)",
-    chip: "bg-orange-400/15 text-orange-300",
-  },
-  staying: {
-    tag: "Staying",
-    ring: "linear-gradient(135deg, #a855f7, #6366f1)",
-    chip: "bg-violet-400/20 text-violet-300",
-  },
-} as const;
 
 export default async function ClientDashboard({
   searchParams,
@@ -253,33 +229,15 @@ export default async function ClientDashboard({
   const occupancyPct = totalNights > 0 ? Math.round((nightsSold / totalNights) * 100) : 0;
 
   // ── Activity ───────────────────────────────────────────────────────────────
-  const activity = ((activityRows ?? []) as unknown as BookingRow[]).map((b) => ({
+  const activityStays = (activityRows ?? []) as unknown as BookingRow[];
+  const activity = activityStays.map((b) => ({
     id: b.id,
     guestName: b.guest_name,
-    units: unitNames(b),
     checkIn: b.check_in,
     checkOut: b.check_out,
-    source: b.source,
-    payout: b.status === "confirmed" ? Number(b.client_payout ?? 0) : null,
   }));
-  const comingUp = activity.filter((b) => b.checkIn > today).slice(0, 4);
+  const comingUp = activityStays.filter((b) => b.check_in > today).slice(0, 4);
 
-  // ── Today ──────────────────────────────────────────────────────────────────
-  // One circle per stay: an arrival is also staying tonight, so it shows once.
-  const stories = [
-    ...activity.filter((b) => b.checkIn === today).map((b) => ({ kind: "arriving" as const, b })),
-    ...activity.filter((b) => b.checkOut === today).map((b) => ({ kind: "leaving" as const, b })),
-    ...activity
-      .filter((b) => b.checkIn < today && b.checkOut > today)
-      .map((b) => ({ kind: "staying" as const, b })),
-  ];
-
-  // ── Hero ───────────────────────────────────────────────────────────────────
-  const trend = trendPaths(payoutSeries, 320, 72);
-  const change =
-    payoutLastMonth > 0
-      ? Math.round(((payoutThisMonth - payoutLastMonth) / payoutLastMonth) * 100)
-      : null;
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Karachi" }).format(
       new Date()
@@ -337,114 +295,31 @@ export default async function ClientDashboard({
               <CountUp value={payoutThisMonth} />
             </span>
           </p>
-          {change !== null && (
-            <p className="flex items-center gap-2 text-xs">
-              <span className="num inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 font-extrabold">
-                {change >= 0 ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
-                {change >= 0 ? "+" : "−"}
-                {Math.abs(change)}%
-              </span>
-              <span className="text-white/80">vs last month</span>
-            </p>
-          )}
-          {trend && (
-            <svg viewBox="0 0 320 72" preserveAspectRatio="none" className="w-full h-[72px] mt-2 overflow-visible" aria-hidden>
-              <defs>
-                <linearGradient id="hero-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#fff" stopOpacity="0.32" />
-                  <stop offset="1" stopColor="#fff" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path d={trend.area} fill="url(#hero-fill)" className="animate-fade" style={{ animationDelay: "1.2s" }} />
-              <path
-                d={trend.line}
-                pathLength={1}
-                fill="none"
-                stroke="#fff"
-                strokeWidth={3}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                className="draw-in"
-              />
-            </svg>
-          )}
+          <HeroChange current={payoutThisMonth} previous={payoutLastMonth} />
+          <HeroTrend series={payoutSeries} id="owner-payout" />
           <div className="grid grid-cols-2 gap-2.5 mt-2">
-            <div className="rounded-2xl bg-black/25 px-3.5 py-2.5">
-              <p className="text-[11px] font-bold text-white/75">Gross</p>
-              <p className="num text-lg font-extrabold">
-                <CountUp value={grossThisMonth} />
-              </p>
-            </div>
-            <div className="rounded-2xl bg-black/25 px-3.5 py-2.5">
-              <p className="text-[11px] font-bold text-white/75">Nights</p>
-              <p className="num text-lg font-extrabold">
-                <CountUp value={nightsSold} />
-              </p>
-            </div>
+            <HeroStat label="Gross" value={grossThisMonth} />
+            <HeroStat label="Nights" value={nightsSold} />
           </div>
         </section>
 
         <div className="lg:col-span-2 grid grid-cols-2 gap-3">
-          <Link
-            href="/client/calendar"
-            className="card card-hover row-span-2 p-4 flex flex-col items-center justify-center gap-2.5"
-          >
-            <span className="relative w-[7.5rem] h-[7.5rem]">
-              <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" aria-hidden>
-                <defs>
-                  <linearGradient id="occ-ring" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="var(--color-hostello-gold-bright)" />
-                    <stop offset="1" stopColor="var(--color-hostello-magenta)" />
-                  </linearGradient>
-                </defs>
-                <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="13" />
-                {occupancyPct > 0 && (
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="46"
-                    fill="none"
-                    stroke="url(#occ-ring)"
-                    strokeWidth="13"
-                    strokeLinecap="round"
-                    pathLength={100}
-                    strokeDasharray="100"
-                    strokeDashoffset={100 - occupancyPct}
-                    className="ring-in"
-                    style={{ filter: "drop-shadow(0 0 8px rgba(192,38,211,0.45))" }}
-                  />
-                )}
-              </svg>
-              <span className="num absolute inset-0 flex items-center justify-center text-[28px] font-extrabold">
-                <CountUp value={occupancyPct} />
-                <span className="text-base mt-2">%</span>
-              </span>
-            </span>
-            <span className="text-[13px] font-bold text-ink-secondary">Occupancy</span>
-          </Link>
-          <Link href="/client/bookings" className="card card-hover p-4 flex flex-col gap-2.5">
-            <span className="w-10 h-10 rounded-[14px] bg-violet-500/20 text-violet-300 flex items-center justify-center">
-              <BedDouble size={20} />
-            </span>
-            <span>
-              <span className="num block text-[26px] font-extrabold leading-tight">
-                <CountUp value={rows.length} />
-              </span>
-              <span className="text-xs font-bold text-ink-muted">Stays</span>
-            </span>
-          </Link>
-          <Link href="/client/settlements" className="card card-hover p-4 flex flex-col gap-2.5">
-            <span className="w-10 h-10 rounded-[14px] bg-amber-300/15 text-hostello-gold-bright flex items-center justify-center">
-              <Wallet size={20} />
-            </span>
-            <span className="min-w-0">
-              <span className="num block text-[22px] font-extrabold leading-tight text-hostello-gold-bright truncate">
-                <CountUp value={awaiting} />
-              </span>
-              <span className="text-xs font-bold text-ink-muted">Awaiting</span>
-            </span>
-          </Link>
+          <OccupancyRing pct={occupancyPct} href="/client/calendar" />
+          <StatTile
+            href="/client/bookings"
+            icon={BedDouble}
+            tint="bg-violet-500/20 text-violet-300"
+            value={rows.length}
+            label="Stays"
+          />
+          <StatTile
+            href="/client/settlements"
+            icon={Wallet}
+            tint="bg-amber-300/15 text-hostello-gold-bright"
+            value={awaiting}
+            label="Awaiting"
+            valueClass="text-hostello-gold-bright"
+          />
         </div>
       </div>
 
@@ -455,35 +330,7 @@ export default async function ClientDashboard({
             Day sheet
           </Link>
         </div>
-        {stories.length === 0 ? (
-          <p className="card px-4 py-4 flex items-center gap-3 text-sm text-ink-secondary">
-            <Sun size={18} className="text-hostello-gold-bright shrink-0" />
-            No arrivals or departures today.
-          </p>
-        ) : (
-          <ul className="flex gap-3 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1 [scrollbar-width:none]">
-            {stories.map(({ kind, b }) => (
-              <li key={`${kind}-${b.id}`} className="shrink-0">
-                <Link
-                  href={`/client/bookings/${b.id}`}
-                  className="w-[4.75rem] flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
-                >
-                  <span className="rounded-full p-[3px]" style={{ background: STORY[kind].ring }}>
-                    <span className="block rounded-full border-[3px] border-surface-0">
-                      <Avatar name={b.guestName} size={58} />
-                    </span>
-                  </span>
-                  <span className="text-[13px] font-bold truncate max-w-full">
-                    {b.guestName?.trim().split(/\s+/)[0] ?? "Guest"}
-                  </span>
-                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${STORY[kind].chip}`}>
-                    {STORY[kind].tag}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <TodayStories stays={activity} today={today} hrefBase="/client/bookings" />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -508,31 +355,16 @@ export default async function ClientDashboard({
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {comingUp.map((b) => (
               <li key={b.id}>
-                <Link href={`/client/bookings/${b.id}`} className="card card-hover p-2.5 flex items-center gap-3">
-                  <span
-                    className="w-[3.25rem] h-[3.25rem] rounded-[17px] flex items-center justify-center shrink-0 text-white/90"
-                    style={{ background: unitTint(b.units || "unit") }}
-                  >
-                    <Home size={22} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-extrabold truncate">{b.guestName ?? "Guest"}</span>
-                    <span className="block text-xs text-ink-secondary truncate">
-                      {b.units || "—"} · {formatDayMonth(b.checkIn)} – {formatDayMonth(b.checkOut)}
-                    </span>
-                  </span>
-                  <span className="flex flex-col items-end gap-1.5 shrink-0">
-                    {b.payout !== null && (
-                      <span className="num text-sm font-extrabold text-hostello-gold-bright">
-                        {formatPKR(b.payout)}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink-secondary">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sourceColor(b.source) }} />
-                      {sourceLabel(b.source)?.split(" ")[0] ?? "Other"}
-                    </span>
-                  </span>
-                </Link>
+                <StayRow
+                  href={`/client/bookings/${b.id}`}
+                  guestName={b.guest_name}
+                  units={unitNames(b)}
+                  checkIn={b.check_in}
+                  checkOut={b.check_out}
+                  source={b.source}
+                  // The owner's own money, and only once the stay is confirmed.
+                  amount={b.status === "confirmed" ? Number(b.client_payout ?? 0) : null}
+                />
               </li>
             ))}
           </ul>

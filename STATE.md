@@ -1,6 +1,23 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 5 of 7: admin shell + dashboard** (2026-09-27).
+  `components/shared/PhoneNav.tsx` (`TabBar`, `MoreSheet`, `PILL`,
+  `isActive`) is the one phone nav; both shells use it. Admin tabs: Home,
+  Calendar, Bookings, Money — ops gets Today in Money's place (it has no money
+  pages). More holds every other sidebar page with a tint and a short label
+  (`MORE_LOOK`); "Soon" and the unread badge carry over. The admin drawer is
+  gone; the sidebar's active item is the sliding gradient pill.
+  `components/shared/DashboardBits.tsx` (`HeroTrend`, `HeroChange`,
+  `HeroStat`, `OccupancyRing`, `StatTile`, `TodayStories`, `StayRow`) is shared
+  by both dashboards. Admin dashboard: greeting + Add booking menu, revenue
+  hero (ops: stays hero, no money), occupancy ring, Properties and Balance-due
+  tiles, Today stories, Coming up, the period revenue chart, Recently added.
+  Removed as dead: the `Kpi` card, `OccupancyDonut`, the `BookingActivity`
+  tabs (its `ChannelBadge` and `ActivityBooking` type stay) and `Sparkline`.
+  Occupancy on both dashboards counts only "booked" blocks now that the
+  blocked/available split is gone (same figure as before). Admin not seen
+  signed in; owner dashboard re-checked on a phone.
 - **UI redesign, phase 4 of 7: money** (2026-09-27). Both settlements pages
   are titled "Money"; their explanations moved into `InfoSheet`s.
   `SettlementTabs`: the active direction is a `card-hero` with an in/out arrow
