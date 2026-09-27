@@ -26,6 +26,7 @@ import {
   syncAllCalendarFeeds,
   syncCalendarFeed,
 } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 type FeedRow = {
   id: string;
@@ -99,17 +100,17 @@ export default async function CalendarFeedsPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href="/admin/calendar" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Calendar
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Channel calendars</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          Two one-way links, in opposite directions. Neither carries a guest name or a price —
-          a calendar link is dates only — so an imported night arrives as a block and the real
-          booking is still entered by hand.
-        </p>
-      </div>
+      <PageHeader
+        title="Channel calendars"
+        back={{ href: "/admin/calendar", label: "Calendar" }}
+        info={
+          <p>
+            Two one-way links, in opposite directions. Neither carries a guest name or a price —
+            a calendar link is dates only — so an imported night arrives as a block and the real
+            booking is still entered by hand.
+          </p>
+        }
+      />
 
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}

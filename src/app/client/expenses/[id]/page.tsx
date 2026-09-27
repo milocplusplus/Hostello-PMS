@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
@@ -6,6 +5,7 @@ import { getExpense, listExpenseCategories } from "@/lib/expenses";
 import { ExpenseForm } from "@/components/client/ExpenseForm";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { deleteExpense } from "../actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function EditExpensePage({
   params,
@@ -34,21 +34,19 @@ export default async function EditExpensePage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href={`/client/expenses?month=${month}`} className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Expenses
-        </Link>
-        <h1 className="text-xl font-medium mt-1">
-          {expense.confirmed ? "Edit expense" : "Confirm bill"}
-        </h1>
-        {!expense.confirmed && (
-          <p className="text-sm text-ink-secondary mt-1">
-            Your recurring bill filled this in with what it usually comes to. Correct the amount
-            and whether it&apos;s paid, attach the bill if you have it, and confirm — it counts
-            from then on.
-          </p>
-        )}
-      </div>
+      <PageHeader
+        title={expense.confirmed ? "Edit expense" : "Confirm bill"}
+        back={{ href: `/client/expenses?month=${month}`, label: "Expenses" }}
+        info={
+          expense.confirmed ? undefined : (
+            <p>
+              Your recurring bill filled this in with what it usually comes to. Correct the
+              amount and whether it&apos;s paid, attach the bill if you have it, and confirm: it
+              counts from then on.
+            </p>
+          )
+        }
+      />
 
       <ExpenseForm
         expense={expense}

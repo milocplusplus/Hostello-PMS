@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Lock, Mail } from "lucide-react";
 import { login } from "./actions";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 import { SubmitButton } from "@/components/shared/Busy";
@@ -9,62 +10,74 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const field = "field w-full h-12 pl-11 rounded-2xl";
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-sm animate-in">
-        {/* Wordmark */}
-        <div className="flex flex-col items-center gap-3 mb-9">
-          <span className="flex items-center justify-center w-14 h-14 rounded-2xl border border-border-hairline gradient-brand-subtle glow-purple">
-            <HostelloMark size={30} />
+    <main className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
+      {/* Slow-moving light behind the card: the first thing anyone sees */}
+      <span aria-hidden className="orb w-[26rem] h-[26rem] -top-24 -left-32 bg-hostello-purple-glow/45" />
+      <span
+        aria-hidden
+        className="orb w-[22rem] h-[22rem] top-1/3 -right-40 bg-hostello-magenta/35"
+        style={{ animationDelay: "-6s" }}
+      />
+      <span
+        aria-hidden
+        className="orb w-[20rem] h-[20rem] -bottom-28 left-1/4 bg-hostello-gold-bright/20"
+        style={{ animationDelay: "-11s" }}
+      />
+
+      <div className="relative w-full max-w-sm stagger">
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <span className="bob flex items-center justify-center w-20 h-20 rounded-[26px] bg-surface-1/80 border border-white/10 shadow-[0_0_0_1px_rgba(139,92,246,0.25),0_20px_60px_-12px_rgba(168,85,247,0.8)]">
+            <HostelloMark size={42} />
           </span>
-          <div className="flex flex-col items-center gap-1.5">
-            <span className="display text-ink-primary text-xl font-semibold tracking-[0.16em]">
-              HOSTELLO
-            </span>
-            <p className="eyebrow">Property management</p>
+          <div className="flex flex-col items-center gap-1">
+            <span className="display text-ink-primary text-2xl font-extrabold tracking-[0.18em]">HOSTELLO</span>
+            <p className="text-sm font-semibold text-ink-secondary">Welcome back</p>
           </div>
         </div>
 
-        <form action={login} className="card p-6 md:p-7 flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs text-ink-secondary">
-              Email
-            </label>
+        <form
+          action={login}
+          className="card rounded-[28px] p-6 md:p-7 flex flex-col gap-4 backdrop-blur-xl"
+        >
+          <label className="relative block">
+            <span className="sr-only">Email</span>
+            <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
             <input
               id="email"
               name="email"
               type="email"
               required
               autoComplete="email"
-              placeholder="you@company.com"
-              className="field"
+              placeholder="Email"
+              className={field}
             />
-          </div>
+          </label>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-xs text-ink-secondary">
-              Password
-            </label>
+          <label className="relative block">
+            <span className="sr-only">Password</span>
+            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
             <input
               id="password"
               name="password"
               type="password"
               required
               autoComplete="current-password"
-              placeholder="••••••••"
-              className="field"
+              placeholder="Password"
+              className={field}
             />
-          </div>
+          </label>
 
           {error && (
-            <p className="text-xs text-status-booked bg-status-booked/10 border border-status-booked/30 rounded-md px-3 py-2">
+            <p className="text-xs font-semibold text-status-booked bg-status-booked/10 border border-status-booked/30 rounded-xl px-3 py-2">
               {error}
             </p>
           )}
 
           <SubmitButton
-            className="btn btn-gold mt-2 w-full py-2.5"
+            className="btn btn-primary mt-1 w-full h-12 rounded-2xl text-[15px]"
             blocking
             busy="Signing you in…"
             note="Checking your details and opening your portal."
@@ -74,15 +87,13 @@ export default async function LoginPage({
 
           <Link
             href="/auth/forgot-password"
-            className="text-center text-xs text-ink-muted hover:text-ink-secondary transition-colors"
+            className="text-center text-xs font-semibold text-ink-muted hover:text-ink-secondary transition-colors"
           >
             Forgot your password?
           </Link>
         </form>
 
-        <p className="text-center text-ink-muted text-xs mt-6">
-          Access is provided by Hostello. Contact your admin if you need an account.
-        </p>
+        <p className="text-center text-ink-muted text-xs mt-6">No account? Ask Hostello.</p>
       </div>
     </main>
   );

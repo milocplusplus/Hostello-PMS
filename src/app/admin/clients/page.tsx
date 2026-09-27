@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import { Avatar } from "@/components/shared/Avatar";
 import { DEAL_MODELS, formatPKR } from "@/lib/payout";
 import { todayISO } from "@/lib/calendar";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 function dealModelLabel(value: string) {
   return DEAL_MODELS.find((m) => m.value === value)?.label ?? value;
@@ -64,19 +65,19 @@ export default async function ClientsListPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">PORTFOLIO</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Clients</h1>
-        </div>
-        <Link
-          href="/admin/clients/new"
-          className="btn btn-gold"
-        >
-          <Plus size={15} strokeWidth={2.5} />
-          Add client
-        </Link>
-      </header>
+      <PageHeader
+        title="Clients"
+        actions={
+          <Link
+            href="/admin/clients/new"
+            aria-label="Add client"
+            className="btn btn-primary h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            <span className="hidden md:inline">Add client</span>
+          </Link>
+        }
+      />
 
       <form action="/admin/clients" className="relative w-full sm:w-72">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />

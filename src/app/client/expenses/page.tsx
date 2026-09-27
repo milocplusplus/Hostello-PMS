@@ -19,6 +19,7 @@ import { ExpenseList, ExpenseMonthNav, ExpenseSummary } from "@/components/share
 import { ProfitBoard } from "@/components/client/ProfitBoard";
 import { loadProfit } from "@/lib/profit";
 import { addExpenseCategory, deleteExpense, removeExpenseCategory } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function ClientExpensesPage({
   searchParams,
@@ -68,14 +69,15 @@ export default async function ClientExpensesPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">YOUR BOOKS</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Expenses</h1>
-          <p className="text-sm text-ink-secondary mt-2">
-            What your units cost you — bills, repairs, supplies. For your own records;
-            nothing here changes what Hostello owes you or you owe Hostello.
-          </p>
-        </div>
+        <PageHeader
+          title="Expenses"
+          info={
+            <p>
+              What your units cost you: bills, repairs, supplies. For your own records; nothing
+              here changes what Hostello owes you or you owe Hostello.
+            </p>
+          }
+        />
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/client/expenses/budgets?month=${monthStr}`} className="btn btn-ghost btn-sm">
             <Target size={13} />

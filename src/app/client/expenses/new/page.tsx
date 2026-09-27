@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { todayISO } from "@/lib/calendar";
 import { listExpenseCategories } from "@/lib/expenses";
 import { ExpenseForm } from "@/components/client/ExpenseForm";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function NewExpensePage({
   searchParams,
@@ -29,18 +29,10 @@ export default async function NewExpensePage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link
-          href={`/client/expenses${month ? `?month=${month}` : ""}`}
-          className="text-ink-muted text-xs hover:text-ink-secondary"
-        >
-          ← Expenses
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Add expense</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          A bill, repair or purchase for one unit — or for all of them.
-        </p>
-      </div>
+      <PageHeader
+        title="Add expense"
+        back={{ href: `/client/expenses${month ? `?month=${month}` : ""}`, label: "Expenses" }}
+      />
 
       <ExpenseForm
         categories={categories}

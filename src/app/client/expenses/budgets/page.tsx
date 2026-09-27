@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -11,6 +10,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { ExpenseMonthNav } from "@/components/shared/ExpenseList";
 import { deleteBudget, saveBudget } from "../actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function ExpenseBudgetsPage({
   searchParams,
@@ -38,16 +38,16 @@ export default async function ExpenseBudgetsPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href={`/client/expenses?month=${monthStr}`} className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Expenses
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Budgets</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          A monthly limit on a category, for all your units or for one. You get a notification
-          the morning after a month goes over it.
-        </p>
-      </div>
+      <PageHeader
+        title="Budgets"
+        back={{ href: `/client/expenses?month=${monthStr}`, label: "Expenses" }}
+        info={
+          <p>
+            A monthly limit on a category, for all your units or for one. You get a notification
+            the morning after a month goes over it.
+          </p>
+        }
+      />
 
       {sp.error && <p className={errorBanner}>{sp.error}</p>}
 

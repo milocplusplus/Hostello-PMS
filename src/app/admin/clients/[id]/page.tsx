@@ -103,7 +103,7 @@ export default async function ClientDetailPage({
         <div className="flex items-center gap-4">
           <Avatar name={clientRecord.name} size={48} />
           <div>
-            <h1 className="text-xl font-semibold">{clientRecord.name}</h1>
+            <h1 className="text-2xl">{clientRecord.name}</h1>
             <div className="flex items-center gap-3 text-ink-secondary text-sm mt-1">
               {clientRecord.contact_email && (
                 <span className="flex items-center gap-1.5">

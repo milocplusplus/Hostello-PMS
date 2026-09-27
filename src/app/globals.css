@@ -832,6 +832,39 @@ h3 {
   }
 }
 
+/* Big blurred lights that wander behind the sign-in card */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  pointer-events: none;
+  animation: orb-wander 18s ease-in-out infinite alternate;
+}
+
+@keyframes orb-wander {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3rem, 2.5rem, 0) scale(1.15);
+  }
+}
+
+/* A gentle float, for the logo on the sign-in screen */
+.bob {
+  animation: bob 4.5s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 /* A progress ring fills from empty to its own dashoffset (pathLength="100") */
 .ring-in {
   animation: ring-in 1.4s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -852,6 +885,8 @@ h3 {
   .ring-in,
   .bar-grow,
   .pulse-gold,
+  .orb,
+  .bob,
   .animate-in,
   .animate-fade,
   .animate-receipt-pop,

@@ -10,6 +10,7 @@ import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
 import { markStayProgress } from "@/app/admin/bookings/actions";
 import { Avatar } from "@/components/shared/Avatar";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 type Row = {
   id: string;
@@ -144,12 +145,8 @@ export default async function AdminTodayPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div>
-        <p className="eyebrow">OVERVIEW</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Today</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">{formatFullDate(today)}</p>
-      </div>
+    <div className="flex flex-col gap-4 stagger">
+      <PageHeader title="Today" sub={formatFullDate(today)} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {tiles.map((t) => (

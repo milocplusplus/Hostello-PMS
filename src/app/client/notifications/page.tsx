@@ -8,6 +8,7 @@ import {
 } from "@/lib/notification-feed";
 import { MarkAllReadButton, NotificationFeed } from "@/components/shared/NotificationFeed";
 import { NotificationSettings } from "@/components/shared/NotificationSettings";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function ClientNotificationsPage({
   searchParams,
@@ -32,16 +33,7 @@ export default async function ClientNotificationsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <p className="eyebrow">UPDATES</p>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Notifications</h1>
-          <p className="text-sm text-ink-secondary mt-1.5">
-            Bookings, payouts and date changes on your properties.
-          </p>
-        </div>
-        <MarkAllReadButton unreadCount={unreadCount} />
-      </div>
+      <PageHeader title="Alerts" actions={<MarkAllReadButton unreadCount={unreadCount} />} />
 
       <NotificationFeed
         items={items}

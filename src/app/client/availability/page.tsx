@@ -5,6 +5,7 @@ import { todayISO } from "@/lib/calendar";
 import { findAvailable, readCriteria, type FinderParams } from "@/lib/availability-search";
 import { AvailabilityFinder } from "@/components/shared/AvailabilityFinder";
 import { AvailabilityResults } from "@/components/shared/AvailabilityResults";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * The owner's own version. `properties_v` scopes it to their units on its own,
@@ -27,14 +28,15 @@ export default async function ClientAvailabilityPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="eyebrow">YOUR PROPERTIES</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Availability finder</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">
-          Which of your units are free, for how many guests and at what price — so you can
-          answer someone without opening the calendar.
-        </p>
-      </div>
+      <PageHeader
+        title="Find dates"
+        info={
+          <p>
+            Which of your units are free, for how many guests and at what price, so you can
+            answer someone without opening the calendar.
+          </p>
+        }
+      />
 
       <AvailabilityFinder criteria={criteria} today={todayISO()} />
 

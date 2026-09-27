@@ -1,6 +1,19 @@
 # State — updated 2026-09-27
 
 ## Done
+- **UI redesign, phase 6 of 7: remaining pages + login** (2026-09-27).
+  `components/shared/PageHeader.tsx` (title, optional back link, actions, one
+  short `sub` line, longer text in `info` behind an (i)) now heads Today,
+  Check-ins, Expenses (+ new / edit / budgets / recurring), Properties, Find
+  dates, Alerts / Activity, Stats, Clients (+ new / edit / property forms /
+  expenses), Rate requests, Staff, Channel calendars / inbox, Block dates and
+  every add / edit booking page, admin and owner. Every page intro paragraph
+  and eyebrow on those pages moved into `info` or went. Renamed on screen:
+  "Availability finder" → "Find dates", owner "Notifications" → "Alerts",
+  "Check-ins & check-outs" → "Check-ins" (nav labels unchanged). Login:
+  wandering light orbs (`.orb`), floating logo (`.bob`), icon fields, gradient
+  button, one-line footer. Checked on a phone: Expenses, Today. **Login not
+  seen** (signed in, and the session wasn't ended to look).
 - **UI redesign, phase 5 of 7: admin shell + dashboard** (2026-09-27).
   `components/shared/PhoneNav.tsx` (`TabBar`, `MoreSheet`, `PILL`,
   `isActive`) is the one phone nav; both shells use it. Admin tabs: Home,

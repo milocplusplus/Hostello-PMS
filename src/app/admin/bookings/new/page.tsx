@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { createBooking } from "../actions";
@@ -6,6 +5,7 @@ import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import type { DealModel, OtaModel } from "@/lib/payout";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function NewBookingPage({
   searchParams,
@@ -74,12 +74,10 @@ export default async function NewBookingPage({
 
   return (
     <div className="max-w-lg mx-auto flex flex-col gap-6">
-      <div>
-        <Link href="/admin/calendar" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Calendar
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Add a booking</h1>
-      </div>
+      <PageHeader
+        title="Add a booking"
+        back={{ href: "/admin/calendar", label: "Calendar" }}
+      />
 
       {propertyOptions.length === 0 ? (
         <div className="card p-8 text-center text-sm text-ink-secondary">

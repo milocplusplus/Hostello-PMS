@@ -16,6 +16,7 @@ import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { requestPropertyChange, withdrawPropertyChangeRequest } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -83,14 +84,15 @@ export default async function ClientPropertiesPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="eyebrow">YOUR PROPERTIES</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Properties</h1>
-        <p className="text-sm text-ink-secondary mt-2">
-          Every unit on your account, and what it is listed at. Ask Hostello to change a
-          capacity or a nightly rate and it is applied here once they agree.
-        </p>
-      </div>
+      <PageHeader
+        title="Properties"
+        info={
+          <p>
+            Every unit on your account, and what it is listed at. Ask Hostello to change a
+            capacity or a nightly rate and it is applied here once they agree.
+          </p>
+        }
+      />
 
       {error && <p className={errorBanner}>{error}</p>}
 

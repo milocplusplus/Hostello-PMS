@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
@@ -8,6 +7,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
 import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
 import { MANUAL_BLOCK_TYPES, blockTypeLabel } from "@/lib/block-sources";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function BlockDatesPage({
   searchParams,
@@ -40,15 +40,15 @@ export default async function BlockDatesPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href="/admin/calendar" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Calendar
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Block dates</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          Close dates with no booking — owner stays, maintenance, or a channel the app doesn&apos;t see yet.
-        </p>
-      </div>
+      <PageHeader
+        title="Block dates"
+        back={{ href: "/admin/calendar", label: "Calendar" }}
+        info={
+          <p>
+            Close dates with no booking — owner stays, maintenance, or a channel the app doesn&apos;t see yet.
+          </p>
+        }
+      />
 
       <form action={createCalendarBlock} className="card p-6 flex flex-col gap-4">
         <input type="hidden" name="month" value={monthStr} />

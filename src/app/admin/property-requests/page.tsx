@@ -12,6 +12,7 @@ import {
 import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { applyPropertyChangeRequest, declinePropertyChangeRequest } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 type Row = {
   id: string;
@@ -60,14 +61,15 @@ export default async function PropertyRequestsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="eyebrow">MANAGEMENT</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Rate requests</h1>
-        <p className="text-sm text-ink-secondary mt-2">
-          Owners asking for a capacity or a nightly rate to change on their own units. Applying
-          one writes it straight onto the property; nothing here touches a deal term.
-        </p>
-      </div>
+      <PageHeader
+        title="Rate requests"
+        info={
+          <p>
+            Owners asking for a capacity or a nightly rate to change on their own units. Applying
+            one writes it straight onto the property; nothing here touches a deal term.
+          </p>
+        }
+      />
 
       {error && <p className={errorBanner}>{error}</p>}
 

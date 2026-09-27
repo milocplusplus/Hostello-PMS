@@ -5,6 +5,7 @@ import { todayISO } from "@/lib/calendar";
 import { findAvailable, readCriteria, type FinderParams } from "@/lib/availability-search";
 import { AvailabilityFinder } from "@/components/shared/AvailabilityFinder";
 import { AvailabilityResults } from "@/components/shared/AvailabilityResults";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * Answering an enquiry, for both staff roles. Nothing here is a split figure —
@@ -27,14 +28,15 @@ export default async function AdminAvailabilityPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="eyebrow">OPERATIONS</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Availability finder</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">
-          What is free, for how many, at what price. Everything listed here can actually be
-          booked — it reads the same occupied nights the booking form checks on save.
-        </p>
-      </div>
+      <PageHeader
+        title="Find dates"
+        info={
+          <p>
+            What is free, for how many, at what price. Everything listed here can actually be
+            booked: it reads the same occupied nights the booking form checks on save.
+          </p>
+        }
+      />
 
       <AvailabilityFinder criteria={criteria} today={todayISO()} />
 

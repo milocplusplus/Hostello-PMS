@@ -18,6 +18,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { RecurringForm } from "@/components/client/RecurringForm";
 import { deleteRecurring, setRecurringActive } from "../actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function RecurringExpensesPage({
   searchParams,
@@ -42,16 +43,16 @@ export default async function RecurringExpensesPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href="/client/expenses" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Expenses
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Recurring bills</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          Set a monthly bill up once. On its day it appears on your Expenses page as due, and
-          you confirm what it actually came to — it counts in no total until you do.
-        </p>
-      </div>
+      <PageHeader
+        title="Recurring bills"
+        back={{ href: "/client/expenses", label: "Expenses" }}
+        info={
+          <p>
+            Set a monthly bill up once. On its day it appears on your Expenses page as due, and
+            you confirm what it actually came to — it counts in no total until you do.
+          </p>
+        }
+      />
 
       {error && <p className={errorBanner}>{error}</p>}
 

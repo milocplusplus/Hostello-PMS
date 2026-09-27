@@ -33,6 +33,7 @@ import {
   dismissMessage,
   markHandled,
 } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * What the channels have emailed in, and what to do about it.
@@ -172,26 +173,18 @@ export default async function ChannelInboxPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link
-          href="/admin/calendar/feeds"
-          className="text-ink-muted text-xs hover:text-ink-secondary"
-        >
-          ← Channel calendars
-        </Link>
-        <div className="flex items-center gap-2 mt-1">
-          <h1 className="text-xl font-medium">Channel inbox</h1>
-          <span className="text-[9px] uppercase tracking-[0.12em] text-ink-muted border border-border-hairline rounded-full px-1.5 py-0.5">
-            Soon
-          </span>
-        </div>
-        <p className="text-sm text-ink-secondary mt-1">
-          Reservation emails forwarded from Airbnb and Booking.com, read automatically. A
-          calendar link carries only dates, so this is where the guest&apos;s name and the
-          money come from. Nothing here counts as a booking, and the owner is told nothing,
-          until you approve it below.
-        </p>
-      </div>
+      <PageHeader
+        title="Channel inbox"
+        back={{ href: "/admin/calendar/feeds", label: "Channel calendars" }}
+        info={
+          <p>
+            Reservation emails forwarded from Airbnb and Booking.com, read automatically. A
+            calendar link carries only dates, so this is where the guest&apos;s name and the
+            money come from. Nothing here counts as a booking, and the owner is told nothing,
+            until you approve it below.
+          </p>
+        }
+      />
 
       <p className={noticeBanner}>
         Coming soon — the forwarding address that feeds this inbox isn&apos;t live yet, so

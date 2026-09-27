@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
@@ -7,6 +6,7 @@ import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
 import { hhmm, rowShortStay } from "@/lib/short-stay";
 import type { DealModel, OtaModel } from "@/lib/payout";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function EditBookingPage({
   params,
@@ -76,16 +76,16 @@ export default async function EditBookingPage({
 
   return (
     <div className="max-w-lg mx-auto flex flex-col gap-6">
-      <div>
-        <Link href={`/admin/bookings/${id}`} className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Booking
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Edit booking</h1>
-        <p className="text-xs text-ink-muted mt-1">
-          {clientRecord.name} · the payout is recalculated on this booking&rsquo;s own terms, not
-          today&rsquo;s.
-        </p>
-      </div>
+      <PageHeader
+        title="Edit booking"
+        back={{ href: `/admin/bookings/${id}`, label: "Booking" }}
+        info={
+          <p>
+            {clientRecord.name} · the payout is recalculated on this booking&rsquo;s own terms, not
+            today&rsquo;s.
+          </p>
+        }
+      />
 
       <BookingForm
         action={updateBooking.bind(null, id)}

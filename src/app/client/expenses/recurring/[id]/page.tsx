@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { getRecurring, listExpenseCategories } from "@/lib/expenses";
 import { RecurringForm } from "@/components/client/RecurringForm";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function EditRecurringPage({
   params,
@@ -30,15 +30,15 @@ export default async function EditRecurringPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <Link href="/client/expenses/recurring" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Recurring bills
-        </Link>
-        <h1 className="text-xl font-medium mt-1">Edit recurring bill</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          Changes apply from the next one. Bills already on your Expenses page keep what they were.
-        </p>
-      </div>
+      <PageHeader
+        title="Edit recurring bill"
+        back={{ href: "/client/expenses/recurring", label: "Recurring bills" }}
+        info={
+          <p>
+            Changes apply from the next one. Bills already on your Expenses page keep what they were.
+          </p>
+        }
+      />
 
       <RecurringForm
         recurring={recurring}

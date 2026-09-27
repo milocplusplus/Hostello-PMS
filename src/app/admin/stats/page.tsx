@@ -10,6 +10,7 @@ import { PeriodSelect } from "@/components/shared/PeriodSelect";
 import { StatsBoard } from "@/components/shared/StatsBoard";
 import { StatsClientSelect } from "@/components/admin/StatsClientSelect";
 import { RevenueChart } from "@/components/admin/RevenueChart";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function AdminStatsPage({
   searchParams,
@@ -66,20 +67,11 @@ export default async function AdminStatsPage({
   const scopeName = client ? (clients ?? []).find((c) => c.id === client)?.name : null;
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Stats</h1>
-          <p className="text-sm text-ink-secondary mt-1.5">
-            {scopeName
-              ? `Revenue by source for ${scopeName} — ${period.label}.`
-              : `Revenue by source across every client — ${period.label}.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatsClientSelect clients={clients ?? []} value={client} />
-          <PeriodSelect value={period.key} />
-        </div>
+    <div className="flex flex-col gap-4 stagger">
+      <PageHeader title="Stats" sub={scopeName ?? "Every client"} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <StatsClientSelect clients={clients ?? []} value={client} />
+        <PeriodSelect value={period.key} />
       </div>
 
       <StatsBoard total={total} sources={sources} variant="admin" periodLabel={period.label} />

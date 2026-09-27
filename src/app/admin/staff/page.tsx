@@ -14,6 +14,7 @@ import {
 } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { inviteOpsUser, resetOpsPassword, setOpsAccess } from "./actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * Who else can sign in.
@@ -60,14 +61,15 @@ export default async function StaffPage({
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
-      <div>
-        <p className="eyebrow">Management</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Staff</h1>
-        <p className="text-sm text-ink-secondary mt-2">
-          An operations account runs the calendar, the bookings and the check-ins. It never
-          sees revenue, the Hostello/client split, payouts, deal terms or this page.
-        </p>
-      </div>
+      <PageHeader
+        title="Staff"
+        info={
+          <p>
+            An operations account runs the calendar, the bookings and the check-ins. It never
+            sees revenue, the Hostello/client split, payouts, deal terms or this page.
+          </p>
+        }
+      />
 
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}

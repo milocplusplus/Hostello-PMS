@@ -9,6 +9,7 @@ import { Delta } from "@/components/shared/Kpi";
 import { PeriodSelect } from "@/components/shared/PeriodSelect";
 import { StatsBoard } from "@/components/shared/StatsBoard";
 import { RevenueChart } from "@/components/admin/RevenueChart";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 export default async function ClientStatsPage({
   searchParams,
@@ -60,16 +61,8 @@ export default async function ClientStatsPage({
   const series = perDay.map(((sum) => (v: number) => (sum += v))(0));
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold">Stats</h1>
-          <p className="text-sm text-ink-secondary mt-1.5">
-            Where your revenue came from — {period.label}.
-          </p>
-        </div>
-        <PeriodSelect value={period.key} />
-      </div>
+    <div className="flex flex-col gap-4 stagger">
+      <PageHeader title="Stats" actions={<PeriodSelect value={period.key} />} />
 
       <StatsBoard total={total} sources={sources} variant="client" periodLabel={period.label} />
 

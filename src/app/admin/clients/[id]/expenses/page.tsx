@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatMonthLabel, parseMonthParam } from "@/lib/calendar";
 import { listExpenses, unpaidTotal } from "@/lib/expenses";
 import { ExpenseList, ExpenseMonthNav, ExpenseSummary } from "@/components/shared/ExpenseList";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /**
  * An owner's own books, read-only. The owner keeps them; Hostello can look.
@@ -33,16 +33,16 @@ export default async function ClientExpensesAdminPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link href={`/admin/clients/${id}`} className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← {clientRecord.name}
-        </Link>
-        <h1 className="text-xl font-semibold mt-1">Expenses</h1>
-        <p className="text-sm text-ink-secondary mt-1">
-          What {clientRecord.name} has recorded for their units. Theirs to keep — read-only here,
-          and it never touches settlements.
-        </p>
-      </div>
+      <PageHeader
+        title="Expenses"
+        back={{ href: `/admin/clients/${id}`, label: clientRecord.name }}
+        info={
+          <p>
+            What {clientRecord.name} has recorded for their units. Theirs to keep — read-only here,
+            and it never touches settlements.
+          </p>
+        }
+      />
 
       <ExpenseMonthNav basePath={`/admin/clients/${id}/expenses`} year={year} month0={month0} />
 

@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import { todayISO, addDaysISO, formatFullDate } from "@/lib/calendar";
 import { StaySection, type TodayStay } from "@/components/shared/TodayBoard";
 import { markStayProgress } from "@/app/admin/bookings/actions";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /** How far back a missed tick is still worth chasing. */
 const LOOKBACK_DAYS = 30;
@@ -96,18 +97,16 @@ export default async function AdminCheckInsPage() {
   const missed = missedArrivals.length + missedDepartures.length;
 
   return (
-    <div className="flex flex-col gap-4 animate-in">
-      <div>
-        <p className="eyebrow">OPERATIONS</p>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Check-ins &amp; check-outs</h1>
-        <p className="text-sm text-ink-secondary mt-1.5">
-          {formatFullDate(today)} ·{" "}
-          {leftToday === 0
-            ? "Nothing left to mark today"
-            : `${leftToday} still to mark today`}
-          {missed > 0 && ` · ${missed} missed earlier`}
-        </p>
-      </div>
+    <div className="flex flex-col gap-4 stagger">
+      <PageHeader
+        title="Check-ins"
+        sub={
+          <>
+            {formatFullDate(today)} · {leftToday === 0 ? "All marked" : `${leftToday} to mark`}
+            {missed > 0 && <span className="text-status-pending"> · {missed} missed</span>}
+          </>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <StaySection
