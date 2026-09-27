@@ -159,6 +159,26 @@ export async function setListingRef(formData: FormData) {
   );
 }
 
+/**
+ * Pause or resume one link. Paused, the every-minute sync skips it (it only
+ * reads `active` links) and the dates it already brought in stay put.
+ */
+export async function setCalendarFeedActive(formData: FormData) {
+  const id = (formData.get("id") as string) || "";
+  const active = formData.get("active") === "true";
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("calendar_feeds").update({ active }).eq("id", id);
+  if (error) redirect(backTo({ error: error.message }));
+
+  revalidatePath("/admin/calendar/feeds");
+  redirect(
+    backTo({
+      notice: active ? "Resumed — it syncs again within a minute." : "Paused. Its dates stay on the calendar.",
+    })
+  );
+}
+
 /** Removing the link removes the dates it brought in (the FK cascades). */
 export async function removeCalendarFeed(formData: FormData) {
   const id = (formData.get("id") as string) || "";

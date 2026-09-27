@@ -1,6 +1,16 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 5 of 9: channel sync health** (2026-09-28). Owner's
+  choices: pause/resume per link, sync history, health badges (links page
+  only); alerts for a link failing (5 in a row), sync stopped (30 min),
+  channel not reading our export (24 h), and recovery; admin + ops; history
+  keeps only changes/failures for 90 days. Migration `channel_sync_health`
+  **applied to the live DB** (+ cron `hostello-channel-health`); tested
+  rolled back (6 failures → one alert, recovery alert, quiet run not
+  stored, no audit noise). Links page renders; no links exist to show
+  badges on. Cron-raised alerts reach the bell, not phone push (only the app
+  path pushes).
 - **Admin controls 4 of 9: business settings** (2026-09-27). Owner's
   choices: default deal terms (new clients only), standard check-in 14:00 /
   check-out 12:00 pre-filling new bookings in both portals and backing guest

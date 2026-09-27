@@ -87,6 +87,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // SQL (`sync_calendar_feed_apply`), not by notify.ts, and the only kind that
   // goes to ops as well as admin — it is a stay to write up, not a figure.
   channel_reservation: CalendarPlus,
+  // Channel sync health (record_sync_run / check_channel_health, in SQL).
+  // Staff-wide: no money in them, and ops is who fixes a calendar link.
+  channel_sync_failing: TriangleAlert,
+  channel_sync_stopped: TriangleAlert,
+  channel_export_unread: TriangleAlert,
+  channel_sync_recovered: BadgeCheck,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the
@@ -163,6 +169,10 @@ export function notificationHref(
   // A staff edit or cancel is about a booking and lands on it (below); a
   // deletion has nothing left to open, and a sign-in has no record at all.
   if (row.kind === "audit_sign_in_failed") return "/admin/audit?type=signin";
+  // Sync health is about a link, and the links page is where it is fixed.
+  if (row.kind?.startsWith("channel_sync_") || row.kind === "channel_export_unread") {
+    return portal === "admin" ? "/admin/calendar/feeds" : "/client/calendar";
+  }
   if (row.kind === "audit_deleted") return "/admin/audit";
 
   // The morning summary is the day sheet in one line; the day sheet is where it goes.

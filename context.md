@@ -138,6 +138,20 @@ Pre-launch: real data has not been entered yet.
   are refused in `updateBooking` (keeps the booking's own price/advance; a
   per-night rate still re-multiplies over new dates). `staffMay()` hides the
   controls. Settings changes are audited (category `settings`).
+- **Channel sync health** — both sync endings (`sync_calendar_feed_apply`,
+  `sync_calendar_feed_failed`) call `record_sync_run()`: it keeps
+  `calendar_feeds.consecutive_failures` / `last_success_at`, stores
+  `calendar_sync_runs` **only for runs that changed something or failed**
+  (90 days), and raises `channel_sync_failing` at exactly 5 in a row and
+  `channel_sync_recovered` after. Cron `hostello-channel-health`
+  (`check_channel_health()`, every 10 min) raises `channel_sync_stopped`
+  (no live link attempted in 30 min) and `channel_export_unread` (export not
+  read for 24 h); a trigger on `calendar_exports` says when reading resumes.
+  All audience `staff`. Pause = `calendar_feeds.active = false`
+  (`setCalendarFeedActive`); the sync only reads active links.
+  `src/lib/channel-health.ts` turns a row into a badge with the same
+  thresholds. Shown on `/admin/calendar/feeds` only (badge, Pause/Resume,
+  History).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the
