@@ -18,6 +18,7 @@ import {
   Percent,
   Receipt,
   ReceiptText,
+  Sun,
   Target,
   TrendingUp,
   TriangleAlert,
@@ -99,6 +100,9 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // Both from notify_expense_alerts(), in SQL. Owner only, for the same reason.
   expense_budget_crossed: Target,
   expense_running_high: TrendingUp,
+  // The owner's 07:15 summary (notify_owner_digest, in SQL). It replaces the
+  // per-stay notices above for the owner; those now go to the admin only.
+  daily_digest: Sun,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -148,6 +152,9 @@ export function notificationHref(
   if (row.kind?.startsWith("property_change_")) {
     return portal === "admin" ? "/admin/property-requests" : "/client/properties";
   }
+
+  // The morning summary is the day sheet in one line; the day sheet is where it goes.
+  if (row.kind === "daily_digest") return portal === "admin" ? "/admin/today" : "/client/today";
 
   // A due bill is confirmed from the Expenses page, whatever month it is from.
   // A crossed budget is looked at, and changed, on Budgets; a category running

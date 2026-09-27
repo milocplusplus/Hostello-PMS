@@ -564,7 +564,11 @@ Pre-launch: real data has not been entered yet.
   is also what lets an ops login save a booking (see `payout-inputs.ts`).
 - **`notify_daily_stays()` runs on pg_cron at 02:00 UTC = 07:00 Karachi**
   (`cron.job`, name `hostello-daily-stays`). It writes today's arrival/departure
-  notifications; the `event_key` makes a re-run a no-op. It cannot send push —
+  notifications — **to the admin only** since 2026-09-27; the `event_key` makes
+  a re-run a no-op. Owners get **one** `daily_digest` instead:
+  `notify_owner_digest()`, cron `hostello-owner-digest` at 02:15 UTC (07:15
+  Karachi) — arrivals / departures today, arrivals tomorrow, due bills, pending
+  Hostello payments to confirm; nothing on an empty day; links to /client/today. It cannot send push —
   push is sent from the Next server, and nothing external can call a Server
   Action — so cron-born notifications reach the bell and Realtime only.
 - Vercel is git-connected to `milocplusplus/Hostello-PMS`, production branch

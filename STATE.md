@@ -1,6 +1,25 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Owner morning summary** (2026-09-27). Migration
+  `20260927120000_owner_morning_digest`, **applied to the live DB**:
+  `notify_owner_digest()` + cron `hostello-owner-digest` at `15 2 * * *`
+  (07:15 Karachi). One `daily_digest` per owner per day — title "Your day: 1
+  arriving, 1 leaving, 2 bills to confirm…", body naming guests and units,
+  bills due (sum), Hostello payments pending their confirmation (sum). None on a
+  day with nothing in it. Budgets deliberately left out (their alert fires
+  once). `notify_daily_stays()` now writes audience `admin` instead of
+  `both` — the owner reads those stays in the digest; the function is
+  otherwise identical (checked: def equals the old one with 'both'→'admin').
+  App: `Sun` icon, links to `/client/today`.
+  - Verified in a rolled-back transaction on the live DB: 3 digests (seeded
+    owner: all five parts; two real owners with a pending payout / a real
+    checkout today), recipients the owner only; cancelled stay excluded;
+    re-run 0; per-stay notices reach admins only; EXECUTE not granted to
+    authenticated or anon. Lint and build clean.
+  - **Not verified: a real 07:15 run, and how the bell renders a long body.**
+    First run 2026-09-28 07:15 Karachi. Real data today would already produce
+    digests for two owners with pending Hostello payouts.
 - **Statement nights are the month's own** (2026-09-27). `nightsInMonth()`
   in `src/lib/statement.ts` clips a stay to the month (short stay = 0). Used
   by the CSV's per-stay column (now "Nights this month") and Total row, the
