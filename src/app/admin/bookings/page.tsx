@@ -23,6 +23,7 @@ import {
   addMonths,
   todayISO,
 } from "@/lib/calendar";
+import { staffMay, businessContact, loadSettings } from "@/lib/settings";
 
 type Search = {
   month?: string;
@@ -52,6 +53,8 @@ export default async function BookingsPage({
   // Ops runs the same list of stays. Nothing on this page is a split any more —
   // it shows sale price, which ops needs because ops takes the payment.
   const showMoney = canSeeSplit(profile?.role);
+  // Ops may be kept from cancelling in Settings; the database refuses it too.
+  const canCancel = await staffMay("cancel");
 
   const { year, month0 } = parseMonthParam(monthParam);
   const grid = getMonthGrid(year, month0);
@@ -188,6 +191,7 @@ export default async function BookingsPage({
               once a client is picked. */}
           {showMoney && statementReport && (
             <StatementPdf
+              business={businessContact(await loadSettings())}
               report={statementReport}
               filename={statementFilename(statementClientName, formatMonthParam(year, month0)).replace(
                 /\.csv$/,
@@ -294,7 +298,7 @@ export default async function BookingsPage({
                 photo={firstUnitPhoto(b.booking_properties)}
                 today={today}
                 footer={
-                  b.status === "cancelled" ? undefined : (
+                  b.status === "cancelled" || !canCancel ? undefined : (
                     // Settling is not done from a list of stays: it is done
                     // against the payment that proves it, on /admin/settlements.
                     <form action={cancelBooking}>

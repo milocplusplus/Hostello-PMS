@@ -6,6 +6,8 @@ import { currentClient } from "@/lib/auth";
 import { listPayments, loadOwed } from "@/lib/owed";
 import { SendMoneyFlow } from "@/components/shared/SendMoneyFlow";
 import { recordPayout } from "../actions";
+import { loadSettings } from "@/lib/settings";
+import { PaymentAccounts } from "@/components/shared/PaymentAccounts";
 
 /**
  * The owner recording money they have sent Hostello.
@@ -49,6 +51,9 @@ export default async function ClientSendPaymentPage({
           {editing ? "Fix what was wrong and send it back." : "Record what you have sent."}
         </p>
       </div>
+
+      {/* Where the money goes, before the form that records it went. */}
+      <PaymentAccounts accounts={(await loadSettings()).paymentAccounts} />
 
       <SendMoneyFlow
         action={recordPayout}

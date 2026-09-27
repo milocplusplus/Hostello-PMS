@@ -17,6 +17,7 @@ import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
 import { GUEST_ID_ACCEPT } from "@/lib/guest-ids";
 import { StayDates } from "@/components/shared/StayDates";
 import type { UnavailableRange } from "@/lib/availability";
+import type { BookingDefaults } from "@/lib/settings";
 import {
   DEFAULT_SHORT_STAY,
   shortStayCheckOut,
@@ -82,6 +83,8 @@ export function BookingForm({
   submitLabel = "Save booking",
   allowReceipt = true,
   showPayoutPreview = true,
+  defaults,
+  lockPrices = false,
   error,
 }: {
   action: (formData: FormData) => void;
@@ -103,6 +106,10 @@ export function BookingForm({
   allowReceipt?: boolean;
   /** The live split. Off for ops, who fill the same form without seeing it. */
   showPayoutPreview?: boolean;
+  /** Business settings for a new booking: status, standard times, short-stay hours. */
+  defaults?: BookingDefaults;
+  /** Ops with price edits switched off: the figures show but cannot be changed. */
+  lockPrices?: boolean;
   error?: string;
 }) {
   const sortedProperties = useMemo(
@@ -115,8 +122,12 @@ export function BookingForm({
   const [checkIn, setCheckIn] = useState(initialDate ?? "");
   const [checkOut, setCheckOut] = useState(initialCheckOut ?? "");
   const [shortStay, setShortStay] = useState(Boolean(values?.shortStay));
-  const [stayStart, setStayStart] = useState(values?.shortStay?.start ?? DEFAULT_SHORT_STAY.start);
-  const [stayEnd, setStayEnd] = useState(values?.shortStay?.end ?? DEFAULT_SHORT_STAY.end);
+  const [stayStart, setStayStart] = useState(
+    values?.shortStay?.start ?? defaults?.shortStayStart ?? DEFAULT_SHORT_STAY.start
+  );
+  const [stayEnd, setStayEnd] = useState(
+    values?.shortStay?.end ?? defaults?.shortStayEnd ?? DEFAULT_SHORT_STAY.end
+  );
   const [salePrice, setSalePrice] = useState(values ? String(values.salePrice) : "");
   // Reopens the way it was entered: a booking priced per night comes back with
   // the rate in the box, not the total someone would then have to divide.
@@ -131,7 +142,7 @@ export function BookingForm({
   // and hiding them behind a toggle reads as if the booking has none.
   const [showMore, setShowMore] = useState(Boolean(values));
   const [status, setStatus] = useState<"confirmed" | "tentative" | "cancelled">(
-    values?.status ?? "confirmed"
+    values?.status ?? defaults?.status ?? "confirmed"
   );
 
   const selectedProperty = sortedProperties.find((p) => p.id === propertyId);
@@ -372,7 +383,7 @@ export function BookingForm({
                 both states so it reads as a control at rest, gold and a lifted
                 fill on the chosen one. A borderless pair of muted words read as
                 a caption nobody knew was clickable. */}
-            {!shortStay && (
+            {!shortStay && !lockPrices && (
               <div className="flex items-center gap-1" role="group" aria-label="How to enter the price">
                 {(["total", "nightly"] as const).map((m) => (
                   <button
@@ -407,6 +418,7 @@ export function BookingForm({
               required
               value={nightlyPrice}
               onChange={(e) => setNightlyPrice(e.target.value)}
+              readOnly={lockPrices}
               className={fieldInput}
             />
           ) : (
@@ -419,8 +431,15 @@ export function BookingForm({
               required
               value={salePrice}
               onChange={(e) => setSalePrice(e.target.value)}
+              readOnly={lockPrices}
               className={fieldInput}
             />
+          )}
+
+          {lockPrices && (
+            <p className="text-[11px] text-ink-muted">
+              Prices are locked for operations accounts. Ask the admin to change them.
+            </p>
           )}
 
           {perNight && (
@@ -479,8 +498,8 @@ export function BookingForm({
 
       {/* A short stay already states its hours above; these are for a stay
           measured in nights, where the date says nothing about whether they
-          land at 2pm or 2am. Empty means they have not told us, and the
-          booking says exactly that rather than inventing a standard time. */}
+          land at 2pm or 2am. A new booking starts at the standard times from
+          Settings; an edit shows what was saved, blank included. */}
       {!shortStay && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
@@ -491,7 +510,7 @@ export function BookingForm({
               id="expected_arrival"
               name="expected_arrival"
               type="time"
-              defaultValue={values?.expectedArrival ?? ""}
+              defaultValue={values ? (values.expectedArrival ?? "") : (defaults?.checkinTime ?? "")}
               className={fieldInput}
             />
           </div>
@@ -503,7 +522,7 @@ export function BookingForm({
               id="expected_departure"
               name="expected_departure"
               type="time"
-              defaultValue={values?.expectedDeparture ?? ""}
+              defaultValue={values ? (values.expectedDeparture ?? "") : (defaults?.checkoutTime ?? "")}
               className={fieldInput}
             />
           </div>
@@ -562,6 +581,7 @@ export function BookingForm({
                 min="0"
                 step="1"
                 defaultValue={values?.advance ?? 0}
+                readOnly={lockPrices}
                 className={fieldInput}
               />
             </div>

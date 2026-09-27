@@ -31,6 +31,7 @@ import {
   formatDayMonth,
   formatRangeLabel,
 } from "@/lib/calendar";
+import { bookingDefaults, loadSettings, staffMay } from "@/lib/settings";
 
 type Params = {
   month?: string;
@@ -399,18 +400,21 @@ export default async function CalendarPage({
     bookingProperties.map((p) => p.id)
   );
 
+  const canBlock = await staffMay("block");
   const header = (
     <div className="flex items-center justify-between gap-3">
       <h1 className="text-[28px] md:text-3xl truncate min-w-0">{scope ? scope.name : "Calendar"}</h1>
       <div className="flex items-center gap-2 shrink-0">
-        <Link
-          href={`/admin/calendar/block?month=${monthStr}`}
-          aria-label="Block dates"
-          className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
-        >
-          <Lock size={16} />
-          <span className="hidden md:inline">Block dates</span>
-        </Link>
+        {canBlock && (
+          <Link
+            href={`/admin/calendar/block?month=${monthStr}`}
+            aria-label="Block dates"
+            className="btn btn-ghost h-11 w-11 md:w-auto p-0 md:px-4 rounded-2xl"
+          >
+            <Lock size={16} />
+            <span className="hidden md:inline">Block dates</span>
+          </Link>
+        )}
         <Link
           href="/admin/calendar/feeds"
           aria-label="Channels"
@@ -594,6 +598,7 @@ export default async function CalendarPage({
                 bookingClients={bookingClients}
                 createAction={createBookingInline}
                 unavailable={unavailable}
+                bookingDefaults={bookingDefaults(await loadSettings())}
               />
             </div>
           )}

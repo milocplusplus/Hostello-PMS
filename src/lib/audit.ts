@@ -9,7 +9,7 @@ import { propertyTypeLabel } from "./property-types";
  * `audit_log` migration); this file turns them into sentences.
  */
 
-export type AuditCategory = "booking" | "money" | "client" | "staff" | "signin";
+export type AuditCategory = "booking" | "money" | "client" | "staff" | "signin" | "settings";
 
 export const AUDIT_CATEGORIES: { key: AuditCategory; label: string }[] = [
   { key: "booking", label: "Bookings & calendar" },
@@ -17,6 +17,7 @@ export const AUDIT_CATEGORIES: { key: AuditCategory; label: string }[] = [
   { key: "client", label: "Clients & properties" },
   { key: "staff", label: "Staff & logins" },
   { key: "signin", label: "Sign-ins" },
+  { key: "settings", label: "Settings" },
 ];
 
 export function isAuditCategory(value: string | undefined): value is AuditCategory {
@@ -129,6 +130,7 @@ const NOUN: Record<string, string> = {
   properties: "unit",
   property_change_requests: "rate request",
   profiles: "profile",
+  app_settings: "settings",
 };
 
 const PLURAL: Record<string, string> = {
@@ -210,6 +212,7 @@ export function auditSentence(e: AuditEntry): string {
     return after(e, "deactivated_at") ? "deactivated a client" : "reactivated a client";
   }
   if (table === "profiles" && e.changes?.role) return "changed a role";
+  if (table === "app_settings") return "changed the settings";
   return `edited a ${noun}`;
 }
 
@@ -291,6 +294,24 @@ const FIELDS: Record<string, [string, Kind]> = {
   email: ["Email", "text"],
   deactivated_at: ["Deactivated", "time"],
   deactivated_note: ["Reason", "text"],
+  default_deal_model: ["Default deal model", "enum"],
+  default_monthly_fee: ["Default monthly fee", "money"],
+  default_share_percent: ["Default share %", "percent"],
+  default_deduct_percent: ["Default deduction %", "percent"],
+  default_ota_model: ["Default OTA terms", "enum"],
+  default_ota_share_percent: ["Default OTA share %", "percent"],
+  checkin_time: ["Standard check-in", "time"],
+  checkout_time: ["Standard check-out", "time"],
+  default_booking_status: ["New bookings start as", "enum"],
+  ops_can_edit_prices: ["Ops may change prices", "bool"],
+  ops_can_cancel: ["Ops may cancel", "bool"],
+  ops_can_block: ["Ops may block dates", "bool"],
+  business_name: ["Business name", "text"],
+  business_phone: ["Business phone", "text"],
+  business_email: ["Business email", "text"],
+  business_address: ["Business address", "text"],
+  payment_accounts: ["Payment accounts", "text"],
+  guest_templates: ["Guest messages", "text"],
 };
 
 function enumLabel(col: string, v: string): string {

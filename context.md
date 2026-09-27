@@ -118,6 +118,26 @@ Pre-launch: real data has not been entered yet.
   clear it. **Consequence: every owner page must filter by `clientRecord.id`
   itself — never lean on RLS/view scoping**, because the admin's session reads
   every client (`findAvailable` takes a `clientId` for this).
+- **Business settings** — one `app_settings` row (`id = true`), edited only on
+  `/admin/settings` (`settings/actions.ts`, one action per section, each
+  writing only its own columns). Read through `app_settings_v`: deal defaults
+  admin-only, everything else to signed-in users, only the contact line to a
+  signed-out visitor. `src/lib/settings.ts` (`loadSettings()` cached,
+  `readSettings()`, `bookingDefaults`, `houseStyle`, `businessContact`,
+  `staffMay`) is server-only; `settings-shared.ts` holds what a browser
+  component may import. Uses: `ClientForm` pre-fill on new client;
+  `BookingForm` `defaults` (status, standard times as expected
+  arrival/departure on a new booking, short-stay hours) in both portals and
+  the calendar quick-add; guest-message `house` (saved templates with
+  `{fill-ins}` from `TEMPLATE_FIELDS`, standard times as fallback, payment
+  details in the balance reminder); `PaymentAccounts` with copy buttons on the
+  owner's Pay Hostello screen; business name + contact on `PayoutReceipt`,
+  `StatementPdf` and the login page. **Ops rules**: cancel and manual
+  block/unblock are refused in SQL (`enforce_ops_rules` triggers via
+  `ops_allowed()`, which reads the actor through `audit_uid()`); price edits
+  are refused in `updateBooking` (keeps the booking's own price/advance; a
+  per-night rate still re-multiplies over new dates). `staffMay()` hides the
+  controls. Settings changes are audited (category `settings`).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

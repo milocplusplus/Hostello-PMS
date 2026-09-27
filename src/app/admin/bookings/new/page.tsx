@@ -6,6 +6,7 @@ import { listUnavailable } from "@/lib/availability";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import type { DealModel, OtaModel } from "@/lib/payout";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { bookingDefaults, loadSettings } from "@/lib/settings";
 
 export default async function NewBookingPage({
   searchParams,
@@ -97,6 +98,7 @@ export default async function NewBookingPage({
           fromBlockId={block}
           unavailable={unavailable}
           showPayoutPreview={showMoney}
+          defaults={bookingDefaults(await loadSettings())}
           error={error}
         />
       )}

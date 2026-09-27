@@ -7,6 +7,7 @@ import { listUnavailable } from "@/lib/availability";
 import { hhmm, rowShortStay } from "@/lib/short-stay";
 import type { DealModel, OtaModel } from "@/lib/payout";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { loadSettings } from "@/lib/settings";
 
 export default async function EditBookingPage({
   params,
@@ -121,6 +122,7 @@ export default async function EditBookingPage({
         }}
         submitLabel="Save changes"
         showPayoutPreview={showMoney}
+        lockPrices={!showMoney && !(await loadSettings()).opsCanEditPrices}
         error={error}
       />
     </div>

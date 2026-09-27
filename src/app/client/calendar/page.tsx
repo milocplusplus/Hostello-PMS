@@ -29,6 +29,7 @@ import {
   formatDayMonth,
   formatRangeLabel,
 } from "@/lib/calendar";
+import { bookingDefaults, loadSettings } from "@/lib/settings";
 
 type Params = { month?: string; view?: string; start?: string };
 
@@ -378,6 +379,7 @@ export default async function ClientCalendarPage({
             createAction={createClientBookingInline}
             unavailable={unavailable}
             allowReceipt={false}
+            bookingDefaults={bookingDefaults(await loadSettings())}
           />
         </div>
       )}

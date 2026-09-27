@@ -24,6 +24,7 @@ import {
   addMonths,
   todayISO,
 } from "@/lib/calendar";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 export default async function ClientBookingsPage({
   searchParams,
@@ -130,6 +131,7 @@ export default async function ClientBookingsPage({
         <h1 className="text-[28px] md:text-3xl">Bookings</h1>
         <div className="flex items-center gap-2">
           <StatementPdf
+            business={businessContact(await loadSettings())}
             report={report}
             filename={statementName.replace(/\.csv$/, ".pdf")}
             disabled={nothingToReport}

@@ -19,8 +19,17 @@ const MENU = [
   { href: "/admin/clients/new", label: "Add client", icon: Users, ownerOnly: true },
 ];
 
-export function AddBookingMenu({ isOwner = true }: { isOwner?: boolean }) {
-  const menu = MENU.filter((m) => isOwner || !m.ownerOnly);
+export function AddBookingMenu({
+  isOwner = true,
+  canBlock = true,
+}: {
+  isOwner?: boolean;
+  /** Off for ops when Settings says ops may not block dates. */
+  canBlock?: boolean;
+}) {
+  const menu = MENU.filter(
+    (m) => (isOwner || !m.ownerOnly) && (canBlock || m.href !== "/admin/calendar/block")
+  );
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 

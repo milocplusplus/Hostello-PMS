@@ -329,6 +329,25 @@ export async function updateBooking(id: string, formData: FormData) {
         : `/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`
     );
 
+  const supabase = await createClient();
+
+  // Ops with price edits switched off in Settings: whatever the form posted,
+  // the booking keeps its own price and advance. A per-night stay still
+  // re-multiplies over new dates — that is the rate applied, not a price edit.
+  const { data: mayPrice } = await supabase.rpc("ops_allowed", { p_rule: "prices" });
+  if (mayPrice === false) {
+    const { data: current } = await supabase
+      .from("bookings_v")
+      .select("sale_price, nightly_price, advance_received")
+      .eq("id", id)
+      .single();
+    if (!current) back("Booking not found.");
+    formData.set("price_mode", current.nightly_price != null ? "nightly" : "total");
+    formData.set("nightly_price", String(current.nightly_price ?? ""));
+    formData.set("sale_price", String(current.sale_price ?? 0));
+    formData.set("advance_received", String(current.advance_received ?? 0));
+  }
+
   const property_ids = formData.getAll("property_ids") as string[];
   const check_in = formData.get("check_in") as string;
   const guest_name = (formData.get("guest_name") as string)?.trim() || null;
@@ -364,8 +383,6 @@ export async function updateBooking(id: string, formData: FormData) {
   const guestIds = guestIdFiles(formData);
   const guestIdProblem = validateGuestIds(guestIds);
   if (guestIdProblem) back(guestIdProblem);
-
-  const supabase = await createClient();
 
   // The snapshots are payout inputs, so this read goes through the same trusted
   // route as the terms — an ops session sees them masked everywhere else.

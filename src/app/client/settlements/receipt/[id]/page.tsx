@@ -6,6 +6,7 @@ import { currentClient } from "@/lib/auth";
 import { listPayments, loadAllocations } from "@/lib/owed";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
 import { Celebration } from "@/components/shared/Celebration";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 /**
  * The owner's copy of one payment, either direction.
@@ -57,6 +58,8 @@ export default async function ClientReceiptPage({
       </div>
 
       <PayoutReceipt
+
+        business={businessContact(await loadSettings())}
         id={entry.id}
         status={entry.status}
         confirmedOffline={entry.confirmedOffline}

@@ -53,6 +53,21 @@ export type GuestMessageContext = {
   expectedDeparture: string | null;
   /** Set when the stay is sold by the hour, whose window replaces the dates. */
   shortStay: { start: string; end: string } | null;
+  /** The business's own settings — see `houseStyle()`. */
+  house: HouseStyle;
+};
+
+/** What /admin/settings contributes to every message. */
+export type HouseStyle = {
+  /** Saved wording per message; a missing one means the built-in text. */
+  templates: Partial<Record<GuestMessageId, string>>;
+  /** "14:00" — said when a booking has no expected time of its own. */
+  checkinTime: string;
+  checkoutTime: string;
+  /** Hostello's accounts as text; empty when none are saved. */
+  paymentDetails: string;
+  businessName: string;
+  businessPhone: string | null;
 };
 
 export type GuestMessageId = "arrival" | "balance" | "checkout";
@@ -78,12 +93,86 @@ function unitPhrase(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
+/**
+ * The fill-ins a saved template may use. Settings lists them from here, so the
+ * page and the substitution can never disagree about what exists.
+ */
+export const TEMPLATE_FIELDS: { key: string; about: string; value: (c: GuestMessageContext) => string }[] = [
+  { key: "guest", about: "Guest's first name", value: (c) => firstName(c.guestName) },
+  { key: "unit", about: "Unit name(s)", value: (c) => unitPhrase(c.unitNames) },
+  { key: "checkin", about: "Check-in date", value: (c) => formatDayMonth(c.checkIn) },
+  { key: "checkout", about: "Check-out date", value: (c) => formatDayMonth(c.checkOut) },
+  {
+    key: "arrival_time",
+    about: "Expected arrival, else the standard check-in time",
+    value: (c) => hhmm(c.shortStay?.start ?? c.expectedArrival ?? c.house.checkinTime),
+  },
+  {
+    key: "departure_time",
+    about: "Expected departure, else the standard check-out time",
+    value: (c) => hhmm(c.shortStay?.end ?? c.expectedDeparture ?? c.house.checkoutTime),
+  },
+  { key: "balance", about: "Balance still to pay", value: (c) => formatPKR(c.balanceDue) },
+  {
+    key: "payment_details",
+    about: "Hostello's payment accounts",
+    value: (c) => c.house.paymentDetails || "(ask us for the account details)",
+  },
+  { key: "business", about: "Business name", value: (c) => c.house.businessName },
+  { key: "phone", about: "Business phone", value: (c) => c.house.businessPhone ?? "" },
+];
+
+export function fillTemplate(template: string, c: GuestMessageContext): string {
+  return template.replace(/\{(\w+)\}/g, (whole, key: string) => {
+    const field = TEMPLATE_FIELDS.find((f) => f.key === key);
+    return field ? field.value(c) : whole;
+  });
+}
+
+/**
+ * The built-in wording as templates — what Settings shows in an empty box and
+ * what "Reset to default" goes back to. The functions below say the same
+ * thing but also handle a short stay and a missing time, which a template
+ * cannot; they run whenever no wording has been saved.
+ */
+export const DEFAULT_TEMPLATES: Record<GuestMessageId, string> = {
+  arrival: [
+    "Hello {guest} — your booking at {unit} is confirmed from {checkin} to {checkout}.",
+    "",
+    "Check-in is from {arrival_time}.",
+    "I'll share the address and entry details before your arrival day. Any questions, just reply here.",
+  ].join("\n"),
+  balance: [
+    "Hello {guest} — a quick reminder about your stay at {unit}.",
+    "",
+    "Balance still to pay: {balance}.",
+    "",
+    "You can settle it on arrival or transfer it beforehand:",
+    "{payment_details}",
+  ].join("\n"),
+  checkout: [
+    "Hello {guest} — hope the stay has been comfortable.",
+    "",
+    "Just a reminder that checkout is by {departure_time} on {checkout}. Please leave the keys inside and pull the door shut behind you.",
+    "",
+    "If you need a later checkout, ask and I'll see what's possible.",
+  ].join("\n"),
+};
+
+/** A saved template when there is one, otherwise the built-in wording. */
+function saved(id: GuestMessageId, builtIn: (c: GuestMessageContext) => string) {
+  return (c: GuestMessageContext) => {
+    const template = c.house.templates[id]?.trim();
+    return template ? fillTemplate(template, c) : builtIn(c);
+  };
+}
+
 export const GUEST_MESSAGES: GuestMessage[] = [
   {
     id: "arrival",
     label: "Arrival instructions",
     hint: "Where they are staying and when they can get in",
-    body: (c) => {
+    body: saved("arrival", (c) => {
       const where = unitPhrase(c.unitNames);
       if (c.shortStay) {
         return [
@@ -92,40 +181,39 @@ export const GUEST_MESSAGES: GuestMessage[] = [
           "I'll share the address and entry details before you arrive. Any questions, just reply here.",
         ].join("\n");
       }
-      const arrival = c.expectedArrival
-        ? `Check-in is from ${hhmm(c.expectedArrival)}.`
-        : "Let me know roughly what time you'll arrive and I'll have someone meet you.";
       return [
         `Hello ${firstName(c.guestName)} — your booking at ${where} is confirmed from ${formatDayMonth(c.checkIn)} to ${formatDayMonth(c.checkOut)}.`,
         "",
-        arrival,
+        // No expected time on the booking: the standard check-in time.
+        `Check-in is from ${hhmm(c.expectedArrival ?? c.house.checkinTime)}.`,
         "I'll share the address and entry details before your arrival day. Any questions, just reply here.",
       ].join("\n");
-    },
+    }),
   },
   {
     id: "balance",
     label: "Balance reminder",
     hint: "What is still to be paid on this stay",
-    body: (c) =>
+    body: saved("balance", (c) =>
       [
         `Hello ${firstName(c.guestName)} — a quick reminder about your stay at ${unitPhrase(c.unitNames)}.`,
         "",
         `Balance still to pay: ${formatPKR(c.balanceDue)}.`,
         "",
-        "You can settle it on arrival or transfer it beforehand — whichever is easier. Let me know if you'd like the account details.",
-      ].join("\n"),
+        c.house.paymentDetails
+          ? `You can settle it on arrival or transfer it beforehand:\n${c.house.paymentDetails}`
+          : "You can settle it on arrival or transfer it beforehand — whichever is easier. Let me know if you'd like the account details.",
+      ].join("\n")
+    ),
   },
   {
     id: "checkout",
     label: "Checkout reminder",
     hint: "When they need to be out, and how to hand back the keys",
-    body: (c) => {
+    body: saved("checkout", (c) => {
       const when = c.shortStay
         ? `by ${hhmm(c.shortStay.end)} today`
-        : c.expectedDeparture
-          ? `by ${hhmm(c.expectedDeparture)} on ${formatDayMonth(c.checkOut)}`
-          : `on ${formatDayMonth(c.checkOut)}`;
+        : `by ${hhmm(c.expectedDeparture ?? c.house.checkoutTime)} on ${formatDayMonth(c.checkOut)}`;
       return [
         `Hello ${firstName(c.guestName)} — hope the stay has been comfortable.`,
         "",
@@ -133,7 +221,7 @@ export const GUEST_MESSAGES: GuestMessage[] = [
         "",
         "If you need a later checkout, ask and I'll see what's possible.",
       ].join("\n");
-    },
+    }),
   },
 ];
 

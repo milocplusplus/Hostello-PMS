@@ -1,3 +1,4 @@
+import type { BusinessContact } from "./settings-shared";
 import { addDaysISO } from "./calendar";
 import { nightsBetween } from "./payout";
 import { rowShortStay } from "./short-stay";
@@ -36,6 +37,8 @@ export type UnitLine = { name: string; nights: number; payout: number };
 
 export type StatementReport = {
   clientName: string;
+  /** Set by the PDF from Settings; the report itself is built without it. */
+  business?: BusinessContact;
   monthLabel: string;
   totals: StatementTotals;
   occupancy: { nightsSold: number; nightsTotal: number; pct: number; units: number };

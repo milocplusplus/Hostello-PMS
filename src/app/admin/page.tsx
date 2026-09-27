@@ -31,6 +31,7 @@ import {
   StayRow,
   TodayStories,
 } from "@/components/shared/DashboardBits";
+import { staffMay } from "@/lib/settings";
 
 type BookingRow = {
   id: string;
@@ -271,7 +272,7 @@ export default async function AdminDashboard({
           <p className="text-[13px] text-ink-secondary">{greeting()}</p>
           <h1 className="text-xl md:text-2xl truncate">{firstName ?? "Hostello"}</h1>
         </div>
-        <AddBookingMenu isOwner={showMoney} />
+        <AddBookingMenu isOwner={showMoney} canBlock={await staffMay("block")} />
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

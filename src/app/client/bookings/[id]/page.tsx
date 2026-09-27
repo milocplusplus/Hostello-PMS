@@ -18,6 +18,7 @@ import { StayProgressCard } from "@/components/shared/StayProgress";
 import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import { GuestMessages } from "@/components/shared/GuestMessages";
 import { waPhone } from "@/lib/guest-messages";
+import { houseStyle, loadSettings } from "@/lib/settings";
 import {
   cancelClientBooking,
   markClientStayProgress,
@@ -154,6 +155,7 @@ export default async function ClientBookingDetailPage({
             expectedArrival: booking.expected_arrival,
             expectedDeparture: booking.expected_departure,
             shortStay,
+            house: houseStyle(await loadSettings()),
           }}
         />
       )}

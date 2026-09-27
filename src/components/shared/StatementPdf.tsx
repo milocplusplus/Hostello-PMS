@@ -1,5 +1,6 @@
 "use client";
 
+import type { BusinessContact } from "@/lib/settings-shared";
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
@@ -167,7 +168,7 @@ function masthead(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, com
   c.fillStyle = t.ink;
   c.font = `500 ${compact ? 22 : 26}px ${t.font}`;
   c.letterSpacing = "6px";
-  c.fillText("HOSTELLO", M, compact ? 62 : 86);
+  c.fillText((r.business?.name ?? "Hostello").toUpperCase(), M, compact ? 62 : 86);
   c.letterSpacing = "0px";
 
   if (compact) {
@@ -214,6 +215,11 @@ function footer(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, n: nu
   c.font = `400 14px ${t.font}`;
   c.fillStyle = "rgba(255,255,255,0.22)";
   c.fillText("Figures are your share. Hostello's commission is not shown.", M, H - 36);
+  if (r.business?.line) {
+    c.textAlign = "right";
+    c.fillText(clip(c, r.business.line, CW / 2), W - M, H - 36);
+    c.textAlign = "left";
+  }
 }
 
 function tile(
@@ -979,8 +985,11 @@ export function StatementPdf({
   report,
   filename,
   disabled,
+  business,
 }: {
   report: StatementReport;
+  /** From Settings: the masthead name and the footer contact line. */
+  business?: BusinessContact;
   filename: string;
   disabled?: boolean;
 }) {
@@ -995,7 +1004,7 @@ export function StatementPdf({
     setBusy(true);
     setError(null);
     try {
-      const blob = pagesToPdfBlob(await renderStatementPages(report, { soldOnly }));
+      const blob = pagesToPdfBlob(await renderStatementPages({ ...report, business }, { soldOnly }));
       const file = new File([blob], filename, { type: "application/pdf" });
 
       // Same call PayoutReceipt makes: a phone hands it to WhatsApp or the OS

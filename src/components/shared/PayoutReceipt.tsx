@@ -1,5 +1,6 @@
 "use client";
 
+import type { BusinessContact } from "@/lib/settings-shared";
 import { useState } from "react";
 import { Check, Clock, Download, Share2, X } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
@@ -50,6 +51,8 @@ export type ReceiptProps = {
   awaiting: string;
   /** What the confirmed payment cleared. Empty until it is confirmed. */
   cleared: { bookingId: string; amount: number; guestName: string | null }[];
+  /** From Settings: the name at the top and a contact line at the foot. */
+  business?: BusinessContact;
 };
 
 export function PayoutReceipt(props: ReceiptProps) {
@@ -266,7 +269,8 @@ async function drawReceipt(props: ReceiptProps): Promise<Blob | null> {
           : "Pending confirmation",
     ],
   ];
-  const H = 216 + rows.length * 34 + 52;
+  const contact = props.business?.line ?? null;
+  const H = 216 + rows.length * 34 + 52 + (contact ? 20 : 0);
   const canvas = document.createElement("canvas");
   canvas.width = W * scale;
   canvas.height = H * scale;
@@ -290,7 +294,11 @@ async function drawReceipt(props: ReceiptProps): Promise<Blob | null> {
 
   ctx.fillStyle = muted;
   ctx.font = "600 11px system-ui, sans-serif";
-  ctx.fillText("HOSTELLO · PAYMENT RECEIPT", centre, 40);
+  ctx.fillText(
+    truncate(ctx, `${(props.business?.name ?? "Hostello").toUpperCase()} · PAYMENT RECEIPT`, W - 48),
+    centre,
+    40
+  );
 
   ctx.fillStyle = gold;
   ctx.font = "600 38px system-ui, sans-serif";
@@ -356,7 +364,8 @@ async function drawReceipt(props: ReceiptProps): Promise<Blob | null> {
     props.status === "received"
       ? "This payment has been confirmed and allocated to the bookings it cleared."
       : "A recorded payment settles nothing until the receiving side confirms it.";
-  wrap(ctx, footer, centre, H - 46, W - 72, 14);
+  wrap(ctx, footer, centre, H - 46 - (contact ? 20 : 0), W - 72, 14);
+  if (contact) ctx.fillText(truncate(ctx, contact, W - 48), centre, H - 18);
 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }

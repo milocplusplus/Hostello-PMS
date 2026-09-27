@@ -64,6 +64,7 @@ export function CalendarBoard({
   createAction,
   unavailable = [],
   allowReceipt = true,
+  bookingDefaults,
 }: {
   days: string[];
   today: string;
@@ -75,6 +76,7 @@ export function CalendarBoard({
   /** Taken nights beyond this window, so the quick-add picker can grey them out. */
   unavailable?: UnavailableRange[];
   allowReceipt?: boolean;
+  bookingDefaults?: BookingFormProps["defaults"];
 }) {
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
     null
@@ -211,6 +213,7 @@ export function CalendarBoard({
           createAction={createAction}
           unavailable={unavailable}
           allowReceipt={allowReceipt}
+          defaults={bookingDefaults}
           onClose={() => setDraft(null)}
         />
       )}
@@ -229,6 +232,7 @@ function QuickAddBooking({
   createAction,
   unavailable,
   allowReceipt,
+  defaults,
   onClose,
 }: {
   draft: { propertyId: string; propertyName: string; date: string };
@@ -237,6 +241,7 @@ function QuickAddBooking({
   createAction: InlineCreate;
   unavailable: UnavailableRange[];
   allowReceipt: boolean;
+  defaults?: BookingFormProps["defaults"];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -301,6 +306,7 @@ function QuickAddBooking({
           initialCheckOut={checkOut}
           unavailable={unavailable}
           allowReceipt={allowReceipt}
+          defaults={defaults}
           error={error}
         />
       </div>

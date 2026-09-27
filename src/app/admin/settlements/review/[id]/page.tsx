@@ -6,6 +6,7 @@ import { listPayments, loadAllocations, loadOwed } from "@/lib/owed";
 import { IncomingPayout } from "@/components/shared/IncomingPayout";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
 import { confirmPayout, rejectPayout } from "../../actions";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 /**
  * An owner says they have paid Hostello its share. This is where an admin
@@ -33,6 +34,7 @@ export default async function AdminReviewPaymentPage({
     return (
       <Shell title="Payment reviewed">
         <PayoutReceipt
+          business={businessContact(await loadSettings())}
           id={entry.id}
           status={entry.status}
           confirmedOffline={entry.confirmedOffline}

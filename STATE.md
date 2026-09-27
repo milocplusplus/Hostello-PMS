@@ -1,6 +1,20 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 4 of 9: business settings** (2026-09-27). Owner's
+  choices: default deal terms (new clients only), standard check-in 14:00 /
+  check-out 12:00 pre-filling new bookings in both portals and backing guest
+  messages, short-stay hours, one default status for all new bookings,
+  Hostello bank + JazzCash/Easypaisa accounts (owner Pay screen with copy
+  buttons, and the balance reminder), business contact (receipts, statement
+  PDF, message fill-ins, login footer), editable guest message templates
+  with fill-ins + live preview + reset, ops switches for prices / cancel /
+  blocks (all on by default, hidden when off), audited. Migration
+  `app_settings` **applied to the live DB**; tested rolled back (view per
+  audience, ops cancel/block refused, audit diff). Browser (admin): page on
+  desktop + phone, a no-change Business save ("Saved.", no audit row).
+  Not seen: a signed-out login page, an ops session, owner Pay screen with
+  accounts (none saved).
 - **Admin controls 3 of 9: view as owner** (2026-09-27). Owner's choices:
   read-only; audit log only (owner not told); any owner incl. no-login and
   deactivated; button on the client page + gold banner with Exit; ends only

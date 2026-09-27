@@ -4,10 +4,11 @@ import { currentUser } from "@/lib/auth";
 import { createCalendarBlock, deleteCalendarBlock } from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { SubmitButton } from "@/components/shared/Busy";
-import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
+import { fieldLabel, fieldInput, primaryButton, errorBanner, noticeBanner } from "@/lib/form-styles";
 import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
 import { MANUAL_BLOCK_TYPES, blockTypeLabel } from "@/lib/block-sources";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { staffMay } from "@/lib/settings";
 
 export default async function BlockDatesPage({
   searchParams,
@@ -17,6 +18,7 @@ export default async function BlockDatesPage({
   const { error, month: monthParam } = await searchParams;
 
   const supabase = await createClient();
+  const canBlock = await staffMay("block");
   const user = await currentUser();
   if (!user) redirect("/login");
 
@@ -50,71 +52,79 @@ export default async function BlockDatesPage({
         }
       />
 
-      <form action={createCalendarBlock} className="card p-6 flex flex-col gap-4">
-        <input type="hidden" name="month" value={monthStr} />
+      {!canBlock && (
+        <p className={noticeBanner}>
+          Blocking and unblocking dates is switched off for operations accounts. Ask the admin.
+        </p>
+      )}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="property_id" className={fieldLabel}>
-            Property
-          </label>
-          <select id="property_id" name="property_id" required className={fieldInput}>
-            {properties?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {(p.clients as unknown as { name: string } | null)?.name ?? "—"} · {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {canBlock && (
+        <form action={createCalendarBlock} className="card p-6 flex flex-col gap-4">
+          <input type="hidden" name="month" value={monthStr} />
+  
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="start_date" className={fieldLabel}>
-              Start date
+            <label htmlFor="property_id" className={fieldLabel}>
+              Property
             </label>
-            <input id="start_date" name="start_date" type="date" required className={fieldInput} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="end_date" className={fieldLabel}>
-              End date
-            </label>
-            <input id="end_date" name="end_date" type="date" required className={fieldInput} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="block_type" className={fieldLabel}>
-              Why
-            </label>
-            {/* `booked` is not offered: that is what a channel sync writes for
-                an imported reservation, not something anyone picks here. */}
-            <select id="block_type" name="block_type" defaultValue="blocked" className={fieldInput}>
-              {MANUAL_BLOCK_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+            <select id="property_id" name="property_id" required className={fieldInput}>
+              {properties?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {(p.clients as unknown as { name: string } | null)?.name ?? "—"} · {p.name}
                 </option>
               ))}
             </select>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="reason" className={fieldLabel}>
-              Note (optional)
-            </label>
-            <input
-              id="reason"
-              name="reason"
-              placeholder="e.g. Owner personal use, boiler replacement"
-              className={fieldInput}
-            />
+  
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="start_date" className={fieldLabel}>
+                Start date
+              </label>
+              <input id="start_date" name="start_date" type="date" required className={fieldInput} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="end_date" className={fieldLabel}>
+                End date
+              </label>
+              <input id="end_date" name="end_date" type="date" required className={fieldInput} />
+            </div>
           </div>
-        </div>
-
-        {error && <p className={errorBanner}>{error}</p>}
-
-        <SubmitButton className={`mt-1 ${primaryButton}`} busy="Blocking the dates…">
-          Block these dates
-        </SubmitButton>
-      </form>
+  
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="block_type" className={fieldLabel}>
+                Why
+              </label>
+              {/* `booked` is not offered: that is what a channel sync writes for
+                  an imported reservation, not something anyone picks here. */}
+              <select id="block_type" name="block_type" defaultValue="blocked" className={fieldInput}>
+                {MANUAL_BLOCK_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="reason" className={fieldLabel}>
+                Note (optional)
+              </label>
+              <input
+                id="reason"
+                name="reason"
+                placeholder="e.g. Owner personal use, boiler replacement"
+                className={fieldInput}
+              />
+            </div>
+          </div>
+  
+          {error && <p className={errorBanner}>{error}</p>}
+  
+          <SubmitButton className={`mt-1 ${primaryButton}`} busy="Blocking the dates…">
+            Block these dates
+          </SubmitButton>
+        </form>
+      )}
 
       <div className="card p-6">
         <h2 className="text-sm font-medium text-ink-secondary mb-4">Recent blocks</h2>
@@ -139,16 +149,18 @@ export default async function BlockDatesPage({
                       {b.notes ? ` · ` : ""}
                     </p>
                   </div>
-                  <form action={deleteCalendarBlock}>
-                    <input type="hidden" name="id" value={b.id} />
-                    <input type="hidden" name="month" value={monthStr} />
-                    <ConfirmDeleteButton
-                      confirmText="Remove this block? The dates will become available again."
-                      label="Unblock"
-                      busy="Freeing the dates…"
-                      className="text-xs text-ink-muted hover:text-status-booked shrink-0 transition-colors"
-                    />
-                  </form>
+                  {canBlock && (
+                    <form action={deleteCalendarBlock}>
+                      <input type="hidden" name="id" value={b.id} />
+                      <input type="hidden" name="month" value={monthStr} />
+                      <ConfirmDeleteButton
+                        confirmText="Remove this block? The dates will become available again."
+                        label="Unblock"
+                        busy="Freeing the dates…"
+                        className="text-xs text-ink-muted hover:text-status-booked shrink-0 transition-colors"
+                      />
+                    </form>
+                  )}
                 </li>
               );
             })}

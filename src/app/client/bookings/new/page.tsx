@@ -6,6 +6,7 @@ import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
 import type { DealModel, OtaModel } from "@/lib/payout";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { bookingDefaults, loadSettings } from "@/lib/settings";
 
 export default async function ClientNewBookingPage({
   searchParams,
@@ -75,6 +76,7 @@ export default async function ClientNewBookingPage({
           initialCheckOut={checkout}
           unavailable={unavailable}
           allowReceipt={false}
+          defaults={bookingDefaults(await loadSettings())}
           error={error}
         />
       )}

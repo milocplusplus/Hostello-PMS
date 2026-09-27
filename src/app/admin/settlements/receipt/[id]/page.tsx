@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { listPayments, loadAllocations } from "@/lib/owed";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
 import { Celebration } from "@/components/shared/Celebration";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 /**
  * One payment, as a receipt — where a send lands, and what either side comes
@@ -59,6 +60,8 @@ export default async function AdminReceiptPage({
       </div>
 
       <PayoutReceipt
+
+        business={businessContact(await loadSettings())}
         id={entry.id}
         status={entry.status}
         confirmedOffline={entry.confirmedOffline}

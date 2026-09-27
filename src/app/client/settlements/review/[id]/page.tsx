@@ -7,6 +7,7 @@ import { listPayments, loadAllocations, loadOwed } from "@/lib/owed";
 import { IncomingPayout } from "@/components/shared/IncomingPayout";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
 import { confirmHostelloPayout, rejectHostelloPayout } from "../../actions";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 /**
  * Hostello says it has sent this owner their payout. This is where the owner —
@@ -35,6 +36,7 @@ export default async function ClientReviewPayoutPage({
     return (
       <Shell title="Payout reviewed">
         <PayoutReceipt
+          business={businessContact(await loadSettings())}
           id={entry.id}
           status={entry.status}
           confirmedOffline={entry.confirmedOffline}

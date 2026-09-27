@@ -3,6 +3,7 @@ import { Lock, Mail } from "lucide-react";
 import { login } from "./actions";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 import { SubmitButton } from "@/components/shared/Busy";
+import { businessContact, loadSettings } from "@/lib/settings";
 
 export default async function LoginPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const business = businessContact(await loadSettings());
   const field = "field w-full h-12 pl-11 rounded-2xl";
 
   return (
@@ -93,7 +95,9 @@ export default async function LoginPage({
           </Link>
         </form>
 
-        <p className="text-center text-ink-muted text-xs mt-6">No account? Ask Hostello.</p>
+        <p className="text-center text-ink-muted text-xs mt-6">No account? Ask {business.name}.</p>
+        {/* From Settings; a signed-out visitor is shown the contact line and nothing else. */}
+        {business.line && <p className="text-center text-ink-muted/80 text-[11px] mt-1.5">{business.line}</p>}
       </div>
     </main>
   );

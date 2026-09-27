@@ -18,6 +18,7 @@ import { StayProgressCard } from "@/components/shared/StayProgress";
 import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import { GuestMessages } from "@/components/shared/GuestMessages";
 import { waPhone } from "@/lib/guest-messages";
+import { houseStyle, loadSettings, staffMay } from "@/lib/settings";
 import { loadAudit } from "@/lib/audit";
 import { AuditTrail } from "@/components/admin/AuditTrail";
 import {
@@ -166,6 +167,7 @@ export default async function BookingDetailPage({
             expectedArrival: booking.expected_arrival,
             expectedDeparture: booking.expected_departure,
             shortStay,
+            house: houseStyle(await loadSettings()),
           }}
         />
       )}
@@ -223,15 +225,17 @@ export default async function BookingDetailPage({
 
       {booking.status !== "cancelled" && (
         <div className="flex items-center gap-2 flex-wrap">
-          <form action={cancelBooking}>
-            <input type="hidden" name="id" value={booking.id} />
-            <ConfirmDeleteButton
-              confirmText="Cancel this booking? The dates free up and the client is notified."
-              label="Cancel booking"
-              busy="Cancelling the booking…"
-              className="btn btn-ghost text-negative"
-            />
-          </form>
+          {(await staffMay("cancel")) && (
+            <form action={cancelBooking}>
+              <input type="hidden" name="id" value={booking.id} />
+              <ConfirmDeleteButton
+                confirmText="Cancel this booking? The dates free up and the client is notified."
+                label="Cancel booking"
+                busy="Cancelling the booking…"
+                className="btn btn-ghost text-negative"
+              />
+            </form>
+          )}
           <Link href="/admin/bookings" className="btn btn-ghost ml-auto">
             All bookings
           </Link>
