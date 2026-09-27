@@ -75,12 +75,13 @@ export default async function ClientBookingsPage({
 
   // Counts about the stays, not a ledger: your payout and whether it has
   // reached you live on /client/settlements, next to the payment proving it.
-  // The list is every stay touching the month; gross counts a stay whole in the
-  // month it checks in, the rule the dashboard, Stats and Profit use, so a stay
-  // that began last month is listed here but counted there.
+  // The list is every stay touching the month, tentative ones too; gross counts
+  // a confirmed stay whole in the month it checks in, the rule the dashboard,
+  // Stats and Profit use. A stay that began last month is listed here but
+  // counted there, and a tentative one is listed but not money made.
   const totals = (bookings ?? []).reduce(
     (acc, b) => {
-      if (b.check_in >= monthStart) acc.gross += Number(b.sale_price ?? 0);
+      if (b.status === "confirmed" && b.check_in >= monthStart) acc.gross += Number(b.sale_price ?? 0);
       acc.nights += nightsBetween(b.check_in, b.check_out);
       return acc;
     },
@@ -173,7 +174,7 @@ export default async function ClientBookingsPage({
           <p className="display num relative text-xl md:text-2xl font-semibold mt-2 truncate text-ink-primary">
             {formatPKR(totals.gross)}
           </p>
-          <p className="relative text-[11px] text-ink-muted mt-1">Stays checking in this month</p>
+          <p className="relative text-[11px] text-ink-muted mt-1">Confirmed stays checking in this month</p>
         </div>
         <div className="card card-hover overflow-hidden relative p-4 md:p-5 border-hostello-gold/30">
           <span

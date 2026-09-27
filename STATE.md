@@ -1,6 +1,12 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Bookings page gross is confirmed-only** (2026-09-27). The owner Bookings &
+  Payouts "Gross revenue" now sums confirmed stays checking in this month
+  (caption says so). Every income figure — dashboards, Stats, Profit, this —
+  is now one rule: confirmed, whole, in the check-in month. The list, "Nights
+  booked" and the statement still show every non-cancelled stay touching the
+  month. Lint and build clean; page not rendered.
 - **Dashboards count confirmed stays only** (2026-09-27). Admin and owner
   dashboards: the KPI row (bookings count, gross, payout, awaiting settlement),
   its last-month comparison and the revenue-period chart now take
