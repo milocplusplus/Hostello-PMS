@@ -429,6 +429,121 @@ export function ordinal(n: number): string {
   return `${n}${s}`;
 }
 
+// ── Budgets ──────────────────────────────────────────────────────────────────
+//
+// A monthly limit on a category, across everything or on one unit. The daily
+// job (`notify_expense_alerts()` in SQL) sends the alert; the page shows where
+// each one stands. `budgetSpent` is the rule both must agree on.
+
+export type ExpenseBudget = {
+  id: string;
+  amount: number;
+  categoryId: string;
+  categoryName: string;
+  /** Null is the whole category: every unit and the general bills together. */
+  propertyId: string | null;
+  propertyName: string | null;
+  /** Confirmed spend in the month on screen, by bill date. */
+  spent: number;
+};
+
+/** What counts against a budget: confirmed, in the category, and on its unit
+ *  when it has one. Same rule as `notify_expense_alerts()`. */
+export function budgetSpent(
+  budget: { categoryId: string; propertyId: string | null },
+  expenses: { amount: number; categoryId: string; propertyId: string | null }[]
+): number {
+  return expenses
+    .filter(
+      (e) =>
+        e.categoryId === budget.categoryId &&
+        (budget.propertyId === null || e.propertyId === budget.propertyId)
+    )
+    .reduce((sum, e) => sum + e.amount, 0);
+}
+
+/** An owner's budgets with what the month has spent against each, the whole
+ *  category before its units, then by category. */
+export async function listBudgets(
+  supabase: SupabaseClient,
+  clientId: string,
+  month: { year: number; month0: number }
+): Promise<ExpenseBudget[]> {
+  const { start, end } = monthBounds(month.year, month.month0);
+
+  const [{ data: budgets }, { data: spend }] = await Promise.all([
+    supabase
+      .from("expense_budgets")
+      .select("id, amount, category_id, property_id, expense_categories(name), properties(name)")
+      .eq("client_id", clientId),
+    supabase
+      .from("expenses")
+      .select("amount, category_id, property_id")
+      .eq("client_id", clientId)
+      .eq("confirmed", true)
+      .gte("incurred_on", start)
+      .lte("incurred_on", end),
+  ]);
+
+  const expenses = (spend ?? []).map((e) => ({
+    amount: Number(e.amount),
+    categoryId: e.category_id as string,
+    propertyId: e.property_id as string | null,
+  }));
+
+  type BudgetRow = {
+    id: string;
+    amount: number | string;
+    category_id: string;
+    property_id: string | null;
+    expense_categories: { name: string } | null;
+    properties: { name: string } | null;
+  };
+
+  return ((budgets ?? []) as unknown as BudgetRow[])
+    .map((b) => {
+      const scope = { categoryId: b.category_id, propertyId: b.property_id };
+      return {
+        id: b.id,
+        amount: Number(b.amount),
+        categoryId: b.category_id,
+        categoryName: b.expense_categories?.name ?? "Uncategorised",
+        propertyId: b.property_id,
+        propertyName: b.property_id ? (b.properties?.name ?? "Unit") : null,
+        spent: budgetSpent(scope, expenses),
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.categoryName.localeCompare(b.categoryName) ||
+        (a.propertyName === null ? -1 : b.propertyName === null ? 1 : a.propertyName.localeCompare(b.propertyName))
+    );
+}
+
+export function readBudgetForm(
+  formData: FormData
+): { ok: true; value: { amount: number; categoryId: string; propertyId: string | null } } | { ok: false; error: string } {
+  const text = (key: string) => (formData.get(key) as string | null)?.trim() || null;
+
+  const amount = Number(text("amount"));
+  const categoryId = text("category_id");
+  const unit = text("property_id");
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { ok: false, error: "Enter a monthly limit — more than zero." };
+  }
+  if (!categoryId) return { ok: false, error: "Pick a category." };
+
+  return {
+    ok: true,
+    value: {
+      amount: Math.round(amount * 100) / 100,
+      categoryId,
+      propertyId: unit && unit !== "general" ? unit : null,
+    },
+  };
+}
+
 export type RecurringInput = {
   amount: number;
   dayOfMonth: number;

@@ -88,6 +88,11 @@ Pre-launch: real data has not been entered yet.
   and expenses meet. Income is confirmed stays' `client_payout` by
   **check-in month** (not the overlap window Stats uses); per unit through
   `unitShares()` in `statement-report.ts`. It never re-derives a split.
+  **Budgets** (`/client/expenses/budgets`, table `expense_budgets`) are a
+  monthly limit per category, whole category or one unit.
+  `notify_expense_alerts()` on cron `hostello-expense-alerts` sends
+  `expense_budget_crossed`, and `expense_running_high` for unbudgeted
+  categories; `budgetSpent()` is the rule the page shares with that job.
 - `src/app/{admin,client}/settlements/**` + `src/lib/owed.ts` — **Settlements:
   both directions on one screen, two tabs (`?tab=to-hostello|to-client`).**
   `owed.ts` is settlement only — it adds up what is owed and subtracts what has

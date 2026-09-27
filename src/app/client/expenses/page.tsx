@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BellRing, Plus, Repeat, Tags, X } from "lucide-react";
+import { BellRing, Plus, Repeat, Tags, Target, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { formatDayMonth, formatMonthLabel, formatMonthParam, parseMonthParam } from "@/lib/calendar";
@@ -77,6 +77,10 @@ export default async function ClientExpensesPage({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <Link href={`/client/expenses/budgets?month=${monthStr}`} className="btn btn-ghost btn-sm">
+            <Target size={13} />
+            Budgets
+          </Link>
           <Link href="/client/expenses/recurring" className="btn btn-ghost btn-sm">
             <Repeat size={13} />
             Recurring

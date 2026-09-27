@@ -1,6 +1,25 @@
-# State — updated 2026-09-26
+# State — updated 2026-09-27
 
 ## Done
+- **Owner expenses, phase 4 — budgets and alerts** (2026-09-27). Details in
+  `docs/expenses.md` under Phase 4. All four phases are now built.
+  - Migration `20260927090000_add_expense_budgets`, **applied to the live
+    DB** (remote version `20260927082755`): `expense_budgets`,
+    `notify_expense_alerts()` (EXECUTE: postgres + service_role only) and cron
+    `hostello-expense-alerts` at `10 2 * * *`.
+  - Verified in one rolled-back transaction on the live DB, migration
+    included: 3 alerts out of a seeded month (whole-category budget crossed
+    this month and last; an unbudgeted category at 2.0×) and silence for a
+    unit under its own limit, spend exactly at a limit, a due bill that would
+    have crossed one, a category with two months of history and one averaging
+    zero; a re-run sends 0. RLS as two real owners: own budgets only, no
+    budget on another owner's unit or client, no update/delete across, owners
+    cannot run the job; duplicate whole-category budget refused. Lint and
+    build clean. Advisors: only the new-table unused-index / two-select-policy
+    notes every expense table has.
+  - **Not verified: `/client/expenses/budgets` rendered, and a real cron
+    run.** No `.env.local` here. First run is 2026-09-28 07:10 Karachi; with no
+    expenses in the DB yet it will send nothing.
 - **Owner expenses, phase 3 — profit** (2026-09-26). Details in
   `docs/expenses.md` under Phase 3. No migration.
   - `src/lib/profit.ts` `loadProfit()`: income = `client_payout`, confirmed

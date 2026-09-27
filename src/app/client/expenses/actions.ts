@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   expenseReceiptFile,
   generatedMarker,
+  readBudgetForm,
   readExpenseForm,
   readRecurringForm,
   removeExpenseReceipt,
@@ -328,4 +329,71 @@ export async function deleteRecurring(formData: FormData) {
 
   revalidateExpenses(client.id);
   redirect(recurringUrl());
+}
+
+// ── Budgets ──────────────────────────────────────────────────────────────────
+
+function budgetsUrl(month: string | null, extra: Record<string, string> = {}) {
+  const params = new URLSearchParams();
+  if (month) params.set("month", month);
+  for (const [k, v] of Object.entries(extra)) params.set(k, v);
+  const q = params.toString();
+  return `/client/expenses/budgets${q ? `?${q}` : ""}`;
+}
+
+/**
+ * Sets a limit, or changes one when the form carries its id. Only the amount
+ * changes on an existing budget — another category or unit is another budget.
+ */
+export async function saveBudget(formData: FormData) {
+  const id = (formData.get("id") as string) || null;
+  const month = (formData.get("month") as string) || null;
+  const fail: (error: string) => never = (error) => redirect(budgetsUrl(month, { error }));
+
+  const read = readBudgetForm(formData);
+  if (!read.ok) fail(read.error);
+  const input = read.value;
+
+  const supabase = await createClient();
+  const { user, client } = await ownClient(supabase);
+  if (!client) fail("Only a property owner can set budgets.");
+
+  const now = new Date().toISOString();
+  const { error } = id
+    ? await supabase.from("expense_budgets").update({ amount: input.amount, updated_at: now }).eq("id", id)
+    : await supabase.from("expense_budgets").insert({
+        client_id: client.id,
+        category_id: input.categoryId,
+        property_id: input.propertyId,
+        amount: input.amount,
+        created_by: user?.id ?? null,
+      });
+
+  if (error) {
+    fail(
+      error.code === "23505"
+        ? "That category already has a budget there — change its limit instead."
+        : error.code === "42501"
+          ? "That unit or category isn't one of yours."
+          : error.message
+    );
+  }
+
+  revalidateExpenses(client.id);
+  redirect(budgetsUrl(month));
+}
+
+export async function deleteBudget(formData: FormData) {
+  const id = formData.get("id") as string;
+  const month = (formData.get("month") as string) || null;
+
+  const supabase = await createClient();
+  const { client } = await ownClient(supabase);
+  if (!client) redirect(budgetsUrl(month, { error: "Only a property owner can remove budgets." }));
+
+  const { error } = await supabase.from("expense_budgets").delete().eq("id", id);
+  if (error) redirect(budgetsUrl(month, { error: error.message }));
+
+  revalidateExpenses(client.id);
+  redirect(budgetsUrl(month));
 }

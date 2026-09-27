@@ -18,6 +18,8 @@ import {
   Percent,
   Receipt,
   ReceiptText,
+  Target,
+  TrendingUp,
   TriangleAlert,
   Wallet,
   type LucideIcon,
@@ -94,6 +96,9 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // An owner's recurring bill came due (generate_due_expenses, in SQL). Owner
   // only: it is their own books, and nothing in it is Hostello's to act on.
   expense_due: ReceiptText,
+  // Both from notify_expense_alerts(), in SQL. Owner only, for the same reason.
+  expense_budget_crossed: Target,
+  expense_running_high: TrendingUp,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -145,8 +150,13 @@ export function notificationHref(
   }
 
   // A due bill is confirmed from the Expenses page, whatever month it is from.
+  // A crossed budget is looked at, and changed, on Budgets; a category running
+  // high is best seen on the Profit tab, next to the months before it.
   if (row.kind?.startsWith("expense_")) {
-    return portal === "admin" ? "/admin/notifications" : "/client/expenses";
+    if (portal === "admin") return "/admin/notifications";
+    if (row.kind === "expense_budget_crossed") return "/client/expenses/budgets";
+    if (row.kind === "expense_running_high") return "/client/expenses?view=profit";
+    return "/client/expenses";
   }
 
   if (portal === "admin") {

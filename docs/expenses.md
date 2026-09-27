@@ -79,8 +79,26 @@ The plan as agreed:
   revenue period, which share the overlap window) moves to check-in month so
   every page agrees. Not done as part of this feature.
 
-## Phase 4 — budgets and alerts
-- `expense_budgets`: monthly limit per category, unit optional.
-- Alert when a budget is crossed; where no budget is set, alert when a
-  category runs well above its 3-month average — only once three months of
-  history exist. Both via the daily cron, keyed per client/category/month.
+## Phase 4 — budgets and alerts (built)
+- `expense_budgets`: monthly limit per category, unit optional. **No unit is
+  the whole category** — every unit and the general bills together; a unit's
+  budget counts that unit only. One per category per unit, plus one for the
+  whole category (`nulls not distinct`). Unlike expenses, budgets cascade when
+  their unit or category goes: a limit on nothing is no record.
+- Set, re-limit and remove at `/client/expenses/budgets` (month nav; spent vs
+  limit per budget). Changing the category or unit is a new budget. The admin
+  can read them by RLS but has no page for them.
+- `notify_expense_alerts()` on pg_cron `hostello-expense-alerts`, 02:10 UTC
+  (07:10 Karachi), over **this month and last** — a bill logged on the 30th's
+  evening is only seen on the 1st. Confirmed expenses by bill date, as
+  everywhere; `budgetSpent()` in `src/lib/expenses.ts` is the page's copy of
+  the rule.
+  - **Crossed** is spent *above* the limit, not at it →
+    `expense_budget_crossed`, links to Budgets.
+  - **Running high**, only for a category with no budget at any level: the
+    month above **1.5×** the average of the three months before it, once the
+    category's first expense is in or before the third month back and that
+    average is above zero → `expense_running_high`, links to the Profit tab.
+- `event_key` is per client / category / unit (`all` for none) / month, so
+  each is told once a month. Inserted directly like `expense_due`: bell and
+  Realtime, no push.
