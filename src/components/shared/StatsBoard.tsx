@@ -63,16 +63,17 @@ export function StatsBoard({
     <div className="flex flex-col gap-3 md:gap-4">
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {tiles.map((t) => (
-          <div key={t.label} className="card p-4 md:p-5 flex gap-3.5">
+          <div key={t.label} className="card p-4 md:p-5 flex flex-col md:flex-row gap-2.5 md:gap-3.5">
             <span
-              className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+              className="w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center shrink-0"
               style={{ backgroundColor: t.tint }}
             >
               <t.icon size={20} strokeWidth={2} className={t.ink} />
             </span>
             <div className="min-w-0">
-              <p className="text-xs text-ink-secondary">{t.label}</p>
-              <p className="text-xl md:text-2xl font-semibold mt-0.5 text-ink-primary truncate">
+              <p className="text-xs font-bold text-ink-muted">{t.label}</p>
+              {/* Icon above on a phone, so a seven-figure sum has the tile to itself */}
+              <p className="num text-lg md:text-2xl font-extrabold mt-0.5 text-ink-primary truncate">
                 {t.value}
               </p>
             </div>

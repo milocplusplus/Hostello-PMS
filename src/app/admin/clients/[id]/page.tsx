@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound } from "lucide-react";
+import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import {
@@ -90,29 +90,33 @@ export default async function ClientDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link href="/admin/clients" className="text-ink-muted text-xs hover:text-ink-secondary">
-          ← Clients
-        </Link>
-      </div>
+      <Link
+        href="/admin/clients"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-muted hover:text-hostello-purple-light transition-colors w-fit"
+      >
+        <ArrowLeft size={14} />
+        Clients
+      </Link>
 
       {error && <p className={errorBanner}>{error}</p>}
       {notice && <p className={noticeBanner}>{notice}</p>}
 
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <Avatar name={clientRecord.name} size={48} />
-          <div>
-            <h1 className="text-2xl">{clientRecord.name}</h1>
-            <div className="flex items-center gap-3 text-ink-secondary text-sm mt-1">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4 min-w-0">
+          <Avatar name={clientRecord.name} size={52} />
+          <div className="min-w-0">
+            <h1 className="text-2xl truncate">{clientRecord.name}</h1>
+            {/* Stacked on a phone: an email and a phone side by side don't fit. */}
+            <div className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-3 text-ink-secondary text-sm mt-1 min-w-0">
               {clientRecord.contact_email && (
-                <span className="flex items-center gap-1.5">
-                  <Mail size={13} /> {clientRecord.contact_email}
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <Mail size={13} className="shrink-0" />
+                  <span className="truncate">{clientRecord.contact_email}</span>
                 </span>
               )}
               {clientRecord.contact_phone && (
                 <span className="flex items-center gap-1.5">
-                  <Phone size={13} /> {clientRecord.contact_phone}
+                  <Phone size={13} className="shrink-0" /> {clientRecord.contact_phone}
                 </span>
               )}
               {!clientRecord.contact_email && !clientRecord.contact_phone && (
@@ -121,27 +125,31 @@ export default async function ClientDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href={`/admin/clients/${id}/bookings/new`}
-            className="btn btn-gold btn-sm"
-          >
-            <ReceiptText size={13} strokeWidth={2.5} />
-            Add booking
+        {/* Four equal tiles on a phone, a row of buttons on a desk. */}
+        <div className="grid grid-cols-4 gap-2 md:flex md:items-center">
+          <Link href={`/admin/clients/${id}/bookings/new`} className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs gradient-gold text-surface-0`}>
+            <ReceiptText size={18} strokeWidth={2.4} />
+            Booking
           </Link>
-          <Link href={`/admin/clients/${id}/expenses`} className={secondaryButton}>
+          <Link href={`/admin/clients/${id}/expenses`} className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs card`}>
+            <Receipt size={18} className="text-hostello-purple-light" />
             Expenses
           </Link>
-          <Link href={`/admin/clients/${id}/edit`} className={secondaryButton}>
-            Edit client
+          <Link href={`/admin/clients/${id}/edit`} className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs card`}>
+            <Pencil size={18} className="text-hostello-purple-light" />
+            Edit
           </Link>
-          <form action={deleteClientRecord}>
+          <form action={deleteClientRecord} className="contents">
             <input type="hidden" name="id" value={id} />
             <ConfirmDeleteButton
               confirmText={`Delete ${clientRecord.name}? This will also delete all of their properties. This cannot be undone.`}
               busy="Deleting the client and their properties…"
-              className="text-xs text-status-booked border border-status-booked/30 rounded-md px-3 py-1.5 hover:bg-status-booked/10 transition-colors"
-            />
+              label="Delete client"
+              className={`flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs w-full border border-status-booked/35 text-status-booked bg-status-booked/10`}
+            >
+              <Trash2 size={18} />
+              Delete
+            </ConfirmDeleteButton>
           </form>
         </div>
       </header>

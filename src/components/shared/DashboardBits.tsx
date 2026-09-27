@@ -261,8 +261,10 @@ export function StayRow({
       <span className="flex-1 min-w-0">
         <span className="block text-[15px] font-extrabold truncate">{guestName ?? "Guest"}</span>
         <span className="block text-xs text-ink-secondary truncate">
-          {[subtitle, units || "—"].filter(Boolean).join(" · ")} · {formatDayMonth(checkIn)} –{" "}
-          {formatDayMonth(checkOut)}
+          {[subtitle, units || "—"].filter(Boolean).join(" · ")}
+        </span>
+        <span className="block text-[11px] font-bold text-ink-muted">
+          {formatDayMonth(checkIn)} – {formatDayMonth(checkOut)}
         </span>
       </span>
       <span className="flex flex-col items-end gap-1.5 shrink-0">

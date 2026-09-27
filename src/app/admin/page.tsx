@@ -265,7 +265,7 @@ export default async function AdminDashboard({
 
   return (
     <div className="flex flex-col gap-6 stagger">
-      <header className="flex items-center gap-3">
+      <header className="relative z-20 flex items-center gap-3">
         <Avatar name={profile?.full_name ?? "Hostello"} size={46} />
         <div className="flex-1 min-w-0">
           <p className="text-[13px] text-ink-secondary">{greeting()}</p>

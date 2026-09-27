@@ -474,7 +474,7 @@ export default async function CalendarPage({
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {monthNav}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap">
             {[
               { icon: Building2, value: visible.length, label: "units" },
               { icon: Users, value: clients.length, label: "clients" },
@@ -482,14 +482,14 @@ export default async function CalendarPage({
             ].map((c) => (
               <span
                 key={c.label}
-                className="card inline-flex items-center gap-2 h-10 px-3.5 rounded-full text-xs font-bold"
+                className="card shrink-0 inline-flex items-center gap-2 h-10 px-3.5 rounded-full text-xs font-bold"
               >
                 <c.icon size={14} className="text-hostello-purple-light" />
                 <span className="num text-ink-primary">{c.value}</span>
                 <span className="text-ink-muted">{c.label}</span>
               </span>
             ))}
-            <span className="pill-active inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-xs font-extrabold">
+            <span className="pill-active shrink-0 inline-flex items-center gap-1.5 h-10 px-3.5 rounded-full text-xs font-extrabold">
               <span className="num">{pct}%</span> booked
             </span>
           </div>

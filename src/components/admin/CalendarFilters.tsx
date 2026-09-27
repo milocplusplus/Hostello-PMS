@@ -5,7 +5,7 @@ import { startNavProgress } from "@/components/shared/NavProgress";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
-  "field shrink-0 pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
+  "field h-10 md:h-auto w-full md:w-auto rounded-xl pl-3 pr-7 py-1.5 text-xs text-ink-secondary truncate appearance-none bg-[length:10px] bg-[right_0.6rem_center] bg-no-repeat";
 
 const caret =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%237c7789' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>\")";
@@ -42,10 +42,10 @@ export function CalendarFilters({
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  // One sideways-scrolling row on a phone — wrapping put four selects on two
-  // rows and pushed the board itself below the fold. Unchanged from md up.
+  // A 2×2 grid of full-width selects on a phone: the sideways-scrolling row it
+  // replaced cut every select off mid-word. Unchanged from md up.
   return (
-    <div className="flex items-center gap-2 min-w-0 overflow-x-auto md:flex-wrap md:overflow-visible">
+    <div className="grid grid-cols-2 gap-2 flex-1 min-w-0 md:flex md:flex-none md:flex-wrap">
       <select
         aria-label="Client"
         value={client}

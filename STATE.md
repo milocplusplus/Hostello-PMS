@@ -1,6 +1,18 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin on a phone, walked through signed in** (2026-09-27). Checked at
+  375px: dashboard, calendar (overview + one client), bookings, Money (both
+  tabs + send), clients (+ one client), today, check-ins, find dates, stats,
+  activity, rate requests, staff, channel calendars / inbox, block dates, new
+  booking, More sheet. Fixed: the Add booking menu opened *under* the revenue
+  card (each `.stagger` child is its own stacking context — the header now
+  has `relative z-20`; **any in-page dropdown inside a stagger child needs
+  the same**); the client page's four action buttons ran off the right edge
+  (now a 4-tile grid on a phone); calendar and bookings filters are a 2×2
+  grid of full-width selects on a phone instead of a clipped sideways row;
+  the calendar overview's stat chips scroll in one row; `StayRow` dates got
+  their own line; Stats tiles stack the icon so money isn't truncated.
 - **Phone lag fix** (2026-09-27). Owner reported pop-ups lagging on a phone.
   Removed every `backdrop-blur` from components (fixed top bar and tab bar are
   near-opaque instead; sheet / dialog scrims are darker; banner chips are

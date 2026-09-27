@@ -6,7 +6,7 @@ import { Search, X } from "lucide-react";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
-  "field pl-2.5 pr-7 py-1.5 text-xs text-ink-secondary appearance-none bg-[length:10px] bg-[right_0.5rem_center] bg-no-repeat";
+  "field h-10 md:h-auto w-full md:w-auto rounded-xl pl-3 pr-7 py-1.5 text-xs text-ink-secondary truncate appearance-none bg-[length:10px] bg-[right_0.6rem_center] bg-no-repeat";
 
 const caret =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%237c7789' stroke-width='1.5'><path d='M1 1l4 4 4-4'/></svg>\")";
@@ -39,16 +39,16 @@ export function BookingFilters({
   }
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:flex-wrap">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           const value = (new FormData(e.currentTarget).get("q") as string) ?? "";
           update("q", value.trim());
         }}
-        className="relative w-full sm:w-auto"
+        className="relative col-span-2 md:col-span-1"
       >
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
         {/* Uncontrolled, keyed on the URL value so back/clear resets it. */}
         <input
           key={q}
@@ -56,7 +56,7 @@ export function BookingFilters({
           defaultValue={q}
           placeholder="Search guest name…"
           aria-label="Search bookings by guest name"
-          className="field pl-7 pr-7 py-1.5 text-xs w-full sm:w-52"
+          className="field h-10 md:h-auto rounded-xl pl-8 pr-7 py-1.5 text-xs w-full md:w-52"
         />
         {q && (
           <button
@@ -104,7 +104,7 @@ export function BookingFilters({
         aria-label="Filter by status"
         value={status}
         onChange={(e) => update("status", e.target.value)}
-        className={selectClass}
+        className={`${selectClass} col-span-2 md:col-span-1`}
         style={{ backgroundImage: caret }}
       >
         <option value="">Confirmed &amp; tentative</option>
