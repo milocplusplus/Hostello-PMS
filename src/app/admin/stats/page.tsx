@@ -24,9 +24,8 @@ export default async function AdminStatsPage({
 
   const period = periodRange(parsePeriod(periodParam), todayISO());
 
-  // A stay counts whole in the month it checks in — the rule the Profit tab and
-  // the dashboards use. Confirmed only, though: a tentative stay is not money
-  // made, so Stats is stricter than the dashboards.
+  // A confirmed stay counts whole in the month it checks in — the rule the Profit
+  // tab and the dashboards use. A tentative stay is not money made.
   let windowQuery = supabase
     .from("bookings_v")
     .select("check_in, check_out, source, sale_price, hostello_share, client_payout")

@@ -1,13 +1,21 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Dashboards count confirmed stays only** (2026-09-27). Admin and owner
+  dashboards: the KPI row (bookings count, gross, payout, awaiting settlement),
+  its last-month comparison and the revenue-period chart now take
+  `status = 'confirmed'` only, as Stats and Profit do. Occupancy, the
+  activity lists and the calendar data keep tentative stays — a tentative stay
+  still holds its nights. The dashboards, Stats and the Profit tab now give the
+  same income for a month. **Not changed:** the owner Bookings page's gross
+  still includes tentative stays. Lint and build clean; pages not rendered.
 - **Dashboards count money by check-in month** (2026-09-27). Admin and owner
   dashboards: the KPI row (bookings, gross, payout, "awaiting settlement this
   month") now uses the stays that *check in* this month, last month's
   comparison too, and the revenue-period chart queries check-in in the period.
   The month query itself stays the overlap window — occupancy needs every
   night — and the money is filtered from it (`monthStays`), no extra query.
-  Still counts tentative stays, as before; Stats is confirmed only. The owner
+  Tentative stays were still counted then (confirmed only since — above). The owner
   Bookings & Payouts page's "Gross revenue" followed the same day: it sums only
   the listed stays that check in this month (labelled "Stays checking in this
   month"); the list, "Nights booked" and the statement still cover every stay
@@ -1522,10 +1530,9 @@ reassign the alias, so nothing broke.
     `StatsClientSelect` puts one client in `?client=` and the server filters.
   - `src/app/client/stats/page.tsx` — the owner's own bookings only.
   - Both reuse `PeriodSelect` / `periodRange` (`?period=`). Originally the same overlap
-    window as the dashboards — **since 2026-09-27, check-in month instead** (`check_in ≤ end AND check_out ≥ start`) — but
-    **confirmed only**, where the dashboards count everything non-cancelled. A
-    tentative stay is not money made. That is a deliberate difference and the
-    page says so in a footnote, so it does not read as a bug.
+    window as the dashboards — **since 2026-09-27, check-in month instead**, and
+    **confirmed only** (the dashboards followed on both counts the same day). A
+    tentative stay is not money made; the footnote says so.
   - **Hostello earns nothing on owner self-sourced stays** (`payout.ts` has always
     zeroed `hostello_share` for `source = 'client'`). Its gross still counts in the
     admin's Total revenue, but the row says "Hostello earns nothing on these"

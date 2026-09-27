@@ -139,7 +139,7 @@ export default async function AdminDashboard({
     supabase
       .from("bookings_v")
       .select("sale_price")
-      .neq("status", "cancelled")
+      .eq("status", "confirmed")
       .gte("check_in", prevStart)
       .lte("check_in", prevEnd),
     supabase
@@ -163,22 +163,25 @@ export default async function AdminDashboard({
     supabase
       .from("bookings_v")
       .select("check_in, sale_price")
-      .neq("status", "cancelled")
+      .eq("status", "confirmed")
       .gte("check_in", period.start)
       .lte("check_in", period.end),
     supabase
       .from("bookings_v")
       .select("sale_price")
-      .neq("status", "cancelled")
+      .eq("status", "confirmed")
       .gte("check_in", period.prevStart)
       .lte("check_in", period.prevEnd),
   ]);
 
   // ── Revenue ────────────────────────────────────────────────────────────────
-  // A stay counts whole in the month it checks in — the rule Stats and the
-  // Profit tab use. `monthBookings` is the overlap window because occupancy
-  // needs every night in the month; the money is the part of it that checked in.
-  const monthStays = (monthBookings ?? []).filter((b) => b.check_in >= monthStart);
+  // A confirmed stay counts whole in the month it checks in — the rule Stats and
+  // the Profit tab use; a tentative stay is not money made. `monthBookings` is
+  // the overlap window, tentative included, because occupancy needs every night
+  // held in the month; the money is the confirmed part of it that checked in.
+  const monthStays = (monthBookings ?? []).filter(
+    (b) => b.status === "confirmed" && b.check_in >= monthStart
+  );
   const grossThisMonth = monthStays.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const awaiting = monthStays.reduce(
