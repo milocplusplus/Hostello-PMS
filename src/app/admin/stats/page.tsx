@@ -24,20 +24,21 @@ export default async function AdminStatsPage({
 
   const period = periodRange(parsePeriod(periodParam), todayISO());
 
-  // The same overlap window every other money page uses. Confirmed only, though —
-  // a tentative stay is not money made, so Stats is stricter than the dashboards.
+  // A stay counts whole in the month it checks in, confirmed only — the rule the
+  // Profit tab uses, so the two agree. The dashboards and the Bookings page still
+  // use the overlap window, and count tentative stays too.
   let windowQuery = supabase
     .from("bookings_v")
     .select("check_in, check_out, source, sale_price, hostello_share, client_payout")
     .eq("status", "confirmed")
-    .lte("check_in", period.end)
-    .gt("check_out", period.start);
+    .gte("check_in", period.start)
+    .lte("check_in", period.end);
   let prevQuery = supabase
     .from("bookings_v")
     .select("sale_price")
     .eq("status", "confirmed")
-    .lte("check_in", period.prevEnd)
-    .gt("check_out", period.prevStart);
+    .gte("check_in", period.prevStart)
+    .lte("check_in", period.prevEnd);
   if (client) {
     windowQuery = windowQuery.eq("client_id", client);
     prevQuery = prevQuery.eq("client_id", client);
@@ -53,12 +54,12 @@ export default async function AdminStatsPage({
   const { total, sources } = statsBySource(rows);
   const prevGross = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
 
-  // Cumulative daily series: each booking lands on its check-in day, clamped into
-  // the window, so the last point equals the total above it.
+  // Cumulative daily series: each booking lands on its check-in day, which is
+  // inside the window, so the last point equals the total above it.
   const dayIndex = new Map(period.days.map((d, i) => [d, i]));
   const perDay = new Array(period.days.length).fill(0);
   for (const b of rows) {
-    const i = dayIndex.get(b.check_in > period.start ? b.check_in : period.start) ?? 0;
+    const i = dayIndex.get(b.check_in) ?? 0;
     perDay[i] += Number(b.sale_price ?? 0);
   }
   const series = perDay.map(((sum) => (v: number) => (sum += v))(0));

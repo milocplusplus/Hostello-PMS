@@ -1,6 +1,13 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Stats counts by check-in month** (2026-09-27). Both Stats pages now take
+  confirmed stays with `check_in` inside the period (current and comparison
+  window), whole — the rule `profit.ts` uses — instead of the overlap window.
+  The chart no longer clamps (every check-in is in the window). Footnotes on
+  Stats and the Profit tab say so. **Not moved:** the dashboards' KPI row and
+  revenue-period chart, and the Bookings page — still overlap, still counting
+  tentative stays. Lint and build clean; pages not rendered (no `.env.local`).
 - **Owner expenses, phase 4 — budgets and alerts** (2026-09-27). Details in
   `docs/expenses.md` under Phase 4. All four phases are now built.
   - Migration `20260927090000_add_expense_budgets`, **applied to the live
@@ -36,9 +43,8 @@
   - **Not verified: the Profit tab and the PDF pages rendered.** The PDF's two
     new pages are canvas drawing and have never been drawn; pull a statement
     for a month with a few expenses and look at the last pages.
-  - **Stats still uses the overlap window.** Moving Stats / dashboards to
-    check-in month is the separate change the spec names — until then the
-    Profit tab's footnote explains the difference.
+  - Stats moved to check-in month on 2026-09-27 (see above); the dashboards
+    have not.
 - **Owner expenses, phase 2 — recurring bills** (2026-09-26). Details in
   `docs/expenses.md` under Phase 2.
   - Migration `20260926120000_add_recurring_expenses`, **applied to the live
@@ -1504,8 +1510,8 @@ reassign the alias, so nothing broke.
   - `src/app/admin/stats/page.tsx` — whole portfolio by default;
     `StatsClientSelect` puts one client in `?client=` and the server filters.
   - `src/app/client/stats/page.tsx` — the owner's own bookings only.
-  - Both reuse `PeriodSelect` / `periodRange` (`?period=`) and the same overlap
-    window as the dashboards (`check_in ≤ end AND check_out ≥ start`) — but
+  - Both reuse `PeriodSelect` / `periodRange` (`?period=`). Originally the same overlap
+    window as the dashboards — **since 2026-09-27, check-in month instead** (`check_in ≤ end AND check_out ≥ start`) — but
     **confirmed only**, where the dashboards count everything non-cancelled. A
     tentative stay is not money made. That is a deliberate difference and the
     page says so in a footnote, so it does not read as a bug.

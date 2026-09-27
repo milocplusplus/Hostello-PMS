@@ -132,7 +132,10 @@ export function StatsBoard({
         )}
 
         <div className="border-t border-border-hairline pt-3 flex flex-col gap-1 text-[11px] text-ink-muted">
-          <p>Confirmed bookings only — tentative and cancelled stays are left out.</p>
+          <p>
+            Confirmed bookings only, each counted in full in the month it checks in. Tentative and
+            cancelled stays are left out.
+          </p>
           {variant === "admin" && passedThrough > 0 && (
             <p>
               <span className="text-ink-secondary">{formatPKR(passedThrough)}</span> of the total is

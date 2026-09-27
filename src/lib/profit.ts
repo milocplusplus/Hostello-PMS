@@ -11,8 +11,8 @@ import { unitShares, type ReportRow } from "./statement-report";
  *   when the stay was written. Nothing here re-derives a split. Confirmed stays
  *   only (a tentative stay is not money made), and a stay counts whole in the
  *   month it **checks in** — not spread over the nights, and not the overlap
- *   window Stats and the statement's first page use. That difference is known
- *   and is labelled wherever both appear.
+ *   window the dashboards and the statement's first page use. Stats uses this
+ *   same rule. The difference is known and is labelled wherever both appear.
  * - **Expenses** are confirmed expenses by bill date. A due bill is in nothing.
  * - Per unit, a stay on several units is split by `unitShares`, the statement's
  *   own rule, so the units add up to the total.

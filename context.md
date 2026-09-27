@@ -86,7 +86,8 @@ Pre-launch: real data has not been entered yet.
   `generatedMarker()` is the one rule the app must share with that job.
   **Profit** is `src/lib/profit.ts` `loadProfit()` — the only place income
   and expenses meet. Income is confirmed stays' `client_payout` by
-  **check-in month** (not the overlap window Stats uses); per unit through
+  **check-in month** — Stats uses the same rule; the dashboards and Bookings
+  page still use the overlap window. Per unit through
   `unitShares()` in `statement-report.ts`. It never re-derives a split.
   **Budgets** (`/client/expenses/budgets`, table `expense_budgets`) are a
   monthly limit per category, whole category or one unit.

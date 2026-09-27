@@ -240,9 +240,9 @@ export function ProfitBoard({ profit }: { profit: MonthProfit }) {
 
       <p className="text-[11px] text-ink-muted">
         Payout here is your share of <strong className="font-medium">confirmed</strong> stays, counted
-        in full in the month the guest checks in. Stats and the Bookings page count every stay
-        that overlaps the month (Bookings includes tentative ones too), so their figure for a month
-        can differ from this one. Hostello&apos;s commission is not shown.
+        in full in the month the guest checks in, as on Stats. The Bookings page counts every stay
+        that overlaps the month, tentative ones too, so its figure for a month can differ from
+        this one. Hostello&apos;s commission is not shown.
       </p>
     </div>
   );
