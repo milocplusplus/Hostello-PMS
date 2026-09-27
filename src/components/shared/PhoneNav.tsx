@@ -60,7 +60,7 @@ export function TabBar({
     <nav
       data-tabbar
       aria-label="Main"
-      className="md:hidden fixed z-30 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[4.5rem] rounded-[26px] bg-surface-1/90 backdrop-blur-xl border border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] grid grid-cols-5 items-center px-1"
+      className="md:hidden fixed z-30 left-3 right-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] h-[4.5rem] rounded-[26px] bg-surface-1/[0.97] border border-white/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.85)] grid grid-cols-5 items-center px-1"
     >
       {tabs.map((t) => {
         const active = isActive(pathname, t.href, t.exact);
@@ -125,7 +125,7 @@ export function MoreSheet({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

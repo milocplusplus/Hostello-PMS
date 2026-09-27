@@ -315,7 +315,7 @@ export function AdminShell({
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-0/85 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-4 py-3 safe-topbar">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-surface-0/95 border-b border-white/5 flex items-center justify-between px-4 py-3 safe-topbar">
         <Logo />
         {showBell && (
           <NotificationBell

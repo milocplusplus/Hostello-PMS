@@ -223,7 +223,7 @@ export default async function BookingsPage({
             nextHref={monthHref(nextYear, nextMonth0)}
           />
         )}
-        <div className="card p-2 rounded-2xl min-w-0 max-w-full">
+        <div className="card p-2 rounded-2xl min-w-0 w-full md:w-auto">
           <BookingFilters
             clients={clientOptions ?? []}
             q={q}

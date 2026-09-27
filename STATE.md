@@ -1,6 +1,16 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Phone lag fix** (2026-09-27). Owner reported pop-ups lagging on a phone.
+  Removed every `backdrop-blur` from components (fixed top bar and tab bar are
+  near-opaque instead; sheet / dialog scrims are darker; banner chips are
+  plain dark), and under 768px `.glass` has no backdrop filter and the
+  ambient light, login orbs and hero sheen don't animate. Rule going forward:
+  **no backdrop blur on anything fixed, full-screen, or repeated in a list.**
+  Admin phone fit, first pass: the dashboard's Add booking split button is
+  icon-only on a phone, the bookings filters take the full width, and the bell
+  panel is solid and up to `100vw - 2rem`. Login seen on a phone. Admin pages
+  still to be walked through with an admin session.
 - **UI redesign, phase 7 of 7: property photos** (2026-09-27). Three
   migrations, **applied to the live DB**: `20260927150000_property_photos`
   (`properties.photo_path`, `properties_v` exposes it — still

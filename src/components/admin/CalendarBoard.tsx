@@ -264,7 +264,7 @@ function QuickAddBooking({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto p-4 sm:p-8 animate-fade"
+      className="fixed inset-0 z-50 bg-black/75 overflow-y-auto p-4 sm:p-8 animate-fade"
       onClick={onClose}
       role="presentation"
     >

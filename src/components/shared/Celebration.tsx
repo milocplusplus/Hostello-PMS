@@ -50,10 +50,10 @@ export function Celebration({ amount }: { amount: number }) {
           role="dialog"
           aria-modal
           aria-label="Payment received"
-          className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-5 px-6 overflow-hidden backdrop-blur-md"
+          className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-5 px-6 overflow-hidden"
           style={{
             background:
-              "radial-gradient(circle at 50% 34%, rgba(147,51,234,0.6), rgba(7,6,12,0.97) 62%)",
+              "radial-gradient(circle at 50% 34%, rgba(88,28,135,0.97), rgba(7,6,12,0.99) 62%)",
           }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

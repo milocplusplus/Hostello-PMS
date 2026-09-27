@@ -9,7 +9,7 @@ function Uploading() {
   const { pending } = useFormStatus();
   if (!pending) return null;
   return (
-    <span className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-black/55 backdrop-blur-sm text-sm font-bold text-white">
+    <span className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-black/65 text-sm font-bold text-white">
       <Loader2 size={18} className="animate-spin" />
       Uploading…
     </span>
@@ -23,7 +23,7 @@ function RemoveButton() {
       type="submit"
       disabled={pending}
       aria-label="Remove photo"
-      className="btn h-10 w-10 p-0 rounded-xl bg-black/45 backdrop-blur-sm text-white"
+      className="btn h-10 w-10 p-0 rounded-xl bg-black/55 text-white"
     >
       {pending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
     </button>

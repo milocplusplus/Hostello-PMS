@@ -58,12 +58,12 @@ export function BookingHero({
           <Home size={180} strokeWidth={1} className="absolute -right-6 -top-8 text-white/20" aria-hidden />
         )}
         <div className="relative flex items-center justify-between gap-3">
-          <Link href={backHref} aria-label="Back" className={`${round} bg-black/35 backdrop-blur-sm text-white`}>
+          <Link href={backHref} aria-label="Back" className={`${round} bg-black/45 text-white`}>
             <ArrowLeft size={20} />
           </Link>
           <span className="flex items-center gap-2">
             {status !== "confirmed" && (
-              <span className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-[11px] font-extrabold capitalize text-status-pending">
+              <span className="px-2.5 py-1 rounded-full bg-black/55 text-[11px] font-extrabold capitalize text-status-pending">
                 {status}
               </span>
             )}
@@ -82,7 +82,7 @@ export function BookingHero({
                 {u.detail && <span className="text-white/70"> · {u.detail}</span>}
               </>
             );
-            const cls = "px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-xs text-white";
+            const cls = "px-2.5 py-1 rounded-full bg-black/55 text-xs text-white";
             return u.href ? (
               <Link key={u.id} href={u.href} className={`${cls} hover:bg-black/60`}>
                 {chip}

@@ -35,10 +35,11 @@ export function AddBookingMenu({ isOwner = true }: { isOwner?: boolean }) {
       <div className="flex items-center rounded-xl overflow-hidden gradient-gold shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_10px_28px_-10px_rgba(201,164,76,0.7)] transition-transform duration-150 hover:-translate-y-0.5">
         <Link
           href="/admin/bookings/new"
-          className="flex items-center gap-1.5 pl-4 pr-3 py-2.5 text-sm font-semibold text-surface-0"
+          aria-label="Add booking"
+          className="flex items-center gap-1.5 pl-3.5 md:pl-4 pr-3 py-3 md:py-2.5 text-sm font-semibold text-surface-0"
         >
           <Plus size={16} strokeWidth={2.5} />
-          Add booking
+          <span className="hidden md:inline">Add booking</span>
         </Link>
         <button
           type="button"

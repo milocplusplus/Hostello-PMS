@@ -299,6 +299,24 @@ h3 {
   }
 }
 
+/* Phones pay for every blur and every never-ending animation on each frame,
+   and it showed as lag whenever a sheet or pop-up opened over them. Below the
+   desktop breakpoint the chrome is solid and the ambient light holds still. */
+@media (max-width: 767px) {
+  .glass,
+  .glass-deep {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--color-surface-1) 96%, transparent);
+  }
+
+  body::before,
+  .orb,
+  .card-hero::after {
+    animation: none;
+  }
+}
+
 /* 100vh ignores the browser's collapsing address bar and cuts off the bottom of
    full-height screens on a phone. dvh tracks it. */
 @supports (height: 100dvh) {

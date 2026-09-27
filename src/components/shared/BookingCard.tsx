@@ -68,7 +68,7 @@ export function StayBar({
 /** Channel as a dot and a short name, on a dark chip that reads over any tint. */
 export function ChannelChip({ source }: { source: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-[11px] font-extrabold text-white">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/55 text-[11px] font-extrabold text-white">
       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sourceColor(source) }} />
       {(sourceLabel(source) ?? "Other").split(/[ (]/)[0]}
     </span>
@@ -129,7 +129,7 @@ export function BookingCard({
               aria-hidden
             />
           )}
-          <span className="relative min-w-0 truncate px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm text-xs font-bold text-white">
+          <span className="relative min-w-0 truncate px-2.5 py-1 rounded-full bg-black/55 text-xs font-bold text-white">
             {units || "No unit"}
           </span>
           <span className="relative shrink-0">

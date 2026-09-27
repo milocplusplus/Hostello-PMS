@@ -46,7 +46,7 @@ export function NotificationBell({
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           {/* Right-anchored to the bell, so the width has to leave room for
               whatever sits to its right on a phone. */}
-          <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-6rem))] card z-50 overflow-hidden animate-in">
+          <div className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] card bg-surface-1 z-50 overflow-hidden animate-in">
             <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border-hairline">
               <p className="text-sm font-medium">Notifications</p>
               {unreadCount > 0 && (

@@ -83,7 +83,7 @@ export function BusyScreen({
       aria-label={label}
       /* No fade: this exists to answer a press immediately, and 200ms of
          ramp-up is 200ms of the silence it is meant to end. */
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-6"
     >
       <div className="card px-6 py-5 flex items-center gap-3.5 max-w-xs">
         <span className="text-hostello-gold">

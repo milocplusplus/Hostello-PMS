@@ -40,7 +40,7 @@ export default async function LoginPage({
 
         <form
           action={login}
-          className="card rounded-[28px] p-6 md:p-7 flex flex-col gap-4 backdrop-blur-xl"
+          className="card rounded-[28px] p-6 md:p-7 flex flex-col gap-4"
         >
           <label className="relative block">
             <span className="sr-only">Email</span>
