@@ -54,7 +54,19 @@ money goes.
   is set null) and removes the ones still due. Templates live at
   `/client/expenses/recurring` (+ `[id]`); the admin does not see them.
 
-## Phase 3 — profit and insights
+## Phase 3 — profit and insights (built)
+Built as a **Profit tab** on `/client/expenses` (`?view=profit`,
+`components/client/ProfitBoard.tsx`), all figures from `loadProfit()` in
+`src/lib/profit.ts`. The multi-unit split is `unitShares()`, exported from
+`statement-report.ts` so the statement's unit bars and profit per unit are one
+rule. A month before the owner's first recorded expense shows no expense
+figure and no profit ("not recorded"), never a profit of everything. The
+statement CSV and PDF (owner's and admin's alike) gain an expenses section and
+a profit summary only when `profit.recorded`, and a month with expenses but no
+stays can now be exported. The admin's read-only expense view has no Profit
+tab.
+
+The plan as agreed:
 - Income is `client_payout` from `bookings_v`, **confirmed stays only**,
   attributed to the **check-in month**. Profit = income − expenses, per unit and
   overall, in one helper — never a second copy of the split (`payout.ts` stays

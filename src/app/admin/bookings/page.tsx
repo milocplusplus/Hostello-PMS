@@ -14,6 +14,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { StatementPdf } from "@/components/shared/StatementPdf";
 import { statementFilename } from "@/lib/statement";
 import { buildStatementReport, type ReportRow } from "@/lib/statement-report";
+import { loadProfit } from "@/lib/profit";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -102,20 +103,28 @@ export default async function BookingsPage({
         .order("check_in")
     : Promise.resolve({ data: [] as unknown[] });
 
-  const [{ data: bookings }, { data: clientOptions }, { data: clientUnits }, { data: statementRows }] =
-    await Promise.all([
-      query,
-      supabase.from("clients_v").select("id, name").order("name"),
-      wantsStatement
-        ? supabase
-            .from("properties")
-            .select("id, name")
-            .eq("client_id", client)
-            .eq("status", "active")
-            .order("name")
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-      statementQuery,
-    ]);
+  const [
+    { data: bookings },
+    { data: clientOptions },
+    { data: clientUnits },
+    { data: statementRows },
+    statementProfit,
+  ] = await Promise.all([
+    query,
+    supabase.from("clients_v").select("id, name").order("name"),
+    wantsStatement
+      ? supabase
+          .from("properties")
+          .select("id, name")
+          .eq("client_id", client)
+          .eq("status", "active")
+          .order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    statementQuery,
+    // The owner's own expenses, so the admin's copy of the statement stays the
+    // same document as the one the owner pulls.
+    wantsStatement ? loadProfit(supabase, client, { year, month0 }, 1) : Promise.resolve(null),
+  ]);
 
   const rows = bookings ?? [];
 
@@ -155,6 +164,7 @@ export default async function BookingsPage({
         days: visibleDates,
         clientName: statementClientName,
         monthLabel: formatMonthLabel(year, month0),
+        profit: statementProfit,
       })
     : null;
 
@@ -184,7 +194,10 @@ export default async function BookingsPage({
                 /\.csv$/,
                 ".pdf"
               )}
-              disabled={statementReport.rows.length === 0}
+              disabled={
+                statementReport.rows.length === 0 &&
+                !(statementReport.profit?.recorded && statementReport.profit.items.length > 0)
+              }
             />
           ) : (
             <p className="text-[11px] text-ink-muted max-w-[14rem] text-right">

@@ -15,6 +15,7 @@ import { StatementExport } from "@/components/shared/StatementExport";
 import { buildStatementCsv, statementFilename, type StatementRow } from "@/lib/statement";
 import { StatementPdf } from "@/components/shared/StatementPdf";
 import { buildStatementReport, type ReportRow } from "@/lib/statement-report";
+import { loadProfit } from "@/lib/profit";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -46,7 +47,7 @@ export default async function ClientBookingsPage({
 
   // Independent of each other, so one round trip rather than two — the
   // database is in Sydney and sequential calls are what makes a page feel slow.
-  const [{ data: bookings }, { data: properties }] = await Promise.all([
+  const [{ data: bookings }, { data: properties }, profit] = await Promise.all([
     supabase
       .from("bookings_v")
       .select(
@@ -67,6 +68,9 @@ export default async function ClientBookingsPage({
       .eq("client_id", clientRecord.id)
       .eq("status", "active")
       .order("name"),
+    // Their own expenses, for the statement's last section. It appears only
+    // when this month is inside their records (`profit.recorded`).
+    loadProfit(supabase, clientRecord.id, { year, month0 }, 1),
   ]);
 
   // Counts about the stays, not a ledger: your payout and whether it has
@@ -86,6 +90,7 @@ export default async function ClientBookingsPage({
   const statementCsv = buildStatementCsv((bookings ?? []) as unknown as StatementRow[], {
     clientName: clientRecord.name,
     monthLabel,
+    profit,
   });
   const statementName = statementFilename(
     clientRecord.name,
@@ -97,7 +102,10 @@ export default async function ClientBookingsPage({
     days: visibleDates,
     clientName: clientRecord.name,
     monthLabel,
+    profit,
   });
+  // A month with no stays but recorded expenses still has something to report.
+  const nothingToReport = (bookings ?? []).length === 0 && !(profit.recorded && profit.items.length > 0);
 
   const { year: prevYear, month0: prevMonth0 } = addMonths(year, month0, -1);
   const { year: nextYear, month0: nextMonth0 } = addMonths(year, month0, 1);
@@ -113,12 +121,12 @@ export default async function ClientBookingsPage({
           <StatementPdf
             report={report}
             filename={statementName.replace(/\.csv$/, ".pdf")}
-            disabled={(bookings ?? []).length === 0}
+            disabled={nothingToReport}
           />
           <StatementExport
             csv={statementCsv}
             filename={statementName}
-            disabled={(bookings ?? []).length === 0}
+            disabled={nothingToReport}
           />
           <Link
             href="/client/bookings/new"

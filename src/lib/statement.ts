@@ -1,6 +1,7 @@
 import { nightsBetween } from "./payout";
 import { departureDate, formatShortStayWindow, rowShortStay } from "./short-stay";
 import { sourceLabel } from "./block-sources";
+import type { MonthProfit } from "./profit";
 
 /**
  * The owner's monthly statement, as a spreadsheet.
@@ -106,9 +107,41 @@ export function statementTotals(rows: StatementRow[]): StatementTotals {
   );
 }
 
+/**
+ * The owner's own expenses for the month and what that leaves — only when they
+ * keep expenses here and this month is inside their records (`profit.recorded`).
+ * Income here follows `loadProfit`'s rule (confirmed, by check-in month), not
+ * the stays table's, and the file says so rather than let the two figures be
+ * read as one.
+ */
+function expenseSection(profit: MonthProfit): (string | number | null)[][] {
+  return [
+    [],
+    ["Your expenses"],
+    ["Bill date", "Category", "Unit", "Paid to", "Status", "Amount (PKR)"],
+    ...profit.items.map((e) => [
+      e.date,
+      e.category,
+      e.unit ?? "All units",
+      e.vendor ?? "",
+      e.paid ? "Paid" : "Unpaid",
+      e.amount,
+    ]),
+    ["Total", "", "", "", "", profit.expenses],
+    [],
+    ["Profit"],
+    ["Your payout — confirmed stays checking in this month", profit.income],
+    ["Your expenses", profit.expenses],
+    ["Profit", profit.profit],
+    [
+      "Payout here counts confirmed stays in the month they check in, so it can differ from the stays total above.",
+    ],
+  ];
+}
+
 export function buildStatementCsv(
   rows: StatementRow[],
-  meta: { clientName: string; monthLabel: string }
+  meta: { clientName: string; monthLabel: string; profit?: MonthProfit | null }
 ): string {
   const totals = statementTotals(rows);
 
@@ -122,6 +155,7 @@ export function buildStatementCsv(
     // Sits under the two money columns it adds up, so a reader can see at a
     // glance that the rows above come to this.
     ["Total", "", totals.nights, "", "", "", "", "", totals.gross, totals.payout, "", ""],
+    ...(meta.profit?.recorded ? expenseSection(meta.profit) : []),
   ];
 
   // A UTF-8 BOM, because Excel reads a CSV without one as the system codepage

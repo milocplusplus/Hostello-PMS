@@ -3,6 +3,7 @@ import { nightsBetween } from "./payout";
 import { rowShortStay } from "./short-stay";
 import { sourceLabel, sourceColor } from "./block-sources";
 import { statementTotals, type StatementRow, type StatementTotals } from "./statement";
+import type { MonthProfit } from "./profit";
 
 /**
  * The owner's monthly report, shaped for drawing.
@@ -44,10 +45,38 @@ export type StatementReport = {
   sources: SourceSlice[];
   units: UnitLine[];
   rows: ReportRow[];
+  /** The owner's expenses and profit, drawn only when `profit.recorded`. */
+  profit: MonthProfit | null;
 };
 
-function unitEntries(row: ReportRow) {
+type UnitRow = Pick<
+  StatementRow,
+  "check_in" | "check_out" | "is_short_stay" | "short_stay_start" | "short_stay_end" | "client_payout"
+> & { booking_properties: ReportRow["booking_properties"] };
+
+function unitEntries(row: Pick<UnitRow, "booking_properties">) {
   return (row.booking_properties ?? []).filter((bp) => bp.properties?.name);
+}
+
+/**
+ * A stay's payout on each unit it covers, and its nights there. A stay on two
+ * units is one payout, not two: it is split evenly across them rather than
+ * counted twice, so per-unit figures still add up to the total. The statement's
+ * unit bars and the owner's profit per unit both come through here.
+ */
+export function unitShares(
+  row: UnitRow
+): { propertyId: string | null; name: string; payout: number; nights: number }[] {
+  const entries = unitEntries(row);
+  if (entries.length === 0) return [];
+  const payout = Number(row.client_payout ?? 0) / entries.length;
+  const nights = rowShortStay(row) ? 0 : nightsBetween(row.check_in, row.check_out);
+  return entries.map((bp) => ({
+    propertyId: bp.property_id ?? null,
+    name: bp.properties!.name,
+    payout,
+    nights,
+  }));
 }
 
 export function buildStatementReport(input: {
@@ -57,6 +86,7 @@ export function buildStatementReport(input: {
   days: string[];
   clientName: string;
   monthLabel: string;
+  profit?: MonthProfit | null;
 }): StatementReport {
   const { rows, properties, days, clientName, monthLabel } = input;
   const monthStart = days[0];
@@ -96,22 +126,16 @@ export function buildStatementReport(input: {
   const sources = [...bySource.values()].sort((a, b) => b.gross - a.gross);
 
   // ── Per unit ───────────────────────────────────────────────────────────────
-  // A stay on two units is one payout, not two. It is split evenly across them
-  // rather than counted twice, so the bars still add up to the month's total.
+  // Split by `unitShares`, so the bars still add up to the month's total.
   const byUnit = new Map<string, UnitLine>();
   for (const p of properties) byUnit.set(p.name, { name: p.name, nights: 0, payout: 0 });
 
   for (const r of rows) {
-    const entries = unitEntries(r);
-    if (entries.length === 0) continue;
-    const share = Number(r.client_payout ?? 0) / entries.length;
-    const nights = rowShortStay(r) ? 0 : nightsBetween(r.check_in, r.check_out);
-    for (const bp of entries) {
-      const name = bp.properties!.name;
-      const line = byUnit.get(name) ?? { name, nights: 0, payout: 0 };
-      line.nights += nights;
-      line.payout += share;
-      byUnit.set(name, line);
+    for (const share of unitShares(r)) {
+      const line = byUnit.get(share.name) ?? { name: share.name, nights: 0, payout: 0 };
+      line.nights += share.nights;
+      line.payout += share.payout;
+      byUnit.set(share.name, line);
     }
   }
   const units = [...byUnit.values()].sort((a, b) => b.payout - a.payout || a.name.localeCompare(b.name));
@@ -152,5 +176,6 @@ export function buildStatementReport(input: {
     sources,
     units,
     rows,
+    profit: input.profit ?? null,
   };
 }

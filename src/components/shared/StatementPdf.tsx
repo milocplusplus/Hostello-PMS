@@ -77,6 +77,7 @@ type Theme = {
   purpleDeep: string;
   glow: string;
   positive: string;
+  negative: string;
   line: string;
 };
 
@@ -97,6 +98,7 @@ function readTheme(): Theme {
     purpleDeep: cssVar("--color-hostello-purple-deep") || "#1c0f30",
     glow: cssVar("--color-hostello-purple-glow") || "#8b5cf6",
     positive: cssVar("--color-positive") || "#34d399",
+    negative: cssVar("--color-negative") || "#f87171",
     line: "rgba(255,255,255,0.08)",
   };
 }
@@ -615,6 +617,225 @@ function tableRow(c: CanvasRenderingContext2D, t: Theme, y: number, row: ReportR
   return y + RH;
 }
 
+// ── Expenses and profit ──────────────────────────────────────────────────────
+// Only when the owner keeps expenses here and this month is inside their
+// records (`profit.recorded`). Every figure is `loadProfit`'s; this only draws.
+
+function signedPKR(n: number) {
+  return n < 0 ? `−${formatPKR(Math.abs(n))}` : formatPKR(n);
+}
+
+/** A table whose columns from `rightFrom` on are right-aligned figures. */
+function gridHeader(
+  c: CanvasRenderingContext2D,
+  t: Theme,
+  y: number,
+  cols: number[],
+  heads: string[],
+  rightFrom: number
+) {
+  c.fillStyle = t.raised;
+  rr(c, M, y, CW, 46, 8);
+  c.fill();
+  c.fillStyle = t.muted;
+  c.font = `500 14px ${t.font}`;
+  c.letterSpacing = "1px";
+  let cx = M + PAD;
+  heads.forEach((head, i) => {
+    const right = i >= rightFrom;
+    c.textAlign = right ? "right" : "left";
+    c.fillText(head.toUpperCase(), right ? cx + cols[i] - PAD * 2 : cx, y + 30);
+    cx += cols[i];
+  });
+  c.textAlign = "left";
+  c.letterSpacing = "0px";
+  return y + 46;
+}
+
+function gridRow(
+  c: CanvasRenderingContext2D,
+  t: Theme,
+  y: number,
+  cols: number[],
+  cells: { text: string; color?: string; weight?: number }[],
+  rightFrom: number,
+  alt: boolean
+) {
+  const RH = 44;
+  if (alt) {
+    c.fillStyle = "rgba(255,255,255,0.022)";
+    c.fillRect(M, y, CW, RH);
+  }
+  c.fillStyle = t.line;
+  c.fillRect(M, y + RH - 1, CW, 1);
+  let cx = M + PAD;
+  cells.forEach((cell, i) => {
+    const right = i >= rightFrom;
+    c.font = `${cell.weight ?? 400} 16px ${t.font}`;
+    c.fillStyle = cell.color ?? t.dim;
+    c.textAlign = right ? "right" : "left";
+    c.fillText(clip(c, cell.text, cols[i] - PAD * 2), right ? cx + cols[i] - PAD * 2 : cx, y + 28);
+    cx += cols[i];
+  });
+  c.textAlign = "left";
+  return y + RH;
+}
+
+const UNIT_COLS = [300, 170, 170, 170, 110, 160];
+const UNIT_HEADS = ["Unit", "Payout", "Expenses", "Profit", "Nights", "Cost / night"];
+/** Unit rows that fit under the tiles; the rest are counted, not dropped silently. */
+const UNIT_ROWS_MAX = 22;
+
+const ITEM_COLS = [150, 250, 230, 250, 100, 100];
+const ITEM_HEADS = ["Bill date", "Category", "Unit", "Paid to", "Status", "Amount"];
+const ITEMS_PER_PAGE = 28;
+
+function profitSummaryPage(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, top: number) {
+  const p = r.profit!;
+
+  c.fillStyle = t.ink;
+  c.font = `500 26px ${t.font}`;
+  c.fillText("Your expenses and profit", M, top + 62);
+  c.fillStyle = t.muted;
+  c.font = `400 15px ${t.font}`;
+  c.fillText(
+    "Payout here counts confirmed stays in the month they check in, so it can differ from page 1.",
+    M,
+    top + 92
+  );
+
+  const tw = (CW - 40) / 3;
+  const ty = top + 120;
+  tile(c, t, M, ty, tw, 140, "Your payout", formatPKR(p.income), plural(p.stays, "confirmed stay"), t.gold);
+  tile(c, t, M + tw + 20, ty, tw, 140, "Expenses", formatPKR(p.expenses), plural(p.items.length, "expense"), t.glow);
+  tile(
+    c,
+    t,
+    M + (tw + 20) * 2,
+    ty,
+    tw,
+    140,
+    "Profit",
+    signedPKR(p.profit),
+    p.profit < 0 ? "Costs came to more than payout" : "Payout less expenses",
+    p.profit < 0 ? t.negative : t.positive
+  );
+
+  let y = gridHeader(c, t, ty + 180, UNIT_COLS, UNIT_HEADS, 1);
+  const shown = p.units.slice(0, UNIT_ROWS_MAX);
+  shown.forEach((u, i) => {
+    y = gridRow(
+      c,
+      t,
+      y,
+      UNIT_COLS,
+      [
+        { text: u.name, color: t.ink },
+        { text: formatPKR(u.income) },
+        { text: formatPKR(u.expenses) },
+        { text: signedPKR(u.profit), color: u.profit < 0 ? t.negative : t.positive, weight: 500 },
+        { text: String(u.nights) },
+        { text: u.costPerNight === null ? "—" : formatPKR(Math.round(u.costPerNight)) },
+      ],
+      1,
+      i % 2 === 1
+    );
+  });
+  if (p.units.length > shown.length) {
+    c.fillStyle = t.muted;
+    c.font = `400 15px ${t.font}`;
+    c.fillText(`+ ${plural(p.units.length - shown.length, "more unit")} in the totals below`, M + PAD, y + 28);
+    y += 44;
+  }
+  if (p.generalExpenses > 0) {
+    y = gridRow(
+      c,
+      t,
+      y,
+      UNIT_COLS,
+      [
+        { text: "All units / general" },
+        { text: "—", color: t.muted },
+        { text: formatPKR(p.generalExpenses) },
+        { text: signedPKR(-p.generalExpenses), color: t.negative, weight: 500 },
+        { text: "—", color: t.muted },
+        { text: "—", color: t.muted },
+      ],
+      1,
+      shown.length % 2 === 1
+    );
+  }
+
+  c.fillStyle = t.raised;
+  rr(c, M, y + 14, CW, 52, 8);
+  c.fill();
+  let cx = M + PAD;
+  const totals = ["Total", formatPKR(p.income), formatPKR(p.expenses), signedPKR(p.profit)];
+  totals.forEach((text, i) => {
+    c.font = `500 17px ${t.font}`;
+    c.fillStyle = i === 3 ? (p.profit < 0 ? t.negative : t.positive) : i === 0 ? t.ink : t.dim;
+    c.textAlign = i === 0 ? "left" : "right";
+    c.fillText(text, i === 0 ? cx : cx + UNIT_COLS[i] - PAD * 2, y + 46);
+    cx += UNIT_COLS[i];
+  });
+  c.textAlign = "left";
+
+  c.fillStyle = t.muted;
+  c.font = `400 15px ${t.font}`;
+  c.fillText(
+    "A stay on several units is split evenly between them. Cost per night is a unit's expenses over the nights it sold.",
+    M,
+    y + 110
+  );
+}
+
+function expenseItemsPage(
+  c: CanvasRenderingContext2D,
+  t: Theme,
+  r: StatementReport,
+  top: number,
+  items: NonNullable<StatementReport["profit"]>["items"],
+  last: boolean
+) {
+  const p = r.profit!;
+  c.fillStyle = t.ink;
+  c.font = `500 26px ${t.font}`;
+  c.fillText("Every expense this month", M, top + 62);
+
+  let y = gridHeader(c, t, top + 92, ITEM_COLS, ITEM_HEADS, 4);
+  items.forEach((e, i) => {
+    y = gridRow(
+      c,
+      t,
+      y,
+      ITEM_COLS,
+      [
+        { text: formatDayMonth(e.date) },
+        { text: e.category, color: t.ink },
+        { text: e.unit ?? "All units" },
+        { text: e.vendor ?? "—" },
+        { text: e.paid ? "Paid" : "Unpaid", color: e.paid ? t.dim : t.gold },
+        { text: formatPKR(e.amount), color: t.goldBright, weight: 500 },
+      ],
+      4,
+      i % 2 === 1
+    );
+  });
+
+  if (last) {
+    c.fillStyle = t.raised;
+    rr(c, M, y + 14, CW, 52, 8);
+    c.fill();
+    c.fillStyle = t.ink;
+    c.font = `500 17px ${t.font}`;
+    c.fillText("Total", M + PAD, y + 46);
+    c.textAlign = "right";
+    c.fillStyle = t.goldBright;
+    c.fillText(formatPKR(p.expenses), W - M - PAD, y + 46);
+    c.textAlign = "left";
+  }
+}
+
 export type RenderOptions = {
   /** Leave the units that sold nothing out of the per-unit panel. */
   soldOnly?: boolean;
@@ -631,7 +852,15 @@ export async function renderStatementPages(
 
   const ROWS_FIRST = 0;
   const PER_PAGE = 28;
-  const pageCount = 1 + Math.max(1, Math.ceil(r.rows.length / PER_PAGE));
+  // The expense pages come last: a summary, then the itemised list if any.
+  const itemChunks: NonNullable<StatementReport["profit"]>["items"][] = [];
+  if (r.profit?.recorded) {
+    for (let i = 0; i < r.profit.items.length; i += ITEMS_PER_PAGE) {
+      itemChunks.push(r.profit.items.slice(i, i + ITEMS_PER_PAGE));
+    }
+  }
+  const profitPages = r.profit?.recorded ? 1 + itemChunks.length : 0;
+  const pageCount = 1 + Math.max(1, Math.ceil(r.rows.length / PER_PAGE)) + profitPages;
 
   // ── Page one: the month at a glance ───────────────────────────────────────
   {
@@ -745,6 +974,20 @@ export async function renderStatementPages(
     footer(c, t, r, ci + 2, pageCount);
     canvases.push(canvas);
   });
+
+  if (r.profit?.recorded) {
+    const { canvas, c } = page(t);
+    profitSummaryPage(c, t, r, masthead(c, t, r, true));
+    footer(c, t, r, canvases.length + 1, pageCount);
+    canvases.push(canvas);
+
+    itemChunks.forEach((items, i) => {
+      const { canvas, c } = page(t);
+      expenseItemsPage(c, t, r, masthead(c, t, r, true), items, i === itemChunks.length - 1);
+      footer(c, t, r, canvases.length + 1, pageCount);
+      canvases.push(canvas);
+    });
+  }
 
   void ROWS_FIRST;
   return Promise.all(

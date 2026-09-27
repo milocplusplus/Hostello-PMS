@@ -84,6 +84,10 @@ Pre-launch: real data has not been entered yet.
   them as `confirmed = false` expenses, which count in no total until the
   owner confirms. `last_generated_month` is the idempotency key, and
   `generatedMarker()` is the one rule the app must share with that job.
+  **Profit** is `src/lib/profit.ts` `loadProfit()` — the only place income
+  and expenses meet. Income is confirmed stays' `client_payout` by
+  **check-in month** (not the overlap window Stats uses); per unit through
+  `unitShares()` in `statement-report.ts`. It never re-derives a split.
 - `src/app/{admin,client}/settlements/**` + `src/lib/owed.ts` — **Settlements:
   both directions on one screen, two tabs (`?tab=to-hostello|to-client`).**
   `owed.ts` is settlement only — it adds up what is owed and subtracts what has

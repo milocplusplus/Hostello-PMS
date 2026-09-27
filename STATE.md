@@ -1,6 +1,25 @@
 # State — updated 2026-09-26
 
 ## Done
+- **Owner expenses, phase 3 — profit** (2026-09-26). Details in
+  `docs/expenses.md` under Phase 3. No migration.
+  - `src/lib/profit.ts` `loadProfit()`: income = `client_payout`, confirmed
+    stays, whole in the **check-in month**; expenses = confirmed, by bill date;
+    per unit via `unitShares()` (now exported from `statement-report.ts` and
+    used by the statement's unit bars too). Profit tab on `/client/expenses`;
+    the statement CSV + PDF get an expenses section and profit summary.
+  - Verified: `loadProfit` run under Node type-stripping against a fake client
+    that honours the filters — 16 checks (multi-unit split, a stay crossing
+    month end counted whole in its check-in month, tentative / cancelled / due
+    excluded, idle unit shown at zero, cost per night, vendors grouped
+    case-insensitively, vs-last-month, trend with "not recorded" months, a
+    month before the first record). CSV output inspected. Lint and build clean.
+  - **Not verified: the Profit tab and the PDF pages rendered.** The PDF's two
+    new pages are canvas drawing and have never been drawn; pull a statement
+    for a month with a few expenses and look at the last pages.
+  - **Stats still uses the overlap window.** Moving Stats / dashboards to
+    check-in month is the separate change the spec names — until then the
+    Profit tab's footnote explains the difference.
 - **Owner expenses, phase 2 — recurring bills** (2026-09-26). Details in
   `docs/expenses.md` under Phase 2.
   - Migration `20260926120000_add_recurring_expenses`, **applied to the live
