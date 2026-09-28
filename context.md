@@ -166,6 +166,14 @@ Pre-launch: real data has not been entered yet.
   (`/admin/clients/[id]/rates`, admin): stack rate, short-stay stack rate,
   max guests — set / ± amount / ± % (money rounded to 100);
   `src/lib/bulk-rates.ts` `adjusted()` is the one rule for preview and save.
+- **Excel export** (admin, on `/admin/stats`) — `ExportPanel` (quick picks,
+  from/to, client) calls the `exportData` Server Action
+  (`app/admin/stats/actions.ts`), which reads bookings (by check-in),
+  payments both ways (by filing date, with allocated totals), owner expenses
+  (by incurred date), clients and units, paging past PostgREST's 1,000-row
+  cap, and logs `log_export()` to the audit log. Guest names in, phones out.
+  The browser builds the file with `src/lib/xlsx.ts` — a ~150-line
+  stored-zip SpreadsheetML writer, no dependency (verified opening in Excel).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

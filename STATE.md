@@ -1,6 +1,14 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 7 of 9: Excel export** (2026-09-28). Owner's choices:
+  bookings, payments, owner expenses, clients & units; one .xlsx, a sheet
+  each; date range + one client or all + quick picks; download only; on
+  the Stats page; guest names without phones; admin only; audit-logged.
+  Migration `audit_export` **applied to the live DB**. The writer's output
+  was opened in Excel via COM (2 sheets, escaping, numbers, booleans OK).
+  Stats page renders the panel. **Not clicked** — an export writes a
+  permanent audit line, left for the owner's first real one.
 - **Admin controls 6 of 9: bulk actions** (2026-09-28). Owner's choices:
   in the existing pages; bulk block (clashing units skipped and named) and
   bulk unblock; bulk status confirm / hold / cancel (cancel needs the count

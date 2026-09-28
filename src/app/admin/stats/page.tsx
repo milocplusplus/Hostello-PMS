@@ -11,6 +11,8 @@ import { StatsBoard } from "@/components/shared/StatsBoard";
 import { StatsClientSelect } from "@/components/admin/StatsClientSelect";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ExportPanel } from "@/components/admin/ExportPanel";
+import { exportData } from "./actions";
 
 export default async function AdminStatsPage({
   searchParams,
@@ -93,6 +95,8 @@ export default async function AdminStatsPage({
           </p>
         )}
       </section>
+
+      <ExportPanel today={todayISO()} clients={clients ?? []} initialClient={client} action={exportData} />
     </div>
   );
 }

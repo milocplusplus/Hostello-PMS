@@ -171,6 +171,8 @@ export function auditSentence(e: AuditEntry): string {
       return "removed a login's access";
     case "access_restored":
       return "restored a login's access";
+    case "exported":
+      return "exported data to Excel";
     case "viewed_portal":
       return "viewed an owner's portal (read-only)";
   }
