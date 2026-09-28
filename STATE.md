@@ -1,6 +1,26 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 2: matching and shared room types** (2026-09-28).
+  Migration `channel_ids_and_matching` **applied to the live DB**:
+  `properties.airbnb_listing_id` / `booking_hotel_id` / `booking_room_type`
+  (+ `properties_v`), `record_ota_message` routes by them, files duplicates
+  and already-booked codes as `ignored` silently, and the Booking.com count
+  triggers. New `/admin/clients/[id]/channels` page ("Channel listings" on
+  the client page). Inbox: one approval form for pending *and* unmatched
+  mails with a unit picker (building's units, taken ones marked), calendar
+  line, extranet link, guests, departure filled from the hold; approval
+  passes `from_block` and links the listing number to the unit. Removed the
+  separate "Map to this property" step, and fixed `blockers()` greying out
+  Approve over a price the form asked for. Sale price now defaults to the
+  host payout. **Tested:** SQL cases rolled back on the live DB (route by
+  number, building → pick, duplicate, unknown, lower/raise on create /
+  date change / cancel, none for Booking.com's own or own-type units,
+  cancellation by code); `matchReservation` on 8 cases in Node; lint +
+  build. **Not seen rendered** — no `.env.local`, and live data has no
+  units or mails. Known gap: a shared type's iCal hold sits on whichever
+  unit its link is connected to; if the reviewer puts the guest in a
+  different flat, that hold stays unlinked.
 - **Channel inbox 1: parser rewritten against real mails** (2026-09-28). The
   owner supplied six real mails (Airbnb new / cancelled / updated / guest
   message; Booking.com new / cancelled). The old parser misread all of them
@@ -2173,7 +2193,7 @@ reassign the alias, so nothing broke.
 ## Next
 0. **Channel inbox — the owner's plan (agreed 2026-09-28).** Part 1 (parser)
    is done; the rest, in order:
-   - **Matching:** route by `listing_id`, not title; approving takes over the
+   - **Matching (done, part 2):** route by `listing_id`, not title; approving takes over the
      imported iCal hold (today it clashes with it — `approveReservation` never
      passes `from_block`); each card says whether the calendar agrees; a
      second mail with the same code files under the first; fallback match on
@@ -2181,9 +2201,13 @@ reassign the alias, so nothing broke.
      a missing-details list.
    - **Booking.com shared room types stay shared** (owner's choice). One
      `hotel_id` = a building, and several flats can share one room type and
-     one calendar, so neither mail nor iCal names the flat: the card asks
-     staff to pick a free unit of that type. Needs a room-type grouping
-     (not modelled yet). Booking.com mails carry only code + `hotel_id` +
+     one calendar, so neither mail nor iCal names the flat: the card
+     pre-selects the first free unit of that type and staff confirm or
+     change it. Room types are tagged on the client's units page, with the
+     Booking.com property id once per client (not modelled yet). A Hostello
+     booking on a shared type raises a to-do for staff to lower that type's
+     availability on Booking.com by hand. Owner is checking whether
+     Booking.com offers an iCal link for a shared type. Booking.com mails carry only code + `hotel_id` +
      subject date (read as arrival — **unconfirmed**, the only sample was
      same-day); guest and price are typed from the extranet link.
    - **One-tap changes:** cancellations and date changes apply through the

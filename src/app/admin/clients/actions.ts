@@ -602,3 +602,82 @@ export async function setClientNotices(formData: FormData) {
   revalidatePath(`/admin/clients/${id}`);
   redirect(`/admin/clients/${id}?notice=${encodeURIComponent("Notification rules saved.")}#notices`);
 }
+
+// ── Channel ids ──────────────────────────────────────────
+
+/**
+ * A channel's number for a listing, from the number itself or from a link
+ * pasted out of the channel — `airbnb.com/rooms/123…`, or an extranet URL with
+ * `hotel_id=…`. Undefined for something that is neither.
+ */
+function channelNumber(raw: FormDataEntryValue | null, patterns: RegExp[]): string | null | undefined {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  if (/^\d{4,25}$/.test(value)) return value;
+  for (const re of patterns) {
+    const m = value.match(re);
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
+/**
+ * The numbers Airbnb and Booking.com know each of a client's units by, and
+ * which units share a Booking.com room type. The channel inbox routes mail by
+ * these; `record_ota_message` reads them in SQL.
+ */
+export async function saveChannelIds(formData: FormData) {
+  await requireOwner();
+  const clientId = formData.get("client_id") as string;
+  const ids = [...new Set(formData.getAll("unit_ids").map(String))];
+  const back = (params: Record<string, string>): never =>
+    redirect(`/admin/clients/${clientId}/channels?${new URLSearchParams(params).toString()}`);
+
+  const supabase = await createClient();
+  const { data: units } = await supabase
+    .from("properties")
+    .select("id, name, airbnb_listing_id, booking_hotel_id, booking_room_type")
+    .eq("client_id", clientId)
+    .in("id", ids);
+
+  const changes: { id: string; name: string; patch: Record<string, string | null> }[] = [];
+
+  for (const u of units ?? []) {
+    const airbnb = channelNumber(formData.get(`airbnb_${u.id}`), [/rooms\/(\d+)/, /listings\/(\d+)/]);
+    const hotel = channelNumber(formData.get(`hotel_${u.id}`), [/hotel_id=(\d+)/]);
+    const roomType = String(formData.get(`type_${u.id}`) ?? "").trim().replace(/\s+/g, " ") || null;
+
+    if (airbnb === undefined) back({ error: `${u.name}: that isn't an Airbnb listing number or link.` });
+    if (hotel === undefined) back({ error: `${u.name}: that isn't a Booking.com property ID or link.` });
+    if (roomType && !hotel) {
+      back({ error: `${u.name}: a shared room type needs the Booking.com property ID too.` });
+    }
+
+    const patch: Record<string, string | null> = {};
+    if ((airbnb ?? null) !== u.airbnb_listing_id) patch.airbnb_listing_id = airbnb ?? null;
+    if ((hotel ?? null) !== u.booking_hotel_id) patch.booking_hotel_id = hotel ?? null;
+    if (roomType !== u.booking_room_type) patch.booking_room_type = roomType;
+    if (Object.keys(patch).length > 0) changes.push({ id: u.id, name: u.name, patch });
+  }
+
+  for (const c of changes) {
+    const { error } = await supabase.from("properties").update(c.patch).eq("id", c.id);
+    if (error) {
+      back({
+        error:
+          error.code === "23505"
+            ? `${c.name}: another unit already has that Airbnb listing number.`
+            : `${c.name}: ${error.message}`,
+      });
+    }
+  }
+
+  revalidatePath(`/admin/clients/${clientId}/channels`);
+  revalidatePath("/admin/channel-inbox");
+  back({
+    notice:
+      changes.length === 0
+        ? "Nothing changed."
+        : `Saved ${changes.length} unit${changes.length === 1 ? "" : "s"}.`,
+  });
+}

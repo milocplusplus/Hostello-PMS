@@ -93,6 +93,9 @@ const KIND_ICON: Record<string, LucideIcon> = {
   channel_sync_stopped: TriangleAlert,
   channel_export_unread: TriangleAlert,
   channel_sync_recovered: BadgeCheck,
+  // A flat in a shared Booking.com room type was filled or freed some other
+  // way; staff move Booking.com's count by hand (trigger, in SQL).
+  booking_com_count: CalendarCog,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the

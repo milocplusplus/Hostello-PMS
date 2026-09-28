@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { createBookingInline, cancelBooking } from "@/app/admin/bookings/actions";
+import { sourceLabel } from "@/lib/block-sources";
 import type { ParsedReservation } from "@/lib/ota";
 
 /**
@@ -90,11 +91,11 @@ export async function approveReservation(formData: FormData) {
   }
 
   const property_id = ((formData.get("property_id") as string) || message.property_id || "").trim();
-  if (!property_id) redirect(backTo({ error: "Pick the property this reservation is for." }));
+  if (!property_id) redirect(backTo({ error: "Pick the unit this reservation is for." }));
 
   const { data: property } = await supabase
     .from("properties_v")
-    .select("client_id, name")
+    .select("client_id, name, airbnb_listing_id, booking_hotel_id")
     .eq("id", property_id)
     .maybeSingle();
 
@@ -112,9 +113,15 @@ export async function approveReservation(formData: FormData) {
   booking.set("advance_received", "0");
   booking.set("source", message.source ?? "other");
   booking.set("status", (formData.get("status") as string) || "confirmed");
+  booking.set("guests_count", (formData.get("guests_count") as string) ?? "");
   booking.set("notes", (formData.get("notes") as string) ?? "");
   // What lets a later cancellation email find this row.
   booking.set("ota_ref", message.external_ref ?? "");
+  // The "Reserved" bar the channel's calendar already imported for this stay.
+  // The booking write honours it only on the unit being booked, over nights it
+  // actually holds — so a reviewer who picks a different unit just gets an
+  // ordinary clash check.
+  booking.set("from_block", (formData.get("from_block") as string) ?? "");
 
   const result = await createBookingInline(booking);
 
@@ -127,12 +134,48 @@ export async function approveReservation(formData: FormData) {
     property_id,
   });
 
+  const linked = await linkListing(supabase, message, property_id, property);
+
   refresh();
   redirect(
     backTo({
-      notice: `Booking added for ${property.name}. The owner has been notified.`,
+      notice:
+        `Booking added for ${property.name}. The owner has been notified.` +
+        (linked ? ` Future ${sourceLabel(message.source)} emails for this listing will find ${property.name} on their own.` : ""),
     })
   );
+}
+
+/**
+ * Teach the unit the channel's number for it, the first time a mail for it is
+ * approved — so the next mail routes itself.
+ *
+ * Only ever fills a blank: an id already set was set by someone on purpose,
+ * and a reviewer picking a unit for one Booking.com stay must not rewrite it.
+ * Admin-only by RLS (ops cannot update `properties`); for ops this quietly
+ * does nothing and the mail is still approved.
+ */
+async function linkListing(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  message: MessageRow,
+  propertyId: string,
+  property: { airbnb_listing_id: string | null; booking_hotel_id: string | null }
+): Promise<boolean> {
+  const listingId = message.parsed?.listing_id?.trim();
+  if (!listingId) return false;
+
+  const column =
+    message.source === "airbnb" ? "airbnb_listing_id" : message.source === "booking_com" ? "booking_hotel_id" : null;
+  if (!column || property[column]) return false;
+
+  const { data } = await supabase
+    .from("properties")
+    .update({ [column]: listingId })
+    .eq("id", propertyId)
+    .is(column, null)
+    .select("id");
+
+  return (data ?? []).length > 0;
 }
 
 /**
@@ -161,55 +204,6 @@ export async function applyCancellation(formData: FormData) {
 
   refresh();
   redirect(backTo({ notice: "Booking cancelled and the nights reopened." }));
-}
-
-/**
- * Point an unmatched email at a property — and, where the property has that
- * channel's calendar connected, teach the feed the listing name so the next
- * email routes itself.
- */
-export async function assignProperty(formData: FormData) {
-  const id = (formData.get("id") as string) || "";
-  const property_id = ((formData.get("property_id") as string) || "").trim();
-
-  if (!property_id) redirect(backTo({ error: "Pick a property." }));
-
-  const { supabase, message } = await loadMessage(id);
-  if (!message) redirect(backTo({ error: "That message is gone." }));
-
-  const listing = message.parsed?.listing?.trim() || null;
-
-  await supabase
-    .from("ota_messages")
-    .update({ property_id, status: "pending" })
-    .eq("id", id);
-
-  // The mapping only has somewhere to live if this property already has the
-  // channel's iCal link connected, because a feed row needs a URL.
-  let remembered = false;
-
-  if (listing && message.source) {
-    const { data: feed } = await supabase
-      .from("calendar_feeds")
-      .select("id, listing_ref")
-      .eq("property_id", property_id)
-      .eq("source", message.source)
-      .maybeSingle();
-
-    if (feed && !feed.listing_ref) {
-      await supabase.from("calendar_feeds").update({ listing_ref: listing }).eq("id", feed.id);
-      remembered = true;
-    }
-  }
-
-  refresh();
-  redirect(
-    backTo({
-      notice: remembered
-        ? `Mapped to this property, and future "${listing}" emails will route here automatically.`
-        : "Mapped to this property. Connect this property's channel calendar to have future emails route themselves.",
-    })
-  );
 }
 
 /** Not ours, a duplicate, or handled elsewhere. The raw mail is kept either way. */

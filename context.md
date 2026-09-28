@@ -152,6 +152,28 @@ Pre-launch: real data has not been entered yet.
   `src/lib/channel-health.ts` turns a row into a badge with the same
   thresholds. Shown on `/admin/calendar/feeds` only (badge, Pause/Resume,
   History).
+- **Channel inbox** (`/admin/channel-inbox`, admin + ops; payout mails
+  admin-only) — channel emails → `ota-email` edge function (`parse.ts`) →
+  `record_ota_message()` (SQL) → a card to approve. **Routing is by the
+  channel's own number**, kept on the unit: `properties.airbnb_listing_id`
+  (unique; one listing = one unit) and `booking_hotel_id` (a *building*;
+  many units share it), set on `/admin/clients/[id]/channels`
+  (`saveChannelIds`) or learnt the first time a mail for the unit is approved
+  (`linkListing`, fills blanks only). Title fragments on
+  `calendar_feeds.listing_ref` are the last-resort fallback. The same code
+  mailed twice, or a new-booking code already on a booking, is filed
+  `ignored` with a note and raises nothing. `matchReservation()` in
+  `src/lib/ota.ts` holds a new reservation up against the imported iCal holds
+  (agrees / differs / missing / no calendar), suggests the unit (the hold's,
+  else the first free one of the building) and passes the hold as
+  `from_block`, so approving writes it up instead of clashing with it.
+  **Shared Booking.com room types** (`properties.booking_room_type`): the
+  channel never says which flat, so the reviewer picks; and
+  `booking_com_count_on_link` / `_on_booking` triggers raise a staff
+  `booking_com_count` notice ("Lower/Raise Deluxe Studio on Booking.com")
+  whenever a non-Booking.com stay fills or frees such a flat (insert, unit
+  move, date change, cancel), because Booking.com's count must be moved by
+  hand.
 - **Bulk actions** — in the existing pages, one notice per owner via
   `notifyBulkSummary()` in `notify.ts`. **Block dates**: `UnitPicker` (units
   or a whole client) → `createCalendarBlock` takes `property_ids[]`, skips and

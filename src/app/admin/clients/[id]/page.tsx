@@ -335,6 +335,11 @@ export default async function ClientDetailPage({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-ink-secondary">Properties</h2>
           <div className="flex items-center gap-2">
+            {properties && properties.length > 0 && (
+              <Link href={`/admin/clients/${id}/channels`} className="btn btn-ghost btn-sm">
+                Channel listings
+              </Link>
+            )}
             {properties && properties.length > 1 && (
               <Link href={`/admin/clients/${id}/rates`} className="btn btn-ghost btn-sm">
                 Rates

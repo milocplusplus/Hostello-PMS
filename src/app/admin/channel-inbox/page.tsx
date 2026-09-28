@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
-import { formatDayMonth } from "@/lib/calendar";
+import { addDaysISO, formatDayMonth, todayISO } from "@/lib/calendar";
+import { listUnavailable } from "@/lib/availability";
 import {
   KIND_LABEL,
   STATUS_LABEL,
@@ -13,6 +14,11 @@ import {
   statusTone,
   blockers,
   currencyWarning,
+  matchReservation,
+  channelReservationUrl,
+  type ImportedHold,
+  type InboxMatch,
+  type InboxUnit,
   type OtaMessageKind,
   type OtaMessageStatus,
   type ParsedReservation,
@@ -29,7 +35,6 @@ import { SubmitButton } from "@/components/shared/Busy";
 import {
   approveReservation,
   applyCancellation,
-  assignProperty,
   dismissMessage,
   markHandled,
 } from "./actions";
@@ -62,7 +67,14 @@ type MessageRow = {
   properties: { name: string; clients: { name: string } | null } | null;
 };
 
-type PropertyRow = { id: string; name: string; clients: { name: string } | null };
+type PropertyRow = {
+  id: string;
+  name: string;
+  airbnb_listing_id: string | null;
+  booking_hotel_id: string | null;
+  booking_room_type: string | null;
+  clients: { name: string } | null;
+};
 
 function ago(iso: string): string {
   const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -107,30 +119,58 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PropertySelect({
-  properties,
-  selected,
-  required,
-}: {
-  properties: PropertyRow[];
-  selected: string | null;
-  required?: boolean;
-}) {
+/** A channel figure in the currency the channel quoted it in. */
+function money(amount: number | null | undefined, currency: string | null | undefined): string {
+  if (amount === null || amount === undefined) return "—";
+  if (!currency || currency === "PKR") return formatPKR(amount);
+  return `${currency} ${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
+function nights(from: string, toExclusive: string): string {
+  return `${formatDayMonth(from)} → ${formatDayMonth(toExclusive)}`;
+}
+
+/**
+ * What the channel's own calendar says about this stay, in one line. The mail
+ * and the iCal are two reports of one reservation; when they agree the reviewer
+ * can approve on sight, and when they do not this is where it shows.
+ */
+function CalendarLine({ row, match }: { row: MessageRow; match: InboxMatch }) {
+  const channel = sourceLabel(row.source) ?? "channel";
+  const unit = match.units.find((u) => u.id === match.hold?.property_id)?.name;
+  const hold = match.hold;
+
+  if (match.check === "agrees" && hold) {
+    return (
+      <p className="text-xs text-status-available">
+        ✓ The {channel} calendar shows this stay on {unit} (
+        {nights(hold.start_date, addDaysISO(hold.end_date, 1))}). Approving writes up that
+        reservation.
+      </p>
+    );
+  }
+  if (match.check === "differs" && hold) {
+    return (
+      <p className={errorBanner}>
+        The {channel} calendar shows {unit} held {nights(hold.start_date, addDaysISO(hold.end_date, 1))},
+        not the dates in this email. Check the reservation before approving.
+      </p>
+    );
+  }
+  if (match.check === "missing") {
+    return (
+      <p className="text-xs text-ink-muted">
+        The {channel} calendar doesn&apos;t show this stay yet. It syncs every minute — if it
+        still doesn&apos;t after that, check the listing before approving.
+      </p>
+    );
+  }
   return (
-    <select
-      name="property_id"
-      required={required}
-      defaultValue={selected ?? ""}
-      className={fieldInput}
-    >
-      <option value="">Pick a property…</option>
-      {properties.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-          {p.clients?.name ? ` · ${p.clients.name}` : ""}
-        </option>
-      ))}
-    </select>
+    <p className="text-xs text-ink-muted">
+      {row.source === "booking_com" && !match.checkOut
+        ? "No Booking.com calendar shows a stay starting that day, so the departure has to come from the reservation."
+        : `No ${channel} calendar is connected for this unit, so there is nothing to check these dates against.`}
+    </p>
   );
 }
 
@@ -155,7 +195,7 @@ export default async function ChannelInboxPage({
       .limit(60),
     supabase
       .from("properties_v")
-      .select("id, name, clients:clients_v(name)")
+      .select("id, name, airbnb_listing_id, booking_hotel_id, booking_room_type, clients:clients_v(name)")
       .eq("bookable", true)
       .order("name"),
   ]);
@@ -166,10 +206,60 @@ export default async function ChannelInboxPage({
   const rows = ((messages ?? []) as unknown as MessageRow[]).filter(
     (r) => showMoney || r.kind !== "payout"
   );
-  const properties = (props ?? []) as unknown as PropertyRow[];
+  const units: InboxUnit[] = ((props ?? []) as unknown as PropertyRow[]).map((p) => ({
+    id: p.id,
+    name: p.name,
+    clientName: p.clients?.name ?? null,
+    airbnb_listing_id: p.airbnb_listing_id,
+    booking_hotel_id: p.booking_hotel_id,
+    booking_room_type: p.booking_room_type,
+  }));
 
   const open = rows.filter((r) => OPEN_STATUSES.includes(r.status));
   const closed = rows.filter((r) => !OPEN_STATUSES.includes(r.status));
+
+  // What the channels' calendars already show, to hold each new reservation up
+  // against: imported holds nobody has written up, which units have a calendar
+  // connected, and every occupied night from the earliest arrival on.
+  const reservations = open.filter((r) => r.kind === "new_booking");
+  const earliest = reservations
+    .map((r) => r.parsed?.check_in)
+    .filter((d): d is string => Boolean(d))
+    .sort()[0];
+  const from = earliest && earliest < todayISO() ? earliest : todayISO();
+  const unitIds = units.map((u) => u.id);
+
+  const [holdsRes, feedsRes, busy] =
+    reservations.length > 0
+      ? await Promise.all([
+          supabase
+            .from("calendar_blocks")
+            .select("id, property_id, start_date, end_date, source")
+            .not("feed_id", "is", null)
+            .is("booking_id", null)
+            .gte("end_date", from),
+          supabase.from("calendar_feeds").select("property_id, source").eq("active", true),
+          listUnavailable(supabase, unitIds, { from }),
+        ])
+      : [{ data: [] }, { data: [] }, []];
+
+  const holds = (holdsRes.data ?? []) as ImportedHold[];
+  const feeds = (feedsRes.data ?? []) as { property_id: string; source: string }[];
+
+  const matches = new Map<string, InboxMatch>(
+    reservations.map((r) => [
+      r.id,
+      matchReservation({
+        source: r.source,
+        propertyId: r.property_id,
+        parsed: r.parsed ?? {},
+        allUnits: units,
+        holds,
+        unitsWithCalendar: new Set(feeds.filter((f) => f.source === r.source).map((f) => f.property_id)),
+        busy,
+      }),
+    ])
+  );
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -208,8 +298,10 @@ export default async function ChannelInboxPage({
 
       {open.map((row) => {
         const parsed = row.parsed ?? {};
-        const problems = blockers(row, parsed);
+        const problems = blockers(row);
         const currency = currencyWarning(parsed);
+        const match = matches.get(row.id);
+        const extranet = channelReservationUrl(row.source, parsed);
 
         return (
           <div key={row.id} className="card p-6 flex flex-col gap-4">
@@ -248,17 +340,54 @@ export default async function ChannelInboxPage({
               </p>
             )}
 
-            {/* ── A reservation with a property behind it: the approval form ── */}
-            {row.kind === "new_booking" && row.property_id && (
+            {/* ── A new reservation: the approval form ── */}
+            {row.kind === "new_booking" && match && (
               <form action={approveReservation} className="flex flex-col gap-4">
                 <input type="hidden" name="id" value={row.id} />
-                <input type="hidden" name="property_id" value={row.property_id} />
+                {match.hold && <input type="hidden" name="from_block" value={match.hold.id} />}
+
+                <CalendarLine row={row} match={match} />
+
+                {match.units.length === 1 ? (
+                  <input type="hidden" name="property_id" value={match.units[0].id} />
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    <label className={fieldLabel}>
+                      {row.property_id || !parsed.listing_id || row.source !== "booking_com"
+                        ? "Which unit is this?"
+                        : "Which unit gets this guest?"}
+                    </label>
+                    <select
+                      name="property_id"
+                      required
+                      defaultValue={match.unitId ?? ""}
+                      className={fieldInput}
+                    >
+                      <option value="">Pick a unit…</option>
+                      {match.units.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                          {u.booking_room_type ? ` · ${u.booking_room_type}` : ""}
+                          {!row.property_id && !parsed.listing_id && u.clientName ? ` · ${u.clientName}` : ""}
+                          {match.takenUnitIds.includes(u.id) ? " — taken on these dates" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {!row.property_id && parsed.listing_id && row.source === "airbnb" && (
+                      <p className="text-xs text-ink-muted">
+                        No unit has this Airbnb listing number yet. Approving links it to the one
+                        you pick, so the next email finds it on its own.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
                     <label className={fieldLabel}>Guest name</label>
                     <input
                       name="guest_name"
+                      required
                       defaultValue={parsed.guest_name ?? ""}
                       className={fieldInput}
                     />
@@ -266,7 +395,7 @@ export default async function ChannelInboxPage({
                   <div className="flex flex-col gap-1.5">
                     <label className={fieldLabel}>
                       Guest phone
-                      {row.source === "airbnb" && " (Airbnb masks this)"}
+                      {row.source === "airbnb" && " (Airbnb never sends it)"}
                     </label>
                     <input
                       name="guest_phone"
@@ -280,7 +409,7 @@ export default async function ChannelInboxPage({
                       type="date"
                       name="check_in"
                       required
-                      defaultValue={parsed.check_in ?? ""}
+                      defaultValue={match.checkIn ?? ""}
                       className={fieldInput}
                     />
                   </div>
@@ -290,7 +419,7 @@ export default async function ChannelInboxPage({
                       type="date"
                       name="check_out"
                       required
-                      defaultValue={parsed.check_out ?? ""}
+                      defaultValue={match.checkOut ?? ""}
                       className={fieldInput}
                     />
                   </div>
@@ -302,7 +431,18 @@ export default async function ChannelInboxPage({
                       min="0"
                       step="1"
                       required
-                      defaultValue={parsed.gross ?? ""}
+                      defaultValue={parsed.host_payout ?? parsed.gross ?? ""}
+                      className={fieldInput}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={fieldLabel}>Guests</label>
+                    <input
+                      type="number"
+                      name="guests_count"
+                      min="1"
+                      step="1"
+                      defaultValue={parsed.guests ?? ""}
                       className={fieldInput}
                     />
                   </div>
@@ -317,17 +457,30 @@ export default async function ChannelInboxPage({
 
                 {/* The channel's own figures, for checking the sale price against
                     — never fed into the split, which payout.ts owns. */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border-hairline pt-3">
-                  <Fact
-                    label="Channel says guest paid"
-                    value={parsed.gross ? formatPKR(parsed.gross) : "—"}
-                  />
-                  <Fact
-                    label="Channel says it will send"
-                    value={parsed.host_payout ? formatPKR(parsed.host_payout) : "—"}
-                  />
-                  <Fact label="Guests" value={parsed.guests ? String(parsed.guests) : "—"} />
-                </div>
+                {(parsed.gross || parsed.host_payout) && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-border-hairline pt-3">
+                    <Fact label="Guest paid" value={money(parsed.gross, parsed.currency)} />
+                    <Fact label="Channel fee" value={money(parsed.channel_fee, parsed.currency)} />
+                    <Fact label="Channel pays out" value={money(parsed.host_payout, parsed.currency)} />
+                  </div>
+                )}
+
+                {extranet && (
+                  <p className="text-xs text-ink-muted">
+                    {row.source === "booking_com"
+                      ? "Booking.com's email has no guest, departure or price in it — "
+                      : "Anything missing is on the reservation itself — "}
+                    <a
+                      href={extranet}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-hostello-gold hover:underline"
+                    >
+                      open it on {sourceLabel(row.source)}
+                    </a>
+                    .
+                  </p>
+                )}
 
                 <input
                   name="notes"
@@ -346,39 +499,11 @@ export default async function ChannelInboxPage({
                 <div className="flex gap-2">
                   <SubmitButton
                     className={primaryButton}
-                    disabled={problems.length > 0}
                     blocking
                     busy="Adding the booking…"
                     note="Checking the dates are still free, then writing the stay and its payout."
                   >
                     Approve and add booking
-                  </SubmitButton>
-                </div>
-              </form>
-            )}
-
-            {/* ── Parsed fine, but nothing claims the listing ── */}
-            {row.status === "needs_property" && (
-              <form action={assignProperty} className="flex flex-col gap-3">
-                <input type="hidden" name="id" value={row.id} />
-                <div className="flex flex-col gap-1.5">
-                  <label className={fieldLabel}>Which property is this?</label>
-                  <PropertySelect properties={properties} selected={null} required />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Fact
-                    label="Dates"
-                    value={
-                      parsed.check_in && parsed.check_out
-                        ? `${formatDayMonth(parsed.check_in)} → ${formatDayMonth(parsed.check_out)}`
-                        : "—"
-                    }
-                  />
-                  <Fact label="Guest" value={parsed.guest_name ?? "—"} />
-                </div>
-                <div className="flex gap-2">
-                  <SubmitButton className={primaryButton} busy="Mapping the listing…">
-                    Map to this property
                   </SubmitButton>
                 </div>
               </form>
