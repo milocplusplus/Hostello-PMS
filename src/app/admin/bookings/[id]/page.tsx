@@ -7,7 +7,7 @@ import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { formatNightly } from "@/lib/booking-price";
 import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
-import { todayISO } from "@/lib/calendar";
+import { todayISO, formatDayMonth } from "@/lib/calendar";
 import { BookingHero, PaymentTiles } from "@/components/shared/BookingHero";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { BookingReceipts } from "@/components/shared/BookingReceipts";
@@ -51,7 +51,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, nightly_price, advance_received, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type, photo_path))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, nightly_price, advance_received, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, original_currency, original_amount, fx_rate, fx_rate_on, fx_provisional, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type, photo_path))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -152,6 +152,17 @@ export default async function BookingDetailPage({
               : null
           }
         />
+        {/* A price the channel quoted in another currency: what it was, and
+            the rate it was turned into rupees at (src/lib/fx.ts). */}
+        {booking.original_currency && booking.original_amount != null && (
+          <p className="text-xs text-ink-muted">
+            Converted from {booking.original_currency}{" "}
+            {Number(booking.original_amount).toLocaleString("en-US", { maximumFractionDigits: 2 })} at{" "}
+            {Number(booking.fx_rate ?? 0).toFixed(2)}
+            {booking.fx_rate_on ? ` (${formatDayMonth(booking.fx_rate_on)})` : ""}
+            {booking.fx_provisional ? " · provisional until check-in" : ""}.
+          </p>
+        )}
       </section>
 
       {/* A cancelled stay has no arrival to explain and no balance to chase. */}

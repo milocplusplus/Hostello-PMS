@@ -7,13 +7,13 @@ import { formatPKR } from "@/lib/payout";
 import { sourceColor, sourceLabel } from "@/lib/block-sources";
 import { addDaysISO, formatDayMonth, todayISO } from "@/lib/calendar";
 import { listUnavailable } from "@/lib/availability";
+import { pkrRate, toPkr, type FxRate } from "@/lib/fx";
 import {
   KIND_LABEL,
   STATUS_LABEL,
   OPEN_STATUSES,
   statusTone,
   blockers,
-  currencyWarning,
   matchReservation,
   channelReservationUrl,
   type ImportedHold,
@@ -37,6 +37,8 @@ import {
   applyCancellation,
   applyAlteration,
   confirmRequest,
+  reconvertBookings,
+  keepBookingRate,
   dismissMessage,
   markHandled,
 } from "./actions";
@@ -122,6 +124,19 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+type FxDueRow = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  original_currency: string;
+  original_amount: number | string;
+  fx_rate: number | string | null;
+  fx_rate_on: string | null;
+  sale_price: number | string | null;
+  settled: boolean | null;
+  share_received: boolean | null;
+};
+
 type BookingRow = {
   id: string;
   guest_name: string | null;
@@ -169,6 +184,44 @@ function MatchNote({ row }: { row: MessageRow }) {
       Matched by guest, dates and unit — this booking has no {sourceLabel(row.source)} code on
       it. Check it is the same stay.
     </p>
+  );
+}
+
+/**
+ * The channel's figure in rupees, and the hidden fields that let the booking
+ * remember what it was converted from (see src/lib/fx.ts). Renders nothing for
+ * a PKR figure.
+ */
+function Conversion({
+  amount,
+  currency,
+  rate,
+}: {
+  amount: number | null | undefined;
+  currency: string | null | undefined;
+  rate: FxRate | null | undefined;
+}) {
+  if (amount === null || amount === undefined || !currency || currency === "PKR") return null;
+  if (!rate) {
+    return (
+      <p className={errorBanner}>
+        The channel quoted {money(amount, currency)}, and today&apos;s {currency} rate could not be
+        fetched. Type the rupee amount yourself.
+      </p>
+    );
+  }
+  return (
+    <>
+      <input type="hidden" name="original_currency" value={currency} />
+      <input type="hidden" name="original_amount" value={amount} />
+      <input type="hidden" name="fx_rate_on" value={rate.asOf} />
+      <p className="text-xs text-ink-muted">
+        {money(amount, currency)} × {rate.pkrPerUnit.toFixed(2)} (market rate, {formatDayMonth(rate.asOf)}) ={" "}
+        <span className="text-ink-primary">{formatPKR(toPkr(amount, rate))}</span>. Provisional until
+        check-in, when it can be re-converted at that day&apos;s rate. Airbnb pays out at its own rate, so
+        this is an estimate of what arrives.
+      </p>
+    </>
   );
 }
 
@@ -287,7 +340,7 @@ export default async function ChannelInboxPage({
   // calendar has freed or moved the stay too.
   const bookingIds = [...new Set(open.map((r) => r.booking_id).filter((b): b is string => Boolean(b)))];
 
-  const [holdsRes, feedsRes, busy, bookingsRes, linkedRes, unexplainedRes] = await Promise.all([
+  const [holdsRes, feedsRes, busy, bookingsRes, linkedRes, unexplainedRes, fxDueRes] = await Promise.all([
     reservations.length > 0
       ? supabase
           .from("calendar_blocks")
@@ -314,6 +367,17 @@ export default async function ChannelInboxPage({
           .in("booking_id", bookingIds)
       : Promise.resolve({ data: [] }),
     supabase.rpc("unexplained_channel_holds", { p_min_age: "1 hour" }),
+    // Converted prices due to be worked out again now the guest has arrived.
+    // Admin only: it moves a price, and the settlement state decides it.
+    showMoney
+      ? supabase
+          .from("bookings_v")
+          .select("id, guest_name, check_in, original_currency, original_amount, fx_rate, fx_rate_on, sale_price, settled, share_received")
+          .eq("fx_provisional", true)
+          .neq("status", "cancelled")
+          .lte("check_in", todayISO())
+          .order("check_in")
+      : Promise.resolve({ data: [] }),
   ]);
 
   const holds = (holdsRes.data ?? []) as ImportedHold[];
@@ -337,6 +401,21 @@ export default async function ChannelInboxPage({
   );
   const unexplained = (unexplainedRes.data ?? []) as (ImportedHold & { created_at: string })[];
   const unitName = new Map(units.map((u) => [u.id, u.name]));
+
+  const fxDue = (fxDueRes.data ?? []) as FxDueRow[];
+
+  // Today's market rate for every currency on this page. Cached for an hour by
+  // `pkrRate`, so a page of USD mails costs one fetch, not one each.
+  const currencies = [
+    ...new Set(
+      [...open.map((r) => r.parsed?.currency), ...fxDue.map((b) => b.original_currency)].filter(
+        (c): c is string => Boolean(c) && c !== "PKR"
+      )
+    ),
+  ];
+  const rates = new Map(
+    await Promise.all(currencies.map(async (c) => [c, await pkrRate(c)] as const))
+  );
 
   const matches = new Map<string, InboxMatch>(
     reservations.map((r) => [
@@ -377,6 +456,64 @@ export default async function ChannelInboxPage({
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}
 
+      {fxDue.length > 0 && (
+        <section className="card p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-sm font-medium">Re-convert at today&apos;s rate</h2>
+            <p className="text-xs text-ink-muted">
+              These guests have arrived, and their price is still at the rate from the day they
+              booked. Re-converting recomputes the split and tells the owner the new price.
+            </p>
+          </div>
+          <div className="flex flex-col divide-y divide-border-hairline">
+            {fxDue.map((b) => {
+              const amount = Number(b.original_amount);
+              const today = rates.get(b.original_currency);
+              const next = today ? toPkr(amount, today) : null;
+              const now = Number(b.sale_price ?? 0);
+              const locked = Boolean(b.settled || b.share_received);
+              return (
+                <div key={b.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <Link href={`/admin/bookings/${b.id}`} className="text-sm hover:underline truncate">
+                      {b.guest_name ?? "A guest"} · arrived {formatDayMonth(b.check_in)}
+                    </Link>
+                    <span className="text-xs text-ink-muted">
+                      {money(amount, b.original_currency)} · booked at {Number(b.fx_rate ?? 0).toFixed(2)}
+                      {b.fx_rate_on ? ` (${formatDayMonth(b.fx_rate_on)})` : ""} = {formatPKR(now)}
+                      {locked
+                        ? " · already settled, so the rate stays"
+                        : next !== null
+                          ? ` → today ${today!.pkrPerUnit.toFixed(2)} = ${formatPKR(next)} (${next >= now ? "+" : "−"}${formatPKR(Math.abs(next - now))})`
+                          : " · today's rate could not be fetched"}
+                    </span>
+                  </div>
+                  <form action={keepBookingRate} className="shrink-0">
+                    <input type="hidden" name="booking_id" value={b.id} />
+                    <SubmitButton className={secondaryButton} busy="Keeping…">
+                      Keep this rate
+                    </SubmitButton>
+                  </form>
+                </div>
+              );
+            })}
+          </div>
+          <form action={reconvertBookings} className="flex gap-2">
+            {fxDue.map((b) => (
+              <input key={b.id} type="hidden" name="booking_ids" value={b.id} />
+            ))}
+            <SubmitButton
+              className={primaryButton}
+              blocking
+              busy="Re-converting…"
+              note="Fetching today's rate and recomputing each stay's split."
+            >
+              {fxDue.length === 1 ? "Re-convert it" : `Re-convert all ${fxDue.length}`}
+            </SubmitButton>
+          </form>
+        </section>
+      )}
+
       {open.length === 0 && (
         <div className="card p-8 flex flex-col items-center gap-2 text-center">
           <Inbox className="w-5 h-5 text-ink-muted" aria-hidden />
@@ -391,11 +528,14 @@ export default async function ChannelInboxPage({
       {open.map((row) => {
         const parsed = row.parsed ?? {};
         const problems = blockers(row);
-        const currency = currencyWarning(parsed);
         const match = matches.get(row.id);
         const extranet = channelReservationUrl(row.source, parsed);
         const booking = row.booking_id ? bookings.get(row.booking_id) : undefined;
         const linkedHold = row.booking_id ? linkedHolds.get(row.booking_id) : undefined;
+        const foreign = parsed.currency && parsed.currency !== "PKR" ? parsed.currency : null;
+        const rate = foreign ? rates.get(foreign) : undefined;
+        const inPkr = (amount: number | null | undefined) =>
+          amount === null || amount === undefined ? null : foreign ? (rate ? toPkr(amount, rate) : null) : amount;
         const holdDiffers =
           booking && linkedHold
             ? linkedHold.start_date !== booking.check_in ||
@@ -437,7 +577,6 @@ export default async function ChannelInboxPage({
             )}
 
             {row.parse_error && <p className={errorBanner}>{row.parse_error}</p>}
-            {currency && <p className={errorBanner}>{currency}</p>}
 
             {problems.length > 0 && (
               <p className={errorBanner}>
@@ -461,10 +600,11 @@ export default async function ChannelInboxPage({
                     name="sale_price"
                     min="0"
                     step="1"
-                    defaultValue={parsed.host_payout ?? booking.sale_price ?? ""}
+                    defaultValue={inPkr(parsed.host_payout) ?? booking.sale_price ?? ""}
                     className={fieldInput}
                   />
                 </div>
+                <Conversion amount={parsed.host_payout} currency={parsed.currency} rate={rate} />
                 <div className="flex gap-2">
                   <SubmitButton
                     className={primaryButton}
@@ -569,7 +709,7 @@ export default async function ChannelInboxPage({
                       min="0"
                       step="1"
                       required
-                      defaultValue={parsed.host_payout ?? parsed.gross ?? ""}
+                      defaultValue={inPkr(parsed.host_payout ?? parsed.gross) ?? ""}
                       className={fieldInput}
                     />
                   </div>
@@ -606,6 +746,8 @@ export default async function ChannelInboxPage({
                     <Fact label="Channel pays out" value={money(parsed.host_payout, parsed.currency)} />
                   </div>
                 )}
+
+                <Conversion amount={parsed.host_payout ?? parsed.gross} currency={parsed.currency} rate={rate} />
 
                 {extranet && (
                   <p className="text-xs text-ink-muted">
@@ -739,11 +881,12 @@ export default async function ChannelInboxPage({
                       name="sale_price"
                       min="0"
                       step="1"
-                      defaultValue={parsed.host_payout ?? booking.sale_price ?? ""}
+                      defaultValue={inPkr(parsed.host_payout) ?? booking.sale_price ?? ""}
                       className={fieldInput}
                     />
                   </div>
                 </div>
+                <Conversion amount={parsed.host_payout} currency={parsed.currency} rate={rate} />
                 <p className="text-xs text-ink-muted">
                   {parsed.host_payout
                     ? "The price is the new payout from the email."

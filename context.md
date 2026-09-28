@@ -189,6 +189,19 @@ Pre-launch: real data has not been entered yet.
   stay with no email" (page list + `check_channel_health` →
   `ota_hold_unexplained`), counted only once that channel's mail is flowing
   and only for `booked` holds (Booking.com's iCal marks everything closed).
+  **Foreign currency** (`src/lib/fx.ts`): the inbox converts a non-PKR
+  channel figure at the free daily market rate (open.er-api.com, cached 1 h,
+  null on failure → reviewer types rupees) and posts
+  `original_currency` / `original_amount` / `fx_rate_on`; `readFx()` turns
+  those into `bookings.original_* / fx_rate / fx_rate_on / fx_provisional` in
+  both `saveBooking` and `applyBookingUpdate` (rate stored *as applied* =
+  sale ÷ original). `sale_price` stays the only price anything computes
+  from. Provisional until check-in; cron `hostello-fx-due`
+  (`notify_fx_due()`, 07:20 Karachi) raises `ota_fx_due` once per stay, and
+  the inbox's admin-only "Re-convert at today's rate" list runs
+  `reconvertBookings` (through `editBookingInline`, so the owner gets the
+  normal price-changed notice) — a stay settled either way keeps its rate.
+  A price typed by hand (admin or owner edit) clears `fx_provisional`.
 - **Bulk actions** — in the existing pages, one notice per owner via
   `notifyBulkSummary()` in `notify.ts`. **Block dates**: `UnitPicker` (units
   or a whole client) → `createCalendarBlock` takes `property_ids[]`, skips and

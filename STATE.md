@@ -1,6 +1,19 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 4: foreign currency** (2026-09-29). Owner's choices:
+  Airbnb pays out PKR at its own rate; use the market rate; re-convert from
+  a one-tap list (nothing automatic); a settled stay keeps its rate.
+  Migration `booking_currency` **applied to the live DB** (5 `bookings`
+  columns, `bookings_v`, `notify_fx_due()` + cron `hostello-fx-due`).
+  `src/lib/fx.ts` (open.er-api.com, no key). Inbox: conversion line + hidden
+  provenance on approve / change / confirm forms; "Re-convert at today's
+  rate" list with Re-convert all and Keep this rate. Booking page shows
+  "Converted from USD … at …". Hand-typed price (admin or owner) stops the
+  re-conversion. Removed `currencyWarning`. **Tested:** live rate fetched
+  (USD 276.91 on 28 Sep, 32.95 → Rs 9,124), `readFx` cases, `notify_fx_due`
+  rolled back on the live DB (today's arrival only, once); lint, build.
+  **Not seen rendered; re-convert never run** (no live data).
 - **Channel inbox 3: changes, cancellations, requests, missing mail**
   (2026-09-28). Migrations `channel_inbox_changes` +
   `channel_stay_moved_wording` **applied to the live DB**. Cancellation card
@@ -2232,7 +2245,7 @@ reassign the alias, so nothing broke.
    - **One-tap changes (done, part 3):** cancellations and date changes apply through the
      normal booking paths. Airbnb's "updated" mail has no new dates or price —
      dates from iCal, price typed. Airbnb requests to book → tentative.
-   - **Money:** sale price = host payout ("You earn"); keep code, guest count,
+   - **Money (done, part 4):** sale price = host payout ("You earn"); keep code, guest count,
      guest-paid total + fee (admin only), original-currency amount. Non-PKR
      converts at a live rate, provisional until check-in, re-converted on
      check-in day with the owner told.

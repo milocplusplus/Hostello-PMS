@@ -102,19 +102,6 @@ export function blockers(message: { kind: OtaMessageKind; booking_id: string | n
   return problems;
 }
 
-/**
- * The channel quoted a currency that is not PKR.
- *
- * Worth shouting about: `payout.ts` is PKR throughout, so approving a USD
- * figure as a sale price would silently under-report the stay by a factor of
- * roughly 280.
- */
-export function currencyWarning(parsed: ParsedReservation): string | null {
-  const currency = parsed.currency;
-  if (!currency || currency === "PKR") return null;
-  return `The channel quoted this in ${currency}. Convert to PKR before approving — the payout math assumes PKR.`;
-}
-
 // ── Holding a mail up against the calendar ──────────────────────────────────
 
 /** A unit a reservation could be on, with the ids the channels know it by. */

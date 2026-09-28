@@ -34,6 +34,7 @@ import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/shor
 import { readBookingDetails } from "@/lib/booking-details";
 import { readBookingPrice } from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
+import { readFx } from "@/lib/fx";
 
 type SaveResult = { error: string } | { clientId: string; bookingId: string };
 
@@ -222,6 +223,8 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       expected_departure: details.expectedDeparture,
       notes,
       ota_ref,
+      // A price the inbox converted from the channel's currency, and from what.
+      ...readFx(formData, sale_price, check_in),
       entered_by: user?.id ?? null,
     });
 
@@ -389,7 +392,7 @@ async function applyBookingUpdate(
   const { data: existing } = await reader.client
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -438,6 +441,16 @@ async function applyBookingUpdate(
 
   const updatedAt = new Date().toISOString();
 
+  // A converted price is due to be worked out again at check-in — unless this
+  // edit re-converts it (the inbox sends the fields), or someone has typed a
+  // different price by hand, which is theirs and must not be overwritten.
+  const fx = readFx(formData, sale_price, check_in);
+  const fxColumns = fx
+    ? fx
+    : existing.fx_provisional && Number(existing.sale_price) !== sale_price
+      ? { fx_provisional: false }
+      : {};
+
   const writer = await bookingWriter();
   if (!writer.ok) return { error: writer.error };
 
@@ -464,6 +477,7 @@ async function applyBookingUpdate(
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,
       notes,
+      ...fxColumns,
       updated_at: updatedAt,
     })
     .eq("id", id);

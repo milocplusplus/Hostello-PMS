@@ -284,7 +284,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
   const { data: existing } = await supabase
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -360,6 +360,11 @@ export async function updateClientBooking(id: string, formData: FormData) {
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,
       notes,
+      // A price the owner typed over a converted one is theirs: it is no
+      // longer due to be re-converted at check-in (see src/lib/fx.ts).
+      ...(existing.fx_provisional && Number(existing.sale_price) !== sale_price
+        ? { fx_provisional: false }
+        : {}),
       updated_at: updatedAt,
     })
     .eq("id", id);

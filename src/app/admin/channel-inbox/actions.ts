@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { currentUser } from "@/lib/auth";
+import { currentUser, requireOwner } from "@/lib/auth";
+import { bookingWriter } from "@/lib/payout-inputs";
+import { pkrRate, toPkr, type FxRate } from "@/lib/fx";
 import { createBookingInline, cancelBooking, editBookingInline } from "@/app/admin/bookings/actions";
 import { sourceLabel } from "@/lib/block-sources";
 import type { ParsedReservation } from "@/lib/ota";
@@ -313,4 +315,104 @@ export async function markHandled(formData: FormData) {
 
   refresh();
   redirect(backTo({ notice: "Marked as handled." }));
+}
+
+// ── Re-converting at the check-in day's rate ─────────────────────────────
+
+type FxBooking = {
+  id: string;
+  check_in: string;
+  original_currency: string | null;
+  original_amount: number | string | null;
+  settled: boolean | null;
+  share_received: boolean | null;
+};
+
+/** Takes a booking off the re-conversion list without touching its price. */
+async function keepRate(id: string) {
+  const writer = await bookingWriter();
+  if (!writer.ok) return writer.error;
+  const { error } = await writer.client.from("bookings").update({ fx_provisional: false }).eq("id", id);
+  return error?.message ?? null;
+}
+
+/**
+ * Work out a converted price again at today's market rate — the owner's rule
+ * is that a foreign-currency stay is provisional until check-in. Goes through
+ * the booking's ordinary edit, so the split is recomputed from its own terms
+ * and the owner gets the ordinary "price changed" notice.
+ *
+ * A stay whose money has already been settled either way keeps its rate: the
+ * settlement was made on that figure, and moving it now would reopen balances
+ * someone has already paid against.
+ */
+export async function reconvertBookings(formData: FormData) {
+  await requireOwner();
+  const ids = [...new Set(formData.getAll("booking_ids").map(String))];
+  if (ids.length === 0) redirect(backTo({ error: "Nothing to re-convert." }));
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bookings_v")
+    .select("id, check_in, original_currency, original_amount, settled, share_received")
+    .in("id", ids)
+    .eq("fx_provisional", true);
+
+  const rates = new Map<string, FxRate | null>();
+  let converted = 0;
+  const kept: string[] = [];
+  const failed: string[] = [];
+
+  for (const b of (data ?? []) as FxBooking[]) {
+    if (b.settled || b.share_received) {
+      const problem = await keepRate(b.id);
+      if (problem) failed.push(problem);
+      else kept.push(b.id);
+      continue;
+    }
+
+    const currency = b.original_currency ?? "";
+    if (!rates.has(currency)) rates.set(currency, await pkrRate(currency));
+    const rate = rates.get(currency);
+    const amount = Number(b.original_amount);
+    if (!rate || !(amount > 0)) {
+      failed.push(`no ${currency || "currency"} rate available`);
+      continue;
+    }
+
+    const result = await editBookingInline(b.id, {
+      price_mode: "total",
+      sale_price: String(toPkr(amount, rate)),
+      original_currency: currency,
+      original_amount: String(amount),
+      fx_rate_on: rate.asOf,
+    });
+    if (result.error) failed.push(result.error);
+    else converted++;
+  }
+
+  refresh();
+  const parts = [
+    converted > 0 ? `Re-converted ${converted} stay${converted === 1 ? "" : "s"} at today's rate.` : "",
+    kept.length > 0
+      ? `${kept.length} already settled, so kept at the rate it was settled on.`
+      : "",
+  ].filter(Boolean);
+
+  redirect(
+    backTo(
+      failed.length > 0
+        ? { error: [...parts, `Could not re-convert: ${[...new Set(failed)].join("; ")}.`].join(" ") }
+        : { notice: parts.join(" ") || "Nothing needed re-converting." }
+    )
+  );
+}
+
+/** "This rate is right" — e.g. it matches what Airbnb actually paid. */
+export async function keepBookingRate(formData: FormData) {
+  await requireOwner();
+  const id = (formData.get("booking_id") as string) || "";
+  const problem = await keepRate(id);
+  refresh();
+  redirect(backTo(problem ? { error: problem } : { notice: "Kept the booking-day rate." }));
 }
