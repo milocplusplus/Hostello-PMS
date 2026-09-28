@@ -70,7 +70,7 @@ async function emit(supabase: SupabaseClient, args: EmitArgs): Promise<void> {
   }
 }
 
-function dateRange(from: string, to: string, shortStay?: ShortStay | null) {
+export function dateRange(from: string, to: string, shortStay?: ShortStay | null) {
   const start = formatDayMonth(from);
   // A short stay's check-out is the next morning on paper only — say the hours.
   if (shortStay) return `${start} · ${formatShortStayWindow(shortStay.start, shortStay.end)}`;
@@ -662,5 +662,36 @@ export async function notifyClientTermsUpdated(
     clientId: args.clientId,
     // At most one a day, however many times the form is saved.
     eventKey: `client_terms_updated:${args.clientId}:${args.day}`,
+  });
+}
+
+// ── Bulk changes ────────────────────────────────────────────────────────────
+
+/**
+ * One notice for a bulk change to one owner's units or stays, in place of one
+ * per item: "Hostello blocked 4 of your units, 10–14 Oct" reads as one event
+ * because it was one. `kind` is an ordinary one (dates_blocked,
+ * booking_updated…) so the icon and the filters already know it.
+ */
+export async function notifyBulkSummary(
+  supabase: SupabaseClient,
+  args: {
+    kind: string;
+    category: NotificationCategory;
+    clientId: string;
+    title: string;
+    body: string;
+    /** Names this one bulk action, so a double submit is one notice. */
+    eventKey: string;
+  }
+) {
+  await emit(supabase, {
+    kind: args.kind,
+    category: args.category,
+    audience: "both",
+    title: args.title,
+    body: args.body,
+    clientId: args.clientId,
+    eventKey: args.eventKey,
   });
 }

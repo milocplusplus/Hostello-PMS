@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 6 of 9: bulk actions** (2026-09-28). Owner's choices:
+  in the existing pages; bulk block (clashing units skipped and named) and
+  bulk unblock; bulk status confirm / hold / cancel (cancel needs the count
+  typed); rates per client for nightly + short-stay stack rates and max
+  guests, set or adjust with preview, % rounded to nearest 100; one summary
+  notice per owner; admin only except bulk blocks (ops, if Settings allows).
+  No migration. `updateBooking` split into `applyBookingUpdate` (core) +
+  redirecting wrapper. Checked: lint, types, build, `adjusted()` cases in
+  Node, Block dates and Bookings pages render. **Not exercised** with real
+  data (no clients/units exist): an actual bulk block, status change or
+  rate update.
 - **Admin controls 5 of 9: channel sync health** (2026-09-28). Owner's
   choices: pause/resume per link, sync history, health badges (links page
   only); alerts for a link failing (5 in a row), sync stopped (30 min),

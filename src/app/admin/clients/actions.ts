@@ -8,11 +8,20 @@ import { DEAL_MODELS } from "@/lib/payout";
 import { clientHasHistory } from "@/lib/client-history";
 import { requireOwner } from "@/lib/auth";
 import { VIEW_AS_COOKIE, VIEW_AS_PATH } from "@/lib/view-as";
+import {
+  RATE_FIELDS,
+  adjusted,
+  isAdjustMode,
+  isRateField,
+  type AdjustMode,
+  type RateField,
+} from "@/lib/bulk-rates";
 import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
 import {
   notifyClientTermsUpdated,
   notifyPropertyAdded,
   notifyPropertyRemoved,
+  notifyBulkSummary,
 } from "@/lib/notify";
 
 // ── Clients ──────────────────────────────────────────────
@@ -505,4 +514,68 @@ export async function viewAsOwner(formData: FormData) {
     maxAge: 60 * 60 * 24 * 30,
   });
   redirect("/client");
+}
+
+/**
+ * Change one rate across several of a client's units. Each new value is
+ * worked out here with the same `adjusted()` the preview used; a unit whose
+ * result makes no sense (below zero, a percentage of a rate never set) is
+ * skipped and named. Stack rates are snapshotted onto bookings, so only new
+ * bookings see the change. The owner gets one notice for the lot.
+ */
+export async function bulkUpdateUnitRates(formData: FormData) {
+  await requireOwner();
+  const clientId = formData.get("client_id") as string;
+  const field = formData.get("field");
+  const mode = formData.get("mode");
+  const value = Number(formData.get("value"));
+  const ids = [...new Set(formData.getAll("ids").map(String))];
+  const back = (params: Record<string, string>) =>
+    redirect(`/admin/clients/${clientId}/rates?${new URLSearchParams(params).toString()}`);
+
+  if (!isRateField(field) || !isAdjustMode(mode)) back({ error: "Pick what to change and how." });
+  if (!Number.isFinite(value) || value < 0) back({ error: "Enter a number." });
+  if (ids.length === 0) back({ error: "Tick the units to change first." });
+
+  const supabase = await createClient();
+  const { data: units } = await supabase
+    .from("properties")
+    .select("id, name, stack_rate, short_stay_stack_rate, max_guests")
+    .eq("client_id", clientId)
+    .in("id", ids);
+
+  const f = field as RateField;
+  const changed: string[] = [];
+  const skipped: string[] = [];
+  for (const u of units ?? []) {
+    const current = u[f] === null ? null : Number(u[f]);
+    const next = adjusted(f, current, mode as AdjustMode, value);
+    if (next === null) {
+      skipped.push(u.name);
+      continue;
+    }
+    if (next === current) continue;
+    const { error } = await supabase.from("properties").update({ [f]: next }).eq("id", u.id);
+    if (error) skipped.push(`${u.name} (${error.message})`);
+    else changed.push(u.name);
+  }
+
+  if (changed.length > 0) {
+    const label = RATE_FIELDS.find((r) => r.key === f)?.label ?? "Rates";
+    await notifyBulkSummary(supabase, {
+      kind: "client_terms_updated",
+      category: "system",
+      clientId,
+      title: `${label} updated on ${changed.length} unit${changed.length === 1 ? "" : "s"}`,
+      body: `${changed.join(", ")}${f === "max_guests" ? "" : " · applies to new bookings"}`,
+      eventKey: `bulk-rates:${clientId}:${f}:${Date.now()}`,
+    });
+  }
+
+  revalidatePath(`/admin/clients/${clientId}`, "layout");
+  revalidatePath("/client", "layout");
+  back({
+    notice: `Updated ${changed.length} unit${changed.length === 1 ? "" : "s"}.`,
+    ...(skipped.length ? { error: `Skipped — ${skipped.join(", ")}.` } : {}),
+  });
 }

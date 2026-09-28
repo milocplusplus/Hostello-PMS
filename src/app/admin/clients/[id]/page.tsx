@@ -329,13 +329,20 @@ export default async function ClientDetailPage({
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-ink-secondary">Properties</h2>
-          <Link
-            href={`/admin/clients/${id}/properties/new`}
-            className="btn btn-gold btn-sm"
-          >
-            <Plus size={13} strokeWidth={2.5} />
-            Add property
-          </Link>
+          <div className="flex items-center gap-2">
+            {properties && properties.length > 1 && (
+              <Link href={`/admin/clients/${id}/rates`} className="btn btn-ghost btn-sm">
+                Rates
+              </Link>
+            )}
+            <Link
+              href={`/admin/clients/${id}/properties/new`}
+              className="btn btn-gold btn-sm"
+            >
+              <Plus size={13} strokeWidth={2.5} />
+              Add property
+            </Link>
+          </div>
         </div>
 
         {(!properties || properties.length === 0) && (

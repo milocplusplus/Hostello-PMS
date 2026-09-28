@@ -8,14 +8,15 @@ import { fieldLabel, fieldInput, primaryButton, errorBanner, noticeBanner } from
 import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
 import { MANUAL_BLOCK_TYPES, blockTypeLabel } from "@/lib/block-sources";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { UnitPicker, type UnitGroup } from "@/components/admin/UnitPicker";
 import { staffMay } from "@/lib/settings";
 
 export default async function BlockDatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; month?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string; month?: string }>;
 }) {
-  const { error, month: monthParam } = await searchParams;
+  const { error, notice, month: monthParam } = await searchParams;
 
   const supabase = await createClient();
   const canBlock = await staffMay("block");
@@ -30,6 +31,16 @@ export default async function BlockDatesPage({
     .select("id, name, client_id, clients:clients_v(name)")
     .eq("bookable", true)
     .order("name");
+
+  // One group per client, for the whole-client tick.
+  const groups = new Map<string, UnitGroup>();
+  for (const p of properties ?? []) {
+    const clientName = (p.clients as unknown as { name: string } | null)?.name ?? "—";
+    const group = groups.get(p.client_id) ?? { clientName, units: [] };
+    group.units.push({ id: p.id, name: p.name });
+    groups.set(p.client_id, group);
+  }
+  const unitGroups = [...groups.values()].sort((a, b) => a.clientName.localeCompare(b.clientName));
 
   const { data: blocks } = await supabase
     .from("calendar_blocks")
@@ -52,6 +63,9 @@ export default async function BlockDatesPage({
         }
       />
 
+      {notice && <p className={noticeBanner}>{notice}</p>}
+      {error && <p className={errorBanner}>{error}</p>}
+
       {!canBlock && (
         <p className={noticeBanner}>
           Blocking and unblocking dates is switched off for operations accounts. Ask the admin.
@@ -61,20 +75,12 @@ export default async function BlockDatesPage({
       {canBlock && (
         <form action={createCalendarBlock} className="card p-6 flex flex-col gap-4">
           <input type="hidden" name="month" value={monthStr} />
-  
+
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="property_id" className={fieldLabel}>
-              Property
-            </label>
-            <select id="property_id" name="property_id" required className={fieldInput}>
-              {properties?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {(p.clients as unknown as { name: string } | null)?.name ?? "—"} · {p.name}
-                </option>
-              ))}
-            </select>
+            <p className={fieldLabel}>Units — one or many</p>
+            <UnitPicker groups={unitGroups} />
           </div>
-  
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="start_date" className={fieldLabel}>
@@ -89,7 +95,7 @@ export default async function BlockDatesPage({
               <input id="end_date" name="end_date" type="date" required className={fieldInput} />
             </div>
           </div>
-  
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="block_type" className={fieldLabel}>
@@ -117,9 +123,7 @@ export default async function BlockDatesPage({
               />
             </div>
           </div>
-  
-          {error && <p className={errorBanner}>{error}</p>}
-  
+
           <SubmitButton className={`mt-1 ${primaryButton}`} busy="Blocking the dates…">
             Block these dates
           </SubmitButton>
@@ -127,7 +131,21 @@ export default async function BlockDatesPage({
       )}
 
       <div className="card p-6">
-        <h2 className="text-sm font-medium text-ink-secondary mb-4">Recent blocks</h2>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-sm font-medium text-ink-secondary">Recent blocks</h2>
+          {/* The row tick boxes join this form by id, so each row keeps its own Unblock too. */}
+          {canBlock && blocks && blocks.length > 1 && (
+            <form id="bulk-unblock" action={deleteCalendarBlock}>
+              <input type="hidden" name="month" value={monthStr} />
+              <ConfirmDeleteButton
+                confirmText="Remove all the ticked blocks? Those dates become available again."
+                label="Unblock ticked"
+                busy="Freeing the dates…"
+                className="text-xs font-bold text-hostello-purple-light hover:underline"
+              />
+            </form>
+          )}
+        </div>
         {(!blocks || blocks.length === 0) && (
           <p className="text-sm text-ink-muted">No blocks yet.</p>
         )}
@@ -140,14 +158,26 @@ export default async function BlockDatesPage({
                   key={b.id}
                   className="flex items-center justify-between gap-2 text-sm border-b border-border-hairline last:border-0 pb-2 last:pb-0"
                 >
-                  <div className="min-w-0">
-                    <p className="text-ink-primary">
-                      {propName} — {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
-                    </p>
-                    <p className="text-xs text-ink-muted truncate">
-                      {blockTypeLabel(b.block_type)}
-                      {b.notes ? ` · ` : ""}
-                    </p>
+                  <div className="min-w-0 flex items-start gap-2.5">
+                    {canBlock && blocks.length > 1 && (
+                      <input
+                        type="checkbox"
+                        name="ids"
+                        value={b.id}
+                        form="bulk-unblock"
+                        aria-label="Tick to unblock with the others"
+                        className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-hostello-purple)]"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-ink-primary">
+                        {propName} — {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
+                      </p>
+                      <p className="text-xs text-ink-muted truncate">
+                        {blockTypeLabel(b.block_type)}
+                        {b.notes ? ` · ${b.notes}` : ""}
+                      </p>
+                    </div>
                   </div>
                   {canBlock && (
                     <form action={deleteCalendarBlock}>

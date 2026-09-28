@@ -6,7 +6,9 @@ import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR, nightsBetween } from "@/lib/payout";
 import { firstUnitPhoto } from "@/lib/property-photos";
 import { formatShortStayWindow, rowShortStay } from "@/lib/short-stay";
-import { cancelBooking } from "./actions";
+import { bulkSetBookingStatus, cancelBooking } from "./actions";
+import { BulkStatusBar } from "@/components/admin/BulkStatusBar";
+import { errorBanner, noticeBanner } from "@/lib/form-styles";
 import { BookingCard } from "@/components/shared/BookingCard";
 import { MonthNav } from "@/components/shared/CalendarControls";
 import { BookingFilters } from "@/components/admin/BookingFilters";
@@ -26,6 +28,8 @@ import {
 import { staffMay, businessContact, loadSettings } from "@/lib/settings";
 
 type Search = {
+  notice?: string;
+  error?: string;
   month?: string;
   q?: string;
   client?: string;
@@ -44,6 +48,8 @@ export default async function BookingsPage({
     client = "",
     channel = "",
     status = "",
+    notice,
+    error,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -217,6 +223,9 @@ export default async function BookingsPage({
         </div>
       </div>
 
+      {notice && <p className={noticeBanner}>{notice}</p>}
+      {error && <p className={errorBanner}>{error}</p>}
+
       <div className="flex items-center gap-3 flex-wrap justify-between">
         {searching ? (
           <p className="text-sm font-bold text-ink-secondary">{scopeLabel}</p>
@@ -298,24 +307,47 @@ export default async function BookingsPage({
                 photo={firstUnitPhoto(b.booking_properties)}
                 today={today}
                 footer={
-                  b.status === "cancelled" || !canCancel ? undefined : (
-                    // Settling is not done from a list of stays: it is done
-                    // against the payment that proves it, on /admin/settlements.
-                    <form action={cancelBooking}>
-                      <input type="hidden" name="id" value={b.id} />
-                      <SubmitButton
-                        className="text-xs font-bold text-ink-muted hover:text-negative transition-colors"
-                        busy="Cancelling the booking…"
-                      >
-                        Cancel
-                      </SubmitButton>
-                    </form>
+                  b.status === "cancelled" ? undefined : (
+                    <div className="flex items-center justify-between gap-3 w-full">
+                      {/* Admin only: joins the bulk bar's form by id. */}
+                      {showMoney ? (
+                        <label className="inline-flex items-center gap-2 text-xs font-bold text-ink-muted cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="ids"
+                            value={b.id}
+                            form="bulk-status"
+                            className="h-4 w-4 accent-[var(--color-hostello-purple)]"
+                          />
+                          Select
+                        </label>
+                      ) : (
+                        <span />
+                      )}
+                      {/* Settling is not done from a list of stays: it is done
+                          against the payment that proves it, on /admin/settlements. */}
+                      {canCancel && (
+                        <form action={cancelBooking}>
+                          <input type="hidden" name="id" value={b.id} />
+                          <SubmitButton
+                            className="text-xs font-bold text-ink-muted hover:text-negative transition-colors"
+                            busy="Cancelling the booking…"
+                          >
+                            Cancel
+                          </SubmitButton>
+                        </form>
+                      )}
+                    </div>
                   )
                 }
               />
             );
           })}
         </div>
+      )}
+
+      {showMoney && rows.length > 0 && (
+        <BulkStatusBar action={bulkSetBookingStatus} month={formatMonthParam(year, month0)} />
       )}
     </div>
   );

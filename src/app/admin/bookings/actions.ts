@@ -24,6 +24,7 @@ import {
   notifyBookingUpdated,
   notifyPaymentReceived,
   notifyStayProgress,
+  notifyBulkSummary,
 } from "@/lib/notify";
 import { deliverAuditAlerts } from "@/lib/push";
 import { findStayClash } from "@/lib/availability";
@@ -310,24 +311,20 @@ export async function createBookingInline(formData: FormData) {
  * re-price a stay that was agreed months ago. The stack rate is the one term
  * that does move, because it belongs to the units and the units can change.
  */
-export async function updateBooking(id: string, formData: FormData) {
+/**
+ * Everything an edit does, minus where it lands afterwards: the checks, the
+ * payout recalculation, the write, the unit links and the owner's notice.
+ * `updateBooking` redirects on its result; the bulk status change loops over
+ * it and sends one summary per owner (`notify: false`).
+ */
+async function applyBookingUpdate(
+  id: string,
+  formData: FormData,
+  { notify = true }: { notify?: boolean } = {}
+): Promise<{ error: string } | { clientId: string }> {
   // Same reason as `saveBooking`: the split is rewritten with the service-role
   // key, so RLS is not the thing keeping a client out of this endpoint.
   await requireStaff();
-
-  // Annotated on the const, not just the arrow: that is what lets TypeScript
-  // treat a `back(...)` call as terminating and narrow what follows it.
-  // A quick tool on the booking page wants its clash reported where it was
-  // pressed, not by throwing the reader into the full edit form. It says so
-  // with a flag, never a URL — a redirect target read out of a form field is
-  // an open redirect waiting to happen. Both paths here are built from `id`.
-  const inline = formData.get("error_inline") === "1";
-  const back: (message: string) => never = (message) =>
-    redirect(
-      inline
-        ? `/admin/bookings/${id}?tool_error=${encodeURIComponent(message)}`
-        : `/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`
-    );
 
   const supabase = await createClient();
 
@@ -341,7 +338,7 @@ export async function updateBooking(id: string, formData: FormData) {
       .select("sale_price, nightly_price, advance_received")
       .eq("id", id)
       .single();
-    if (!current) back("Booking not found.");
+    if (!current) return { error: "Booking not found." };
     formData.set("price_mode", current.nightly_price != null ? "nightly" : "total");
     formData.set("nightly_price", String(current.nightly_price ?? ""));
     formData.set("sale_price", String(current.sale_price ?? 0));
@@ -359,12 +356,12 @@ export async function updateBooking(id: string, formData: FormData) {
   const details = readBookingDetails(formData);
 
   const { shortStay, error: shortStayError } = readShortStay(formData);
-  if (shortStayError) back(shortStayError);
+  if (shortStayError) return { error: shortStayError };
 
   const check_out = shortStay ? shortStayCheckOut(check_in) : (formData.get("check_out") as string);
 
-  if (property_ids.length === 0) back("Select at least one unit.");
-  if (!check_in || !check_out || check_out <= check_in) back("Check-out must be after check-in.");
+  if (property_ids.length === 0) return { error: "Select at least one unit." };
+  if (!check_in || !check_out || check_out <= check_in) return { error: "Check-out must be after check-in." };
 
   // A stay priced per night re-multiplies against whatever the dates now are —
   // that is the point of pricing it that way, and it is what makes the quick
@@ -375,19 +372,19 @@ export async function updateBooking(id: string, formData: FormData) {
     checkOut: check_out,
     isShortStay: Boolean(shortStay),
   });
-  if (!priced.ok) back(priced.error);
+  if (!priced.ok) return { error: priced.error };
   const { salePrice: sale_price, nightlyPrice: nightly_price } = priced.price;
 
   // The edit form carries the same ID-card field as the new-booking form, so a
   // save can bring more scans with it.
   const guestIds = guestIdFiles(formData);
   const guestIdProblem = validateGuestIds(guestIds);
-  if (guestIdProblem) back(guestIdProblem);
+  if (guestIdProblem) return { error: guestIdProblem };
 
   // The snapshots are payout inputs, so this read goes through the same trusted
   // route as the terms — an ops session sees them masked everywhere else.
   const reader = await payoutReader(supabase);
-  if (!reader.ok) back(reader.error);
+  if (!reader.ok) return { error: reader.error };
 
   const { data: existing } = await reader.client
     .from("bookings_v")
@@ -397,9 +394,9 @@ export async function updateBooking(id: string, formData: FormData) {
     .eq("id", id)
     .single();
 
-  if (!existing) back("Booking not found.");
+  if (!existing) return { error: "Booking not found." };
   if (existing.status === "cancelled") {
-    back("This booking is cancelled. Create a new one instead of editing it.");
+    return { error: "This booking is cancelled. Create a new one instead of editing it." };
   }
 
   const clash = await findStayClash(supabase, {
@@ -408,7 +405,7 @@ export async function updateBooking(id: string, formData: FormData) {
     checkOut: check_out,
     excludeBookingId: id,
   });
-  if (clash) back(clash);
+  if (clash) return { error: clash };
 
   const { data: properties } = await reader.client
     .from("properties")
@@ -416,7 +413,7 @@ export async function updateBooking(id: string, formData: FormData) {
     .in("id", property_ids);
 
   if ((properties ?? []).some((p) => p.client_id !== existing.client_id)) {
-    back("All units in one booking must belong to the same client.");
+    return { error: "All units in one booking must belong to the same client." };
   }
 
   const stackRateTotal = (properties ?? []).reduce(
@@ -442,7 +439,7 @@ export async function updateBooking(id: string, formData: FormData) {
   const updatedAt = new Date().toISOString();
 
   const writer = await bookingWriter();
-  if (!writer.ok) back(writer.error);
+  if (!writer.ok) return { error: writer.error };
 
   const { error } = await writer.client
     .from("bookings")
@@ -471,7 +468,7 @@ export async function updateBooking(id: string, formData: FormData) {
     })
     .eq("id", id);
 
-  if (error) back(error.message);
+  if (error) return { error: error.message };
 
   const previousIds = (existing.booking_properties as unknown as { property_id: string }[]).map(
     (bp) => bp.property_id
@@ -510,8 +507,8 @@ export async function updateBooking(id: string, formData: FormData) {
     }
   );
 
-  // A save that moved nothing is not news.
-  if (changed) {
+  // A save that moved nothing is not news; a bulk change sends one summary instead.
+  if (changed && notify) {
     await notifyBookingUpdated(supabase, {
       clientId: existing.client_id,
       bookingId: id,
@@ -527,10 +524,36 @@ export async function updateBooking(id: string, formData: FormData) {
   // An ops price edit or cancel raises an audit alert; this is what gets it to phones.
   await deliverAuditAlerts();
 
+
+  return { clientId: existing.client_id };
+}
+
+export async function updateBooking(id: string, formData: FormData) {
+  // Same reason as `saveBooking`: the split is rewritten with the service-role
+  // key, so RLS is not the thing keeping a client out of this endpoint.
+  await requireStaff();
+
+  // Annotated on the const, not just the arrow: that is what lets TypeScript
+  // treat a `back(...)` call as terminating and narrow what follows it.
+  // A quick tool on the booking page wants its clash reported where it was
+  // pressed, not by throwing the reader into the full edit form. It says so
+  // with a flag, never a URL — a redirect target read out of a form field is
+  // an open redirect waiting to happen. Both paths here are built from `id`.
+  const inline = formData.get("error_inline") === "1";
+  const back: (message: string) => never = (message) =>
+    redirect(
+      inline
+        ? `/admin/bookings/${id}?tool_error=${encodeURIComponent(message)}`
+        : `/admin/bookings/${id}/edit?error=${encodeURIComponent(message)}`
+    );
+
+  const result = await applyBookingUpdate(id, formData);
+  if ("error" in result) back(result.error);
+
   revalidatePath("/admin/bookings");
   revalidatePath("/admin/bookings/[id]", "page");
   revalidatePath("/admin/calendar");
-  revalidatePath(`/admin/clients/${existing.client_id}`);
+  revalidatePath(`/admin/clients/${result.clientId}`);
   revalidatePath("/client", "layout");
 
   redirect(`/admin/bookings/${id}`);
@@ -766,7 +789,7 @@ export async function cancelBooking(formData: FormData) {
  * second set of rules to keep in step, and the payout one especially — nights
  * and stack rates both move when these fields do.
  */
-async function editExistingBooking(id: string, change: (form: FormData) => void) {
+async function currentBookingForm(id: string): Promise<FormData | null> {
   const supabase = await createClient();
 
   const { data: row } = await supabase
@@ -777,7 +800,7 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
     .eq("id", id)
     .maybeSingle();
 
-  if (!row) redirect("/admin/bookings");
+  if (!row) return null;
 
   const form = new FormData();
   for (const bp of (row.booking_properties as unknown as { property_id: string }[]) ?? []) {
@@ -810,6 +833,13 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
     form.set("short_stay_end", hhmm(row.short_stay_end as string));
   }
 
+  return form;
+}
+
+async function editExistingBooking(id: string, change: (form: FormData) => void) {
+  const form = await currentBookingForm(id);
+  if (!form) redirect("/admin/bookings");
+
   // A clash belongs on the booking page, next to the tool that caused it —
   // not in the full edit form the reader never opened.
   form.set("error_inline", "1");
@@ -841,5 +871,103 @@ export async function moveBookingUnits(formData: FormData) {
       form.delete("property_ids");
       for (const pid of propertyIds) form.append("property_ids", pid);
     }
+  });
+}
+
+const BULK_STATUS = {
+  confirmed: { verb: "confirmed", kind: "booking_updated" },
+  tentative: { verb: "put on hold", kind: "booking_updated" },
+  cancelled: { verb: "cancelled", kind: "booking_cancelled" },
+} as const;
+
+/**
+ * Change the status of several bookings at once — admin only. Confirm and
+ * hold go through `applyBookingUpdate`, because status moves the split (a
+ * tentative stay earns Hostello nothing); cancel is the same one-column write
+ * `cancelBooking` makes. Each owner gets one notice for the lot. Bookings that
+ * refuse (a clash, already cancelled) are named, and the rest still change.
+ */
+export async function bulkSetBookingStatus(formData: FormData) {
+  const profile = await requireStaff();
+  const month = String(formData.get("month") ?? "");
+  const back = (params: Record<string, string>) =>
+    redirect(
+      `/admin/bookings?${new URLSearchParams({
+        ...(/^\d{4}-\d{2}$/.test(month) ? { month } : {}),
+        ...params,
+      }).toString()}`
+    );
+
+  if (profile.role !== "admin") back({ error: "Only the admin can change bookings in bulk." });
+
+  const to = String(formData.get("to") ?? "") as keyof typeof BULK_STATUS;
+  if (!(to in BULK_STATUS)) back({ error: "Pick what to change them to." });
+  const ids = [...new Set(formData.getAll("ids").map(String))].filter(Boolean);
+  if (ids.length === 0) back({ error: "Tick the bookings to change first." });
+  if (to === "cancelled" && String(formData.get("confirm_count") ?? "").trim() !== String(ids.length)) {
+    back({ error: `To cancel ${ids.length} bookings, type ${ids.length} in the box to confirm.` });
+  }
+
+  const supabase = await createClient();
+  const { data: rows } = await supabase
+    .from("bookings_v")
+    .select("id, client_id, guest_name, status")
+    .in("id", ids);
+
+  const done = new Map<string, string[]>(); // client_id → guest names
+  const refused: string[] = [];
+
+  for (const row of rows ?? []) {
+    const name = row.guest_name ?? "A guest";
+    if (row.status === to) continue;
+    if (row.status === "cancelled") {
+      refused.push(`${name}: already cancelled`);
+      continue;
+    }
+
+    if (to === "cancelled") {
+      const { error } = await supabase.from("bookings").update({ status: "cancelled" }).eq("id", row.id);
+      if (error) {
+        refused.push(`${name}: ${error.message}`);
+        continue;
+      }
+    } else {
+      const form = await currentBookingForm(row.id);
+      if (!form) {
+        refused.push(`${name}: not found`);
+        continue;
+      }
+      form.set("status", to);
+      const result = await applyBookingUpdate(row.id, form, { notify: false });
+      if ("error" in result) {
+        refused.push(`${name}: ${result.error}`);
+        continue;
+      }
+    }
+    done.set(row.client_id, [...(done.get(row.client_id) ?? []), name]);
+  }
+
+  const { verb, kind } = BULK_STATUS[to];
+  const stamp = Date.now();
+  for (const [clientId, names] of done) {
+    await notifyBulkSummary(supabase, {
+      kind,
+      category: "booking",
+      clientId,
+      title: `${names.length} booking${names.length === 1 ? "" : "s"} ${verb}`,
+      body: names.join(", "),
+      eventKey: `bulk-status:${to}:${clientId}:${stamp}`,
+    });
+  }
+  await deliverAuditAlerts();
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/client", "layout");
+
+  const count = [...done.values()].reduce((n, list) => n + list.length, 0);
+  back({
+    notice: `${count} booking${count === 1 ? "" : "s"} ${verb}.`,
+    ...(refused.length ? { error: `Not changed — ${refused.join("; ")}` } : {}),
   });
 }

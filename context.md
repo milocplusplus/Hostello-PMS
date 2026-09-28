@@ -152,6 +152,20 @@ Pre-launch: real data has not been entered yet.
   `src/lib/channel-health.ts` turns a row into a badge with the same
   thresholds. Shown on `/admin/calendar/feeds` only (badge, Pause/Resume,
   History).
+- **Bulk actions** — in the existing pages, one notice per owner via
+  `notifyBulkSummary()` in `notify.ts`. **Block dates**: `UnitPicker` (units
+  or a whole client) → `createCalendarBlock` takes `property_ids[]`, skips and
+  names units already blocked or booked on those nights; one unit keeps
+  `announceBlockCreated`. Rows tick into `form="bulk-unblock"` →
+  `deleteCalendarBlock` takes `ids[]`. **Bookings list** (admin only): card
+  tick boxes join `BulkStatusBar`'s `form="bulk-status"` →
+  `bulkSetBookingStatus`: confirm / hold go through `applyBookingUpdate()`
+  (the non-redirecting core of `updateBooking`, `notify: false`) with the
+  form from `currentBookingForm()`; cancel is the same one-column write as
+  `cancelBooking` and needs the count typed. **Rates**
+  (`/admin/clients/[id]/rates`, admin): stack rate, short-stay stack rate,
+  max guests — set / ± amount / ± % (money rounded to 100);
+  `src/lib/bulk-rates.ts` `adjusted()` is the one rule for preview and save.
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the
