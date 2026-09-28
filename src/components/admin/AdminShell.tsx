@@ -52,7 +52,7 @@ type NavGroup = { label: string; items: NavItem[] };
  * open would only be decoration, so the owner-only routes guard themselves too
  * (`requireOwner`).
  */
-function navGroups(role: StaffRole): NavGroup[] {
+function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
   const owner = role === "admin";
 
   return [
@@ -74,7 +74,8 @@ function navGroups(role: StaffRole): NavGroup[] {
       items: [
         { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
         { href: "/admin/availability", label: "Availability", icon: BedDouble, exact: false },
-        { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: true },
+        // "Soon" until Settings has the inbox address — nothing arrives before that.
+        { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: !inboxLive },
         {
           href: "/admin/bookings",
           label: owner ? "Bookings & Payouts" : "Bookings",
@@ -142,9 +143,9 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
 /** Count badges by nav href: unread activity, and channel emails waiting. */
 type Badges = Record<string, number>;
 
-function moreItems(role: StaffRole, badges: Badges): MoreItem[] {
+function moreItems(role: StaffRole, badges: Badges, inboxLive: boolean): MoreItem[] {
   const tabs = new Set(phoneTabs(role).map((t) => t.href));
-  return navGroups(role)
+  return navGroups(role, inboxLive)
     .flatMap((g) => g.items)
     .filter((i) => !tabs.has(i.href))
     .map((i) => {
@@ -180,16 +181,18 @@ function NavLinks({
   role,
   pathname,
   badges,
+  inboxLive,
   onNavigate,
 }: {
   role: StaffRole;
   pathname: string;
   badges: Badges;
+  inboxLive: boolean;
   onNavigate?: () => void;
 }) {
   return (
     <>
-      {navGroups(role).map((group) => (
+      {navGroups(role, inboxLive).map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
           <p className="eyebrow px-3 pt-5 pb-2">{group.label}</p>
           {group.items.map((item) => {
@@ -288,6 +291,7 @@ export function AdminShell({
   notifications,
   unreadCount,
   inboxCount = 0,
+  inboxLive = false,
   markAllReadAction,
   children,
 }: {
@@ -299,6 +303,8 @@ export function AdminShell({
   unreadCount: number;
   /** Channel emails still waiting for someone (open statuses). */
   inboxCount?: number;
+  /** The inbox address is set, so the inbox is no longer "coming soon". */
+  inboxLive?: boolean;
   markAllReadAction: () => Promise<void>;
   children: ReactNode;
 }) {
@@ -321,7 +327,7 @@ export function AdminShell({
         </div>
 
         <nav className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto pb-4">
-          <NavLinks role={role} pathname={pathname} badges={badges} />
+          <NavLinks role={role} pathname={pathname} badges={badges} inboxLive={inboxLive} />
         </nav>
 
         <SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />
@@ -342,7 +348,7 @@ export function AdminShell({
 
       <TabBar
         tabs={phoneTabs(role)}
-        more={moreItems(role, badges)}
+        more={moreItems(role, badges, inboxLive)}
         pathname={pathname}
         dot={(showBell && unreadCount > 0) || inboxCount > 0}
         onMore={openMore}
@@ -350,7 +356,7 @@ export function AdminShell({
       <MoreSheet
         open={menuOpen}
         onClose={closeMore}
-        items={moreItems(role, badges)}
+        items={moreItems(role, badges, inboxLive)}
         footer={<SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />}
       />
 

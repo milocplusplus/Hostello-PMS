@@ -5,6 +5,7 @@ import { logout } from "@/app/login/actions";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createClient } from "@/lib/supabase/server";
 import { OPEN_STATUSES } from "@/lib/ota";
+import { loadSettings } from "@/lib/settings";
 import { NavProgress } from "@/components/shared/NavProgress";
 import { NotificationLive } from "@/components/shared/NotificationLive";
 import { searchAdmin } from "@/app/admin/search/actions";
@@ -27,7 +28,7 @@ export default async function AdminLayout({
   // read state now. None of these four depend on each other, so they go out
   // together rather than in a chain.
   const supabase = await createClient();
-  const [profile, notifications, unreadCount, preferences, inbox] = await Promise.all([
+  const [profile, notifications, unreadCount, preferences, inbox, settings] = await Promise.all([
     currentProfile(),
     readNotifications(user.id, { limit: 8, portal: "admin" }),
     unreadNotificationCount(user.id),
@@ -40,6 +41,7 @@ export default async function AdminLayout({
       .select("id", { count: "exact", head: true })
       .in("status", OPEN_STATUSES)
       .neq("kind", "payout"),
+    loadSettings(),
   ]);
 
   if (!profile || !isStaffRole(profile.role)) redirect("/client");
@@ -59,6 +61,7 @@ export default async function AdminLayout({
         notifications={notifications}
         unreadCount={unreadCount}
         inboxCount={inbox.count ?? 0}
+        inboxLive={Boolean(settings.channelInboxAddress)}
         markAllReadAction={markAllNotificationsRead}
       >
         {children}

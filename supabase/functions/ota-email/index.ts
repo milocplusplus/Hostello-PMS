@@ -1,23 +1,27 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { parseOtaEmail } from "./parse.ts";
+import { parseMime } from "./mime.ts";
 
 /**
  * The one place a channel's reservation email is read.
  *
  * Sibling of `ical-sync`, and for the same reason: nothing external can call a
  * Next.js Server Action, and an inbound-email webhook is about as external as
- * it gets. Postmark POSTs here; this function stores the mail verbatim, has a
- * go at reading it, and hands the result to `record_ota_message()`.
+ * it gets. The Cloudflare Email Worker (`cloudflare/email-worker.js`) POSTs each
+ * raw message here — or Postmark, its JSON — and this function stores the mail,
+ * has a go at reading it, and hands the result to `record_ota_message()`.
  *
  * What it does NOT do: decide which property the mail belongs to, decide
  * whether it is reviewable, or write a notification — those are rules and live
  * in SQL. And, above all, it never computes a payout. A parsed mail is a
  * proposal; `src/lib/payout.ts` runs when an admin approves it in the app.
  *
- *   POST ?secret=…            Postmark inbound webhook
- *   POST { action: "preview" } dry run: parse and return, write nothing
+ *   POST message/rfc822 (X-Ota-Secret)   Cloudflare Email Worker, raw mail
+ *   POST ?secret=…                       Postmark inbound webhook (JSON)
+ *   …&dry=1 / ?dry=1                     read it, report, write nothing
+ *   POST { action: "preview" }           admin: parse fields, write nothing
  *
- * JWT verification must be OFF at the gateway — Postmark has no JWT to present.
+ * JWT verification must be OFF at the gateway — neither sender has a JWT.
  * The shared secret (Vault, `ota_inbound_secret`) is what guards it instead.
  */
 
@@ -107,6 +111,34 @@ function readPostmark(body: Record<string, unknown>) {
   };
 }
 
+type Mail = ReturnType<typeof readPostmark>;
+
+/** A raw message from the Cloudflare Email Worker, in the same shape. */
+async function readRaw(req: Request): Promise<Mail> {
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  const mail = parseMime(bytes);
+
+  // Without a Message-ID there is still a dedupe key: the message itself. A
+  // worker retry sends the same bytes, so it gets the same id.
+  const messageId =
+    mail.messageId ||
+    "sha256:" +
+      Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+
+  return {
+    messageId,
+    template: mail.template,
+    from: mail.from,
+    to: mail.to,
+    subject: mail.subject,
+    text: clip(mail.text),
+    html: clip(mail.html),
+    date: mail.date,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
@@ -115,32 +147,42 @@ Deno.serve(async (req: Request) => {
 
   if (!caller) return json({ error: "Unauthorized" }, 401);
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return json({ error: "Expected a JSON body." }, 400);
+  const raw = /message\/rfc822/i.test(req.headers.get("Content-Type") ?? "");
+  let mail: Mail;
+  let provider: string;
+
+  if (raw) {
+    mail = await readRaw(req);
+    provider = "cloudflare";
+  } else {
+    let body: Record<string, unknown>;
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      return json({ error: "Expected a JSON body or a raw message/rfc822 email." }, 400);
+    }
+
+    // A dry run, for holding a real email up against the parser without writing
+    // anything. This is how the label tables in parse.ts get corrected.
+    if (body.action === "preview") {
+      if (caller !== "admin") return json({ error: "Preview is admin-only." }, 403);
+
+      return json(
+        parseOtaEmail({
+          subject: String(body.subject ?? ""),
+          from: String(body.from ?? ""),
+          template: String(body.template ?? ""),
+          textBody: clip(body.text ?? body.TextBody),
+          htmlBody: clip(body.html ?? body.HtmlBody),
+        })
+      );
+    }
+
+    mail = readPostmark(body);
+    provider = "postmark";
   }
 
-  // A dry run, for holding a real email up against the parser without writing
-  // anything. This is how the label tables in parse.ts get corrected.
-  if (body.action === "preview") {
-    if (caller !== "admin") return json({ error: "Preview is admin-only." }, 403);
-
-    return json(
-      parseOtaEmail({
-        subject: String(body.subject ?? ""),
-        from: String(body.from ?? ""),
-        template: String(body.template ?? ""),
-        textBody: clip(body.text ?? body.TextBody),
-        htmlBody: clip(body.html ?? body.HtmlBody),
-      })
-    );
-  }
-
   try {
-    const mail = readPostmark(body);
-
     if (!mail.messageId) {
       // Without an id there is no dedupe key, and a Postmark retry would file
       // the reservation twice. Refuse rather than risk it.
@@ -158,14 +200,23 @@ Deno.serve(async (req: Request) => {
       receivedAt: Number.isNaN(received.getTime()) ? new Date() : received,
     });
 
-    // A guest chatting to the host. Nothing to review, so nothing to file —
-    // filing it would only raise an alert for someone to dismiss.
+    // ?dry=1 — read it and say what would happen, write nothing. For checking
+    // the Cloudflare route end to end with a real mail before going live.
+    if (url.searchParams.get("dry") === "1") {
+      return json({ dry_run: true, provider, message_id: mail.messageId, from: mail.from, to: mail.to, subject: mail.subject, outcome });
+    }
+
+    // A guest chatting to the host, or mail that is not from a channel at all.
+    // Nothing to review, so nothing to file — filing it would only raise an
+    // alert for someone to dismiss.
     if (outcome.skip) return json({ status: "skipped", reason: outcome.skip });
 
     const result = await rpc<Record<string, unknown>>("record_ota_message", {
-      p_provider: "postmark",
+      p_provider: provider,
       p_message_id: mail.messageId,
       p_from: mail.from,
+      // The channel account the mail was addressed to (for raw mail, the
+      // original To — which is what tells the per-owner status who forwards).
       p_to: mail.to,
       p_subject: mail.subject,
       p_raw_text: mail.text,
@@ -177,7 +228,7 @@ Deno.serve(async (req: Request) => {
     });
 
     // 200 even when the parse failed: the mail is safely stored and waiting in
-    // the inbox, so there is nothing for Postmark to usefully retry. Only a
+    // the inbox, so there is nothing for the sender to usefully retry. Only a
     // genuine fault below earns a 500 and a redelivery.
     return json(result);
   } catch (err) {

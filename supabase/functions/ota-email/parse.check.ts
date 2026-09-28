@@ -186,6 +186,23 @@ for (const [name, expected] of Object.entries(CASES)) {
   }
 }
 
+// Mail that is not from a channel is dropped; Gmail's forwarding confirmation
+// is kept, because someone has to click its link.
+{
+  const stray = parseOtaEmail({ subject: "Hello", from: "friend@example.com", textBody: "Lunch?", htmlBody: "" });
+  checks++;
+  if (!stray.skip || stray.error) fail("stray mail (made up)", `skip ${stray.skip}, error ${stray.error}`);
+
+  const gmail = parseOtaEmail({
+    subject: "(#123456789) Gmail Forwarding Confirmation - Receive Mail from owner@gmail.com",
+    from: "forwarding-noreply@google.com",
+    textBody: "owner@gmail.com has requested to automatically forward mail to your email address.",
+    htmlBody: "",
+  });
+  checks++;
+  if (gmail.skip || !gmail.error) fail("gmail confirmation (made up)", `skip ${gmail.skip}, error ${gmail.error}`);
+}
+
 console.log(
   failures === 0
     ? `All ${checks} parses match (${Object.keys(CASES).length} real mails × ${Object.keys(WAYS).length} ways, plus made-up request variants).`

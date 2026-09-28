@@ -23,6 +23,7 @@ import {
 } from "./actions";
 import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { loadSettings } from "@/lib/settings";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -59,7 +60,7 @@ export default async function ClientPropertiesPage({
   // listed too: an owner should see a unit that has been taken off sale.
   // The requests ride along: they depend on nothing the properties query
   // returns, so they cost no extra round trip.
-  const [{ data: properties }, { data: requests }] = await Promise.all([
+  const [{ data: properties }, { data: requests }, settings] = await Promise.all([
     supabase
       .from("properties_v")
       .select(
@@ -73,6 +74,7 @@ export default async function ClientPropertiesPage({
       .eq("client_id", clientRecord.id)
       .order("created_at", { ascending: false })
       .limit(50),
+    loadSettings(),
   ]);
 
   // The stack rate is a floor Hostello owes per night, and only under a deal
@@ -102,6 +104,13 @@ export default async function ClientPropertiesPage({
       />
 
       {error && <p className={errorBanner}>{error}</p>}
+
+      {/* Only once the inbox is live — before that the page has nothing to ask. */}
+      {settings.channelInboxAddress && (
+        <Link href="/client/channel-setup" className="text-sm text-hostello-gold hover:underline -mt-2">
+          Send your Airbnb and Booking.com emails to Hostello →
+        </Link>
+      )}
 
       {!properties || properties.length === 0 ? (
         <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">

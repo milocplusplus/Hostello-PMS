@@ -202,6 +202,22 @@ Pre-launch: real data has not been entered yet.
   `reconvertBookings` (through `editBookingInline`, so the owner gets the
   normal price-changed notice) — a stay settled either way keeps its rate.
   A price typed by hand (admin or owner edit) clears `fx_provisional`.
+  **Intake** (2026-09-29): Cloudflare Email Routing on Hostello's domain →
+  `cloudflare/email-worker.js` (pasted into the Cloudflare dashboard; passes
+  raw bytes, never rejects, optional `BACKUP_TO` copy) → `ota-email` with
+  `Content-Type: message/rfc822` + `X-Ota-Secret` → `mime.ts` (dependency-
+  free MIME reader, byte-exact against the real mails) → `parse.ts`. Postmark
+  JSON still accepted. `?dry=1` parses and reports without writing. Mail not
+  from a channel is skipped; Gmail's forwarding confirmation is kept and
+  shown as its own card (Confirm link + code). `to_email` is the original
+  To — the channel account — which `channel_intake_status()` groups per
+  owner. Settings → Channel inbox holds `channel_inbox_address` (setting it
+  ends "coming soon": banner, nav tag, owner link) and
+  `channel_cohost_email`. Guides: `ChannelForwardingGuide` (one component)
+  on `/admin/channel-inbox/setup` (staff; + per-owner status, + Cloudflare
+  steps for the admin) and `/client/channel-setup` (owners; linked from
+  Properties once live). **Heredocs in this shell eat backslashes** — write
+  scripts that contain regexes with the file tool, not `<<'EOF'`.
 - **Bulk actions** — in the existing pages, one notice per owner via
   `notifyBulkSummary()` in `notify.ts`. **Block dates**: `UnitPicker` (units
   or a whole client) → `createCalendarBlock` takes `property_ids[]`, skips and

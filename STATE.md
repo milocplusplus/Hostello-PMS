@@ -1,6 +1,20 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 6: email intake** (2026-09-29). Owner's choices:
+  Cloudflare Email Routing on Hostello's own domain (DNS currently at the
+  registrar — to be moved), in-app setup page + shareable owner page +
+  per-owner status, Gmail confirmation shown as a card (not auto-confirmed).
+  Migration `channel_intake` **applied to the live DB**; `ota-email`
+  **deployed v4** (new parser from parts 1–3, `mime.ts`, raw path, dry run).
+  `cloudflare/email-worker.js` written, **not deployed** (owner's Cloudflare).
+  **Tested:** the six real mails POSTed raw to the deployed function in dry
+  run — identical to the local parser, guest message skipped; no secret →
+  401; `mime.ts` byte-identical to the reference decoder on all six;
+  per-owner status rolled back on the live DB; parser check 24/24; lint +
+  build. Fixed two backslash casualties of shell heredocs before shipping
+  (`/message\/rfc822/`, and the Settings email regex, which would have
+  refused any address with an "s"). **Not seen rendered.**
 - **Channel inbox 5: alerts** (2026-09-29). Owner's choices: push *every*
   database-raised alert (not just the inbox), one reminder at 2 h, no quiet
   hours, channel mail to admin + ops (payouts admin-only). Migration
@@ -2271,9 +2285,13 @@ reassign the alias, so nothing broke.
      starts sending. If the value is lost, a new key pair means every device
      re-enabling push, and Vercel's two VAPID vars changing to match.
    - **Access:** admin + ops (payout mails stay admin-only).
-   - **Intake:** one Hostello address. Listings are on a mix of Hostello's and
-     owners' accounts: Hostello as co-host / extranet user where possible,
-     owner auto-forward otherwise. Inbound service still undecided.
+   - **Intake (built, part 6 — owner's steps left):** add the domain to
+     Cloudflare and point the registrar's nameservers at it; create worker
+     `hostello-intake` from `cloudflare/email-worker.js` with secret
+     `OTA_SECRET` = Vault `ota_inbound_secret`; Email Routing → a custom
+     address → Send to Worker; put the address (and Hostello's Airbnb
+     account email) in Settings → Channel inbox; forward one old Airbnb mail
+     to test. Steps are also on `/admin/channel-inbox/setup`.
 00. **Nothing is unapplied any more — but the booking write has still never
    been run.** Read this before touching bookings or grants. Nothing is urgent;
    this is pre-launch.

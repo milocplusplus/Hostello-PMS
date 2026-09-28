@@ -110,9 +110,9 @@ const ENTITIES: Record<string, string> = {
  */
 function clean(s: string): string {
   return s
-    .replace(/[͏­​-‍⁠﻿]/g, "")
-    .replace(/[     ]/g, " ")
-    .replace(/[‎‏]/g, "");
+    .replace(/[\u034f\u00ad\u200b-\u200d\u2060\ufeff]/g, "")
+    .replace(/[\u00a0\u2007\u2009\u200a\u202f]/g, " ")
+    .replace(/[\u200e\u200f]/g, "");
 }
 
 /** HTML mail flattened to lines, because every rule below is line-oriented. */
@@ -613,9 +613,25 @@ export function parseOtaEmail(input: {
   const raw = clean(`${input.textBody ?? ""}\n${(input.htmlBody ?? "").replace(/&amp;/g, "&")}`);
   const reference = input.receivedAt ?? new Date();
 
+  // Setting up a Gmail filter to forward here makes Gmail send this address a
+  // confirmation link first. Someone has to click it, so it is kept and shown
+  // (the inbox renders it as its own card) rather than dropped as noise.
+  if (/forwarding-noreply@google\.com/i.test(input.from ?? "") || /gmail forwarding confirmation/i.test(subject)) {
+    return {
+      source: null,
+      kind: "unknown",
+      parsed: EMPTY,
+      error: "A Gmail forwarding request — open the confirmation link to start receiving that account's emails.",
+      skip: null,
+    };
+  }
+
+  // The address is on owners' filters and in co-host settings, so anything can
+  // land here. What is not from a channel is dropped rather than filed as a
+  // failure for someone to dismiss; the worker keeps a backup copy if set.
   const source = detectSource(subject, input.from ?? "", body);
   if (!source) {
-    return { source: null, kind: "unknown", parsed: EMPTY, error: "Not an Airbnb or Booking.com email.", skip: null };
+    return { source: null, kind: "unknown", parsed: EMPTY, error: null, skip: "Not from Airbnb or Booking.com." };
   }
 
   const fromTemplate = kindFromTemplate(input.template ?? "");

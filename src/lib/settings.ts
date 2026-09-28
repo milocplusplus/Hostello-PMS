@@ -44,6 +44,10 @@ export type AppSettings = {
   guestTemplates: Partial<Record<"arrival" | "balance" | "checkout", string>>;
   /** Which owner notices go out by default. Admin-only in the view; all on otherwise. */
   ownerNotices: Record<OwnerNoticeGroup, boolean>;
+  /** Where channel emails are forwarded. Null until the intake is live. */
+  channelInboxAddress: string | null;
+  /** The email Hostello's Airbnb / Booking.com account uses — what owners invite as co-host. */
+  channelCohostEmail: string | null;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -68,6 +72,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   paymentAccounts: [],
   guestTemplates: {},
   ownerNotices: { bookings: true, calendar: true, payments: true, digest: true, reminder: true },
+  channelInboxAddress: null,
+  channelCohostEmail: null,
 };
 
 type Row = Record<string, unknown>;
@@ -106,6 +112,8 @@ function fromRow(r: Row | null): AppSettings {
         ? (r.guest_templates as AppSettings["guestTemplates"])
         : {},
     ownerNotices: { ...d.ownerNotices, ...((r.owner_notices as OwnerNotices | null) ?? {}) },
+    channelInboxAddress: text(r.channel_inbox_address),
+    channelCohostEmail: text(r.channel_cohost_email),
   };
 }
 

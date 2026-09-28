@@ -45,6 +45,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { NotificationSettings } from "@/components/shared/NotificationSettings";
 import { readNotificationPreferences } from "@/lib/notification-feed";
+import { loadSettings } from "@/lib/settings";
 
 /**
  * What the channels have emailed in, and what to do about it.
@@ -59,6 +60,7 @@ import { readNotificationPreferences } from "@/lib/notification-feed";
 type MessageRow = {
   id: string;
   subject: string | null;
+  from_email: string | null;
   received_at: string;
   source: string | null;
   kind: OtaMessageKind;
@@ -237,6 +239,25 @@ function Conversion({
   );
 }
 
+/**
+ * Gmail asks the receiving address to confirm a forwarding filter before it
+ * forwards anything. The request lands here like any other mail; this pulls
+ * out who asked and the link that says yes.
+ */
+function gmailForwarding(row: MessageRow): { requester: string | null; link: string | null; code: string | null } | null {
+  const fromGoogle = /forwarding-noreply@google\.com/i.test(row.from_email ?? "");
+  if (!fromGoogle && !/gmail forwarding confirmation/i.test(row.subject ?? "")) return null;
+  const text = row.raw_text ?? "";
+  return {
+    requester:
+      (row.subject ?? "").match(/receive mail from\s+(\S+@\S+)/i)?.[1] ??
+      text.match(/(\S+@\S+)\s+has requested to automatically forward/i)?.[1] ??
+      null,
+    link: text.match(/https:\/\/mail(?:-settings)?\.google\.com\/mail\/[^\s"<>]+/i)?.[0] ?? null,
+    code: text.match(/confirmation code:\s*(\d+)/i)?.[1] ?? null,
+  };
+}
+
 /** A channel figure in the currency the channel quoted it in. */
 function money(amount: number | null | undefined, currency: string | null | undefined): string {
   if (amount === null || amount === undefined) return "—";
@@ -307,7 +328,7 @@ export default async function ChannelInboxPage({
     supabase
       .from("ota_messages")
       .select(
-        "id, subject, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, booking_match, admin_note, raw_text, properties:properties_v(name, clients:clients_v(name))"
+        "id, subject, from_email, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, booking_match, admin_note, raw_text, properties:properties_v(name, clients:clients_v(name))"
       )
       .order("received_at", { ascending: false })
       .limit(60),
@@ -323,7 +344,10 @@ export default async function ChannelInboxPage({
   const showMoney = canSeeSplit(profile?.role);
   // Push is switched on from Activity, which is owner-only; an ops login needs
   // somewhere to do it, and this is the page its alerts are about.
-  const opsPreferences = showMoney ? null : await readNotificationPreferences(user.id);
+  const [opsPreferences, settings] = await Promise.all([
+    showMoney ? null : readNotificationPreferences(user.id),
+    loadSettings(),
+  ]);
   const rows = ((messages ?? []) as unknown as MessageRow[]).filter(
     (r) => showMoney || r.kind !== "payout"
   );
@@ -462,11 +486,23 @@ export default async function ChannelInboxPage({
         }
       />
 
-      <p className={noticeBanner}>
-        Coming soon — the forwarding address that feeds this inbox isn&apos;t live yet, so
-        nothing arrives here on its own. Until it is, enter channel reservations through
-        Bookings.
-      </p>
+      {settings.channelInboxAddress ? (
+        <p className="text-xs text-ink-muted -mt-2">
+          Channel emails forwarded to{" "}
+          <span className="text-ink-primary break-all">{settings.channelInboxAddress}</span> land here.{" "}
+          <Link href="/admin/channel-inbox/setup" className="text-hostello-gold hover:underline">
+            Setup &amp; whose are arriving
+          </Link>
+        </p>
+      ) : (
+        <p className={noticeBanner}>
+          Coming soon — the address that feeds this inbox isn&apos;t live yet, so nothing arrives
+          here on its own. Until it is, enter channel reservations through Bookings.{" "}
+          <Link href="/admin/channel-inbox/setup" className="underline">
+            Setup
+          </Link>
+        </p>
+      )}
 
       {opsPreferences && (
         <details className="group">
@@ -545,8 +581,9 @@ export default async function ChannelInboxPage({
           <Inbox className="w-5 h-5 text-ink-muted" aria-hidden />
           <p className="text-sm text-ink-secondary">Nothing waiting.</p>
           <p className="text-xs text-ink-muted">
-            Once the forwarding address is live, a channel&apos;s reservation email will appear
-            here within a few seconds of being sent.
+            {settings.channelInboxAddress
+              ? "A channel's reservation email appears here within a few seconds of being sent."
+              : "Once the inbox address is live, a channel's reservation email will appear here within a few seconds of being sent."}
           </p>
         </div>
       )}
@@ -556,6 +593,7 @@ export default async function ChannelInboxPage({
         const problems = blockers(row);
         const match = matches.get(row.id);
         const extranet = channelReservationUrl(row.source, parsed);
+        const gmail = gmailForwarding(row);
         const booking = row.booking_id ? bookings.get(row.booking_id) : undefined;
         const linkedHold = row.booking_id ? linkedHolds.get(row.booking_id) : undefined;
         const foreign = parsed.currency && parsed.currency !== "PKR" ? parsed.currency : null;
@@ -606,7 +644,7 @@ export default async function ChannelInboxPage({
               />
             )}
 
-            {row.parse_error && <p className={errorBanner}>{row.parse_error}</p>}
+            {row.parse_error && !gmail && <p className={errorBanner}>{row.parse_error}</p>}
 
             {problems.length > 0 && (
               <p className={errorBanner}>
@@ -965,6 +1003,34 @@ export default async function ChannelInboxPage({
                   </SubmitButton>
                 </div>
               </form>
+            )}
+
+            {/* ── Gmail asking to confirm a forwarding filter ── */}
+            {gmail && (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm">
+                  {gmail.requester ?? "A Gmail account"} wants to forward its emails here. Confirm it
+                  only if you expect it — an owner or Hostello setting up forwarding.
+                </p>
+                {gmail.link ? (
+                  <a
+                    href={gmail.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`${primaryButton} self-start`}
+                  >
+                    Confirm forwarding
+                  </a>
+                ) : (
+                  <p className="text-xs text-ink-muted">No link found — see the email below.</p>
+                )}
+                {gmail.code && (
+                  <p className="text-xs text-ink-muted">
+                    Or give the owner this confirmation code: <span className="text-ink-primary">{gmail.code}</span>
+                  </p>
+                )}
+                <p className="text-xs text-ink-muted">Dismiss this card once it&apos;s done.</p>
+              </div>
             )}
 
             {/* ── Unreadable: show the bytes, let it be dismissed ── */}

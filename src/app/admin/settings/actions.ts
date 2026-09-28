@@ -61,6 +61,20 @@ export async function saveBusiness(f: FormData) {
   });
 }
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The channel inbox's address, and the account owners invite as co-host.
+ * Setting the address is what takes the inbox out of "coming soon".
+ */
+export async function saveChannelInbox(f: FormData) {
+  const address = opt(f, "channel_inbox_address")?.toLowerCase() ?? null;
+  const cohost = opt(f, "channel_cohost_email")?.toLowerCase() ?? null;
+  if (address && !EMAIL.test(address)) fail("channel-inbox", "The inbox address isn't an email address.");
+  if (cohost && !EMAIL.test(cohost)) fail("channel-inbox", "The co-host email isn't an email address.");
+  await save("channel-inbox", { channel_inbox_address: address, channel_cohost_email: cohost });
+}
+
 export async function saveDealDefaults(f: FormData) {
   const deal = str(f, "default_deal_model");
   const ota = str(f, "default_ota_model");
