@@ -1,6 +1,18 @@
-# State — updated 2026-09-27
+# State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 1: parser rewritten against real mails** (2026-09-28). The
+  owner supplied six real mails (Airbnb new / cancelled / updated / guest
+  message; Booking.com new / cancelled). The old parser misread all of them
+  (guest "PAID", payout "1", no dates). Now: HTML read first (one label per
+  line), Airbnb `X-Template` header decides the kind (Postmark `Headers` →
+  `index.ts`), guest messages are skipped (not filed), new `listing_id`
+  (Airbnb listing number / Booking.com `hotel_id`) and `channel_fee`.
+  Redacted copies in `supabase/functions/ota-email/fixtures/`;
+  `node supabase/functions/ota-email/parse.check.ts` runs each as sent,
+  hand-forwarded (no header) and text-only — 18/18 pass. **Edge function not
+  redeployed** (intake still not live). Routing still matches on the title,
+  not `listing_id` — that is part 2.
 - **Admin controls 9 of 9: owner notification rules** (2026-09-28). Owner's
   choices: defaults in Settings + per-client override; switchable groups
   bookings / calendar / payments / morning summary & bills, plus a weekly
@@ -2159,6 +2171,33 @@ reassign the alias, so nothing broke.
     18 bookings before and after. `npm run build` and `npm run lint` clean.
 
 ## Next
+0. **Channel inbox — the owner's plan (agreed 2026-09-28).** Part 1 (parser)
+   is done; the rest, in order:
+   - **Matching:** route by `listing_id`, not title; approving takes over the
+     imported iCal hold (today it clashes with it — `approveReservation` never
+     passes `from_block`); each card says whether the calendar agrees; a
+     second mail with the same code files under the first; fallback match on
+     guest + dates + unit. Imported holds with no mail after **1 hour** go on
+     a missing-details list.
+   - **Booking.com shared room types stay shared** (owner's choice). One
+     `hotel_id` = a building, and several flats can share one room type and
+     one calendar, so neither mail nor iCal names the flat: the card asks
+     staff to pick a free unit of that type. Needs a room-type grouping
+     (not modelled yet). Booking.com mails carry only code + `hotel_id` +
+     subject date (read as arrival — **unconfirmed**, the only sample was
+     same-day); guest and price are typed from the extranet link.
+   - **One-tap changes:** cancellations and date changes apply through the
+     normal booking paths. Airbnb's "updated" mail has no new dates or price —
+     dates from iCal, price typed. Airbnb requests to book → tentative.
+   - **Money:** sale price = host payout ("You earn"); keep code, guest count,
+     guest-paid total + fee (admin only), original-currency amount. Non-PKR
+     converts at a live rate, provisional until check-in, re-converted on
+     check-in day with the owner told.
+   - **Alerts:** push to admin + ops for every new mail, badge, "waiting 2h".
+   - **Access:** admin + ops (payout mails stay admin-only).
+   - **Intake:** one Hostello address. Listings are on a mix of Hostello's and
+     owners' accounts: Hostello as co-host / extranet user where possible,
+     owner auto-forward otherwise. Inbound service still undecided.
 00. **Nothing is unapplied any more — but the booking write has still never
    been run.** Read this before touching bookings or grants. Nothing is urgent;
    this is pre-launch.

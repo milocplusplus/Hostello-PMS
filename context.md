@@ -640,6 +640,14 @@ Pre-launch: real data has not been entered yet.
   add the table first. OTA sync is the one exception and is now fully built:
   `calendar_feeds` in, `calendar_exports` out, a `calendar_conflict`
   notification when they disagree, and a 5-minute schedule.
+- **What a channel mail actually contains** (real samples, 2026-09): an
+  Airbnb confirmation has guest, dates, guest count and money (often USD);
+  its cancellation has a year-less range; its "Reservation updated" mail has
+  **only** the code and first name — never the new dates or price; no Airbnb
+  mail has a phone. **Booking.com mails have no guest, dates or price** — just
+  the reservation number, `hotel_id` (a building, not a unit) and a date in
+  the subject. `supabase/functions/ota-email/parse.check.ts` + `fixtures/` are
+  the proof; run it after any change to `parse.ts`.
 - **`pg_safeupdate` is on for this database**: an UPDATE or DELETE with no
   WHERE clause fails with `21000: DELETE requires a WHERE clause`, *including*
   against a temporary table inside a function. This is why

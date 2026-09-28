@@ -87,8 +87,17 @@ function readPostmark(body: Record<string, unknown>) {
     ? (body.ToFull[0] as { Email?: string } | undefined)
     : undefined;
 
+  // Airbnb's `X-Template` names the kind of mail outright. Postmark passes the
+  // original headers through as a Name/Value list.
+  const headers = Array.isArray(body.Headers)
+    ? (body.Headers as { Name?: string; Value?: string }[])
+    : [];
+  const template =
+    headers.find((h) => String(h.Name ?? "").toLowerCase() === "x-template")?.Value ?? "";
+
   return {
     messageId: String(body.MessageID ?? body.MessageId ?? "").trim(),
+    template: String(template).trim(),
     from: String(fromFull?.Email ?? body.From ?? "").trim(),
     to: String(toFull?.Email ?? body.To ?? "").trim(),
     subject: String(body.Subject ?? "").trim(),
@@ -122,6 +131,7 @@ Deno.serve(async (req: Request) => {
       parseOtaEmail({
         subject: String(body.subject ?? ""),
         from: String(body.from ?? ""),
+        template: String(body.template ?? ""),
         textBody: clip(body.text ?? body.TextBody),
         htmlBody: clip(body.html ?? body.HtmlBody),
       })
@@ -144,8 +154,13 @@ Deno.serve(async (req: Request) => {
       from: mail.from,
       textBody: mail.text,
       htmlBody: mail.html,
+      template: mail.template,
       receivedAt: Number.isNaN(received.getTime()) ? new Date() : received,
     });
+
+    // A guest chatting to the host. Nothing to review, so nothing to file —
+    // filing it would only raise an alert for someone to dismiss.
+    if (outcome.skip) return json({ status: "skipped", reason: outcome.skip });
 
     const result = await rpc<Record<string, unknown>>("record_ota_message", {
       p_provider: "postmark",

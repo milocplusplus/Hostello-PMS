@@ -10,7 +10,21 @@
  *    review screen shows a blank for an admin to fill, which is recoverable,
  *    where a confidently-wrong payout is not;
  *  - the raw mail is stored by the caller before this ever runs, so a fixed
- *    parser can be run again over everything it previously got wrong.
+ *    parser can be run again over everything it previously got wrong;
+ *  - `parse.check.ts` holds real mails (names swapped) with what each must
+ *    parse to. Run it after touching anything here.
+ *
+ * What the two channels actually send, as of September 2026:
+ *
+ *  - **Airbnb** tags every mail with an `X-Template` header
+ *    (`BOOKING_CONFIRMATION_TO_HOST`, `ALTERATION_ACCEPTED`, …), which decides
+ *    the kind far better than the wording does. The confirmation carries the
+ *    guest, dates, guest count and money; the cancellation carries dates with
+ *    no year; the "reservation updated" mail carries **only** the code and the
+ *    guest's first name — never the new dates or price. No mail has a phone.
+ *  - **Booking.com** sends almost nothing: the reservation number, the
+ *    property's name and `hotel_id`, and a date in the subject. Guest, dates
+ *    and price live only in its extranet.
  *
  * Nothing here computes a payout. It reports what the channel *said*; what
  * Hostello earns is decided by `src/lib/payout.ts` when an admin approves.
@@ -21,7 +35,14 @@ export type OtaSource = "airbnb" | "booking_com";
 export type OtaKind = "new_booking" | "cancellation" | "alteration" | "payout" | "unknown";
 
 export type ParsedReservation = {
+  /** The listing's title as the mail prints it. Display only — it changes. */
   listing: string | null;
+  /**
+   * The channel's own id for the listing: Airbnb's listing number, or
+   * Booking.com's `hotel_id` (a whole building, which may hold many units).
+   * Stable, so this is what routes a mail to a property.
+   */
+  listing_id: string | null;
   guest_name: string | null;
   guest_phone: string | null;
   /** ISO `yyyy-mm-dd`. */
@@ -40,7 +61,9 @@ export type ParsedReservation = {
   currency: string | null;
   /** What the guest paid the channel. */
   gross: number | null;
-  /** What the channel says it will send the host. Reference only. */
+  /** What the channel kept from the host's side ("Host service fee"). */
+  channel_fee: number | null;
+  /** What the channel says it will send the host. */
   host_payout: number | null;
   reservation_code: string | null;
 };
@@ -50,6 +73,12 @@ export type ParseOutcome = {
   kind: OtaKind;
   parsed: ParsedReservation;
   error: string | null;
+  /**
+   * Set when the mail is from a channel but is not about a reservation — a
+   * guest's chat message. The caller drops it rather than filing it as a
+   * failure for someone to dismiss.
+   */
+  skip: string | null;
 };
 
 // ── Text ────────────────────────────────────────────────────────────────────
@@ -65,42 +94,51 @@ const ENTITIES: Record<string, string> = {
   "&mdash;": "—",
   "&ndash;": "–",
   "&rsquo;": "’",
+  "&shy;": "",
 };
+
+/**
+ * Characters the channels pad their mail with to steer inbox previews:
+ * combining grapheme joiners, soft hyphens, zero-width and figure spaces.
+ * Invisible, but they break every "label alone on its line" test.
+ */
+function clean(s: string): string {
+  return s
+    .replace(/[͏­​-‍⁠﻿]/g, "")
+    .replace(/[     ]/g, " ")
+    .replace(/[‎‏]/g, "");
+}
 
 /** HTML mail flattened to lines, because every rule below is line-oriented. */
 export function htmlToText(html: string): string {
-  return html
-    .replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    // A table cell break is a field boundary, not a word boundary.
-    .replace(/<\/(td|th)>/gi, "\n")
-    .replace(/<(br|\/p|\/div|\/tr|\/h[1-6]|\/li)[^>]*>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&[a-z#0-9]+;/gi, (e) => ENTITIES[e.toLowerCase()] ?? " ")
-    .replace(/[ \t ]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
+  return clean(
+    html
+      .replace(/<(script|style|head)[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      // A table cell break is a field boundary, not a word boundary.
+      .replace(/<\/(td|th)>/gi, "\n")
+      .replace(/<(br|\/p|\/div|\/tr|\/h[1-6]|\/li)[^>]*>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+      .replace(/&[a-z#0-9]+;/gi, (e) => ENTITIES[e.toLowerCase()] ?? " ")
+  )
+    .replace(/[ \t]+/g, " ")
     .split("\n")
     .map((l) => l.trim())
-    .join("\n")
-    .trim();
+    .filter(Boolean)
+    .join("\n");
 }
 
 function lines(text: string): string[] {
-  return text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return text
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean);
 }
 
 /**
- * The value for a label, whether the mail puts it after a colon on the same
- * line or on the line below (which is what the stacked "CHECK-IN / Fri, Jul 3"
- * blocks in Airbnb's HTML flatten to).
- */
-function labelled(text: string, labels: string[]): string | null {
-  return labelledAt(lines(text), labels)?.value ?? null;
-}
-
-/**
- * Where a label matched and what followed it.
+ * Where a label matched and what followed it — on the same line after a
+ * colon, or on the line below (which is what a two-cell table row flattens to).
  *
  * Longest label first, so "Guest name" is tried before "Guest". And the
  * character after the label has to be a separator, not a letter — without that
@@ -134,24 +172,31 @@ function labelledAt(
   return null;
 }
 
+function labelled(rows: string[], labels: string[]): string | null {
+  return labelledAt(rows, labels)?.value ?? null;
+}
+
 /**
  * Money for a label, looking at the label's own line *and* the one below it.
  *
- * Channels split these constantly — "Total (PKR)" on one line and the figure on
- * the next — and the remainder "(PKR)" is non-empty, so a plain label lookup
- * stops there and reports nothing.
+ * The remainder of the label's line is often not money at all — "Host service
+ * fee (15.5%)", "Total (USD)" — so a percentage is ignored, and an ISO code in
+ * brackets there is taken as the currency of the figure below it.
  */
 function labelledMoney(
-  text: string,
+  rows: string[],
   labels: string[]
 ): { amount: number | null; currency: string | null } {
-  const rows = lines(text);
   const hit = labelledAt(rows, labels);
   if (!hit) return { amount: null, currency: null };
 
+  const bracketCode = hit.rest.match(/\(([A-Z]{3})\)/)?.[1] ?? null;
+
   for (const candidate of [hit.rest, rows[hit.index + 1] ?? ""]) {
-    const money = parseMoney(candidate);
-    if (money.amount !== null) return money;
+    const money = parseMoney(candidate.replace(/\(?-?\d+(?:\.\d+)?\s*%\)?/g, ""));
+    if (money.amount !== null) {
+      return { amount: money.amount, currency: bracketCode ?? money.currency };
+    }
   }
 
   return { amount: null, currency: null };
@@ -228,29 +273,59 @@ export function parseDate(raw: string | null, reference: Date): string | null {
   return iso(year, month, day);
 }
 
+/**
+ * A stay written as a range: "Oct 8 – 11", "Oct 30 – Nov 2", "Oct 8 – 11, 2026".
+ * Airbnb's cancellation mail has no other dates in it.
+ */
+function parseRange(
+  text: string,
+  reference: Date
+): { check_in: string | null; check_out: string | null } {
+  const m = text.match(
+    /\b([A-Z][a-z]{2,8})\.?\s+(\d{1,2})\s*[–—-]\s*(?:([A-Z][a-z]{2,8})\.?\s+)?(\d{1,2})\b(?:,\s*(\d{4}))?/
+  );
+  if (!m || !MONTHS[m[1].slice(0, 3).toLowerCase()]) return { check_in: null, check_out: null };
+
+  const year = m[5] ? ` ${m[5]}` : "";
+  const check_in = parseDate(`${m[1]} ${m[2]}${year}`, reference);
+  if (!check_in) return { check_in: null, check_out: null };
+
+  // The end is judged against the start, so "Dec 30 – Jan 2" lands in January
+  // of the following year rather than eleven months earlier.
+  const check_out = parseDate(`${m[3] ?? m[1]} ${m[4]}${year}`, new Date(`${check_in}T00:00:00Z`));
+  return { check_in, check_out };
+}
+
 // ── Money ───────────────────────────────────────────────────────────────────
 
 const CURRENCY_WORDS: Record<string, string> = {
-  pkr: "PKR", rs: "PKR", "₨": "PKR", "rs.": "PKR",
-  usd: "USD", $: "USD",
+  pkr: "PKR", rs: "PKR", "rs.": "PKR", "₨": "PKR",
+  usd: "USD", "us$": "USD", $: "USD",
   eur: "EUR", "€": "EUR",
   gbp: "GBP", "£": "GBP",
   aed: "AED", sar: "SAR",
 };
 
+const CUR = "PKR|Rs\\.?|₨|USD|US\\$|\\$|EUR|€|GBP|£|AED|SAR";
+const NUM = "\\d[\\d,]*(?:\\.\\d{1,2})?";
+
+/**
+ * The amount on a line. A figure next to a currency mark wins over a bare
+ * number, so "1 night room fee $39.00" reads as 39, not 1.
+ */
 export function parseMoney(raw: string | null): { amount: number | null; currency: string | null } {
   if (!raw) return { amount: null, currency: null };
 
-  const m = raw.match(
-    /(PKR|Rs\.?|₨|USD|\$|EUR|€|GBP|£|AED|SAR)?\s*([\d][\d,\s]*(?:\.\d{1,2})?)\s*(PKR|Rs\.?|₨|USD|EUR|GBP|AED|SAR)?/i
-  );
+  const marked =
+    raw.match(new RegExp(`(${CUR})\\s*-?\\s*(${NUM})`, "i")) ??
+    raw.match(new RegExp(`()(${NUM})\\s*(PKR|USD|EUR|GBP|AED|SAR)\\b`, "i"));
+  const m = marked ?? raw.match(new RegExp(`()(${NUM})`));
   if (!m) return { amount: null, currency: null };
 
-  const amount = Number(m[2].replace(/[,\s]/g, ""));
+  const amount = Number(m[2].replace(/,/g, ""));
   if (!Number.isFinite(amount)) return { amount: null, currency: null };
 
-  const token = (m[1] ?? m[3] ?? "").toLowerCase().trim();
-
+  const token = (m[1] || m[3] || "").toLowerCase().trim();
   return { amount, currency: CURRENCY_WORDS[token] ?? null };
 }
 
@@ -264,6 +339,22 @@ function detectSource(subject: string, from: string, body: string): OtaSource | 
   if (/airbnb\.com|@airbnb|\bairbnb\b/.test(hay)) return "airbnb";
   if (/booking\.com|@booking|\bbooking\.com\b/.test(hay)) return "booking_com";
 
+  return null;
+}
+
+/**
+ * Airbnb's `X-Template` header, when the mail still carries it. A mail that
+ * reached us through a filter keeps its headers; one forwarded by hand does
+ * not, which is why the wording rules below are still needed.
+ */
+function kindFromTemplate(template: string): OtaKind | "skip" | null {
+  const t = template.trim().toUpperCase();
+  if (!t) return null;
+  if (t.startsWith("MESSAGING_")) return "skip";
+  if (t.startsWith("BOOKING_CONFIRMATION")) return "new_booking";
+  if (t.startsWith("CANCELLATION")) return "cancellation";
+  // A requested change is not yet a change; only an accepted one is.
+  if (t.startsWith("ALTERATION") && t.includes("ACCEPT")) return "alteration";
   return null;
 }
 
@@ -285,6 +376,7 @@ const KIND_RULES: { kind: OtaKind; patterns: RegExp[] }[] = [
       /\bchanged (?:their|the) (?:reservation|booking|dates)\b/i,
       /\breservation (?:was |has been )?(?:changed|modified|updated)\b/i,
       /\bmodified booking\b/i,
+      /\bbooking (?:was |has been )?modified\b/i,
       /\bdate change\b/i,
     ],
   },
@@ -303,7 +395,8 @@ const KIND_RULES: { kind: OtaKind; patterns: RegExp[] }[] = [
     patterns: [
       /\breservation confirmed\b/i,
       /\bbooking confirmed\b/i,
-      /\bnew (?:booking|reservation)\b/i,
+      // "New booking!", and Booking.com's "New last-minute booking".
+      /\bnew (?:[\w-]+ )?(?:booking|reservation)\b/i,
       /\bconfirmed(?::| -)/i,
       /\bhas booked\b/i,
       /\bis coming\b/i,
@@ -313,7 +406,8 @@ const KIND_RULES: { kind: OtaKind; patterns: RegExp[] }[] = [
 
 function detectKind(subject: string, body: string): OtaKind {
   // The subject is far more reliable than the body, which quotes the booking
-  // details in every kind of mail — so it gets first refusal.
+  // details — and the cancellation policy — in every kind of mail. So it gets
+  // first refusal.
   for (const scope of [subject, `${subject}\n${body}`]) {
     for (const rule of KIND_RULES) {
       if (rule.patterns.some((re) => re.test(scope))) return rule.kind;
@@ -322,150 +416,193 @@ function detectKind(subject: string, body: string): OtaKind {
   return "unknown";
 }
 
+/** A guest writing to the host, rather than the channel reporting on a stay. */
+function isGuestMessage(subject: string, body: string): boolean {
+  return (
+    /^re:/i.test(subject) ||
+    /respond by replying directly to this email/i.test(body)
+  );
+}
+
 // ── Field rules, per channel ────────────────────────────────────────────────
 
-type FieldRules = {
-  listing: string[];
-  guest: string[];
-  phone: string[];
-  checkIn: string[];
-  checkOut: string[];
-  guests: string[];
-  gross: string[];
-  payout: string[];
-  code: RegExp[];
-};
-
-const RULES: Record<OtaSource, FieldRules> = {
-  airbnb: {
-    listing: ["Listing", "Property", "Your listing", "Place"],
-    guest: ["Guest", "Guest name", "Booked by"],
-    // Airbnb masks the guest's number behind its relay and does not put one in
-    // this mail. The labels are here so that if it ever does, we read it.
-    phone: ["Phone", "Phone number", "Contact"],
-    checkIn: ["Check-in", "Checkin", "CHECK-IN", "Arrives", "Arrival"],
-    checkOut: ["Check-out", "Checkout", "CHECK-OUT", "Departs", "Departure"],
-    guests: ["Guests", "Number of guests"],
-    gross: ["Total", "Guest paid", "Total price", "Total (PKR)"],
-    payout: ["You earn", "Your payout", "Total payout", "Host payout", "Earnings"],
-    // Airbnb confirmation codes are 10 characters and start HM.
-    code: [
-      /\bconfirmation code[:\s]+([A-Z0-9]{6,12})\b/i,
-      /\b(HM[A-Z0-9]{8})\b/,
-    ],
-  },
-  booking_com: {
-    listing: ["Property", "Property name", "Hotel", "Listing", "Room"],
-    guest: ["Guest name", "Guest", "Booker name", "Booked by"],
-    phone: ["Phone", "Phone number", "Guest phone", "Telephone", "Mobile"],
-    checkIn: ["Check-in", "Arrival", "Arrival date", "Check in"],
-    checkOut: ["Check-out", "Departure", "Departure date", "Check out"],
-    guests: ["Guests", "Number of guests", "Adults", "Occupancy"],
-    gross: ["Total price", "Total", "Price", "Total amount"],
-    payout: ["Payout", "Amount to be paid", "Your earnings"],
-    // Booking.com reservation numbers are 9-10 digits.
-    code: [
-      /\bbooking (?:number|id|reference)[:\s#]+(\d{7,12})\b/i,
-      /\breservation (?:number|id)[:\s#]+(\d{7,12})\b/i,
-      /\b(\d{9,10})\b/,
-    ],
-  },
-};
-
-function readCode(text: string, subject: string, rules: FieldRules): string | null {
-  const m = firstMatch(`${subject}\n${text}`, rules.code);
-  return m ? m[1].trim() : null;
-}
+const NAME = "[A-Z][\\p{L}'’.-]*(?:\\s+[A-Z][\\p{L}'’.-]*){0,2}";
 
 /**
- * The guest's name out of a subject like "Reservation confirmed: Ayesha arrives
- * 3 Jul". Used only when no labelled value was found, which is the common case
- * for Airbnb — its body puts the name in a styled heading with no label at all.
+ * The guest's name out of a subject or a sentence. Airbnb never labels it:
+ * "Reservation confirmed - Ayesha Khan arrives Jul 3", "your guest Ayesha had
+ * to cancel", "Your reservation with Ayesha has been updated".
  */
-function guestFromSubject(subject: string): string | null {
-  const m = firstMatch(subject, [
-    /(?:reservation|booking) confirmed[:\s-]+([A-Z][\p{L}'’.-]*(?:\s+[A-Z][\p{L}'’.-]*)?)\s+(?:arrives|is arriving|arriving)/iu,
-    /^([A-Z][\p{L}'’.-]*(?:\s+[A-Z][\p{L}'’.-]*)?)\s+(?:has booked|booked|arrives|is coming)/iu,
-    /(?:new booking|new reservation)(?:\s+from)?[:\s-]+([A-Z][\p{L}'’.-]*(?:\s+[A-Z][\p{L}'’.-]*)?)/iu,
+function guestFrom(text: string): string | null {
+  const m = firstMatch(text, [
+    new RegExp(`(?:reservation|booking) confirmed[:\\s-]+(${NAME})\\s+(?:arrives|is arriving|arriving)`, "iu"),
+    new RegExp(`\\byour guest (${NAME}) (?:had to |has )?cancel(?:l?ed)?\\b`, "u"),
+    new RegExp(`\\breservation with (${NAME}) has been (?:updated|changed)`, "iu"),
+    new RegExp(`^(${NAME})\\s+(?:has booked|booked your|is coming to)`, "mu"),
   ]);
   return m ? m[1].trim() : null;
 }
 
 /**
- * The listing out of prose, for the very common case where the mail never
- * labels it: "Ayesha is coming to Gulberg Heights Loft."
- *
- * This matters more than it looks. The listing is what routes the mail to a
- * property, so without it every Airbnb reservation lands unassigned.
+ * The listing title: Airbnb prints it just above the room type
+ * ("Entire home/apt") or the listing number, with no label of its own.
  */
-function listingFromBody(text: string): string | null {
-  const m = firstMatch(text, [
-    /\b(?:is coming to|are coming to|arriving at|arrives at)\s+([^\n.!?]{3,90})/i,
-    /\b(?:reservation|booking|stay) (?:at|for)\s+([^\n.!?]{3,90})/i,
-    /\byour listing[,:\s]+([^\n.!?]{3,90})/i,
-  ]);
-  return m ? m[1].trim().replace(/[\s,–—-]+$/, "") : null;
+function airbnbListing(rows: string[]): string | null {
+  const i = rows.findIndex((r) =>
+    /^(?:Entire home\/apt|Entire [a-z ]+|Private room|Shared room|Hotel room|Rental unit\b.*|Listing #\d+)$/i.test(r)
+  );
+  return i > 0 ? rows[i - 1] : null;
 }
 
-/** The guest out of the same prose, when no label and no subject gave one. */
-function guestFromBody(text: string): string | null {
-  const m = firstMatch(text, [
-    /^([A-Z][\p{L}'’.-]*(?:\s+[A-Z][\p{L}'’.-]*)?)\s+(?:is coming to|has booked|booked your|arrives|cancell?ed)/imu,
-  ]);
-  return m ? m[1].trim() : null;
+/** "1 adult", "2 adults, 1 child", "2 guests". Infants and pets are not guests. */
+function countGuests(raw: string | null): number | null {
+  if (!raw) return null;
+  let total = 0;
+  for (const m of raw.matchAll(/(\d+)\s*(adults?|child(?:ren)?|guests?)\b/gi)) total += Number(m[1]);
+  return total > 0 ? total : null;
 }
+
+type Reader = (ctx: {
+  rows: string[];
+  body: string;
+  raw: string;
+  subject: string;
+  kind: OtaKind;
+  reference: Date;
+}) => ParsedReservation;
+
+const READERS: Record<OtaSource, Reader> = {
+  airbnb: ({ rows, body, raw, subject, reference }) => {
+    let check_in = parseDate(labelled(rows, ["Check-in", "Checkin"]), reference);
+    let check_out = parseDate(labelled(rows, ["Checkout", "Check-out"]), reference);
+
+    // The plain-text part puts both on one line: "Check-in Checkout" over
+    // "Mon, Sep 28 Tue, Sep 29".
+    if (!check_in || !check_out) {
+      const i = rows.findIndex((r) => /^check-?in\s+check-?out$/i.test(r));
+      const pair = i >= 0 ? rows[i + 1]?.match(/[A-Z][a-z]{2,8}\.? \d{1,2}(?:, \d{4})?/g) : null;
+      if (pair && pair.length >= 2) {
+        check_in = parseDate(pair[0], reference);
+        check_out = parseDate(pair[1], check_in ? new Date(`${check_in}T00:00:00Z`) : reference);
+      }
+    }
+
+    // The cancellation mail has only a range: "Oct 8 – 11, 2 guests".
+    if (!check_in || !check_out) ({ check_in, check_out } = parseRange(body, reference));
+
+    const gross = labelledMoney(rows, ["Total"]);
+    const payout = labelledMoney(rows, ["You earn"]);
+    const fee = labelledMoney(rows, ["Host service fee"]);
+
+    return {
+      listing: airbnbListing(rows),
+      listing_id:
+        firstMatch(raw, [/\bListing #(\d{6,})/, /\/rooms\/(\d{6,})/, /\/listings\/(\d{6,})/])?.[1] ??
+        null,
+      // Subject before body: the confirmation's subject has the full name.
+      guest_name: guestFrom(subject) ?? guestFrom(body),
+      // Airbnb relays messages and never puts the guest's number in a mail.
+      guest_phone: null,
+      check_in,
+      check_out,
+      guests: countGuests(labelled(rows, ["Guests"])) ?? countGuests(body.match(/\d+ guests?\b/)?.[0] ?? null),
+      currency: gross.currency ?? payout.currency,
+      gross: gross.amount,
+      channel_fee: fee.amount,
+      host_payout: payout.amount,
+      // Ten characters starting HM. The "updated" mail has it only in its links.
+      reservation_code: raw.match(/\b(HM[A-Z0-9]{8})\b/)?.[1] ?? null,
+    };
+  },
+
+  booking_com: ({ rows, raw, subject, kind, reference }) => {
+    // The property's name sits just above "Booking confirmation — 123…".
+    const head = rows.findIndex((r) =>
+      /^(?:booking confirmation|cancellation|modification|booking modification)\b/i.test(r)
+    );
+    const listing =
+      rows
+        .slice(0, Math.max(head, 0))
+        .reverse()
+        .find((r) => !/online hotel reservations|security precautions|when you sign in|tracking/i.test(r))
+        ?.replace(/^Booking\.com\s+/i, "") ?? null;
+
+    // "(5252615257, Sunday, 27 September 2026)". Read as the arrival date:
+    // the cancellation keeps the date its booking mail had, so it belongs to
+    // the reservation rather than to the mail.
+    const subjectDate = subject.match(/\(\d{6,12},\s*([^)]+)\)/)?.[1] ?? null;
+
+    return {
+      listing,
+      listing_id: raw.match(/hotel_id=(\d+)/)?.[1] ?? null,
+      guest_name: labelled(rows, ["Guest name", "Booker name"]),
+      guest_phone: labelled(rows, ["Phone", "Phone number", "Telephone"]),
+      check_in: kind === "cancellation" ? null : parseDate(subjectDate, reference),
+      check_out: null,
+      guests: null,
+      currency: null,
+      gross: null,
+      channel_fee: null,
+      host_payout: null,
+      reservation_code:
+        firstMatch(`${subject}\n${raw}`, [
+          /\((\d{6,12}),/,
+          /\b(?:confirmation|cancellation|modification)\s*[—–-]\s*(\d{6,12})\b/i,
+          /res_id=(\d{6,12})/,
+        ])?.[1] ?? null,
+    };
+  },
+};
 
 // ── The one entry point ─────────────────────────────────────────────────────
+
+const EMPTY: ParsedReservation = {
+  listing: null, listing_id: null, guest_name: null, guest_phone: null,
+  check_in: null, check_out: null, guests: null,
+  currency: null, gross: null, channel_fee: null, host_payout: null, reservation_code: null,
+};
 
 export function parseOtaEmail(input: {
   subject: string;
   from: string;
   textBody: string;
   htmlBody: string;
+  /** Airbnb's `X-Template` header, if the mail still has it. */
+  template?: string;
   receivedAt?: Date;
 }): ParseOutcome {
-  const subject = (input.subject ?? "").trim();
-  const body = (input.textBody?.trim() || htmlToText(input.htmlBody ?? "")).trim();
+  const subject = clean(input.subject ?? "").replace(/\s+/g, " ").trim();
+  // HTML first: its table cells flatten to one label per line in the case the
+  // channel wrote it, where the plain-text part upper-cases headings and runs
+  // cells together.
+  const body =
+    htmlToText(input.htmlBody ?? "") ||
+    clean(input.textBody ?? "")
+      // Plain-text parts print every link, and wrap tracking tokens in
+      // brackets across several lines.
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/https?:\/\/\S+/g, " ")
+      .trim();
+  const rows = lines(body);
+  // Codes and ids often appear only inside links, which flattening drops.
+  const raw = clean(`${input.textBody ?? ""}\n${(input.htmlBody ?? "").replace(/&amp;/g, "&")}`);
   const reference = input.receivedAt ?? new Date();
-
-  const empty: ParsedReservation = {
-    listing: null, guest_name: null, guest_phone: null,
-    check_in: null, check_out: null, guests: null,
-    currency: null, gross: null, host_payout: null, reservation_code: null,
-  };
 
   const source = detectSource(subject, input.from ?? "", body);
   if (!source) {
-    return { source: null, kind: "unknown", parsed: empty, error: "Not an Airbnb or Booking.com email." };
+    return { source: null, kind: "unknown", parsed: EMPTY, error: "Not an Airbnb or Booking.com email.", skip: null };
   }
 
-  const kind = detectKind(subject, body);
-  const rules = RULES[source];
+  const fromTemplate = kindFromTemplate(input.template ?? "");
+  if (fromTemplate === "skip" || (fromTemplate === null && isGuestMessage(subject, body))) {
+    return { source, kind: "unknown", parsed: EMPTY, error: null, skip: "A guest message, not a reservation." };
+  }
 
-  const gross = labelledMoney(body, rules.gross);
-  const payout = labelledMoney(body, rules.payout);
-
-  const guestsRaw = labelled(body, rules.guests);
-  const guestsMatch = guestsRaw?.match(/\d+/);
-
-  const parsed: ParsedReservation = {
-    listing: labelled(body, rules.listing) ?? listingFromBody(body),
-    // Body before subject: Airbnb's subject line carries only a first name
-    // ("Ayesha arrives Jul 3") where the body has the full one.
-    guest_name:
-      labelled(body, rules.guest) ?? guestFromBody(body) ?? guestFromSubject(subject),
-    guest_phone: labelled(body, rules.phone),
-    check_in: parseDate(labelled(body, rules.checkIn), reference),
-    check_out: parseDate(labelled(body, rules.checkOut), reference),
-    guests: guestsMatch ? Number(guestsMatch[0]) : null,
-    currency: gross.currency ?? payout.currency,
-    gross: gross.amount,
-    host_payout: payout.amount,
-    reservation_code: readCode(body, subject, rules),
-  };
+  const kind = fromTemplate ?? detectKind(subject, body);
+  const parsed = READERS[source]({ rows, body, raw, subject, kind, reference });
 
   if (kind === "unknown") {
-    return { source, kind, parsed, error: "Could not tell what this email is about." };
+    return { source, kind, parsed, error: "Could not tell what this email is about.", skip: null };
   }
 
   // A payout mail has no stay in it, so it is judged on its own terms.
@@ -475,24 +612,31 @@ export function parseOtaEmail(input: {
       kind,
       parsed,
       error: parsed.host_payout === null ? "No payout amount found." : null,
+      skip: null,
     };
   }
 
   // What has to be there for a human to act on this at all. Anything short of
   // it goes to the inbox as `failed` with the raw mail attached, rather than
   // becoming a half-built proposal.
+  //
+  // Only an Airbnb confirmation is expected to carry the dates. Every other
+  // mail is found by its code, and its dates come from the booking it names or
+  // from the channel's calendar.
   const missing: string[] = [];
-  if (!parsed.check_in) missing.push("check-in");
-  if (!parsed.check_out) missing.push("check-out");
-  if (!parsed.listing && !parsed.reservation_code) missing.push("listing");
+  if (!parsed.reservation_code) missing.push("confirmation code");
+  if (source === "airbnb" && kind === "new_booking") {
+    if (!parsed.check_in) missing.push("check-in");
+    if (!parsed.check_out) missing.push("check-out");
+  }
 
   if (missing.length > 0) {
-    return { source, kind, parsed, error: `Could not read: ${missing.join(", ")}.` };
+    return { source, kind, parsed, error: `Could not read: ${missing.join(", ")}.`, skip: null };
   }
 
   if (parsed.check_in && parsed.check_out && parsed.check_out <= parsed.check_in) {
-    return { source, kind, parsed, error: "Check-out is not after check-in." };
+    return { source, kind, parsed, error: "Check-out is not after check-in.", skip: null };
   }
 
-  return { source, kind, parsed, error: null };
+  return { source, kind, parsed, error: null, skip: null };
 }

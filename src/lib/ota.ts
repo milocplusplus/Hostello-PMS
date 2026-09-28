@@ -28,6 +28,8 @@ export type OtaMessageStatus =
 /** Whatever the parser found. Every field is optional because every field can be missing. */
 export type ParsedReservation = {
   listing?: string | null;
+  /** Airbnb's listing number, or Booking.com's `hotel_id` (a building, not a unit). */
+  listing_id?: string | null;
   guest_name?: string | null;
   guest_phone?: string | null;
   check_in?: string | null;
@@ -36,6 +38,8 @@ export type ParsedReservation = {
   guests?: number | null;
   currency?: string | null;
   gross?: number | null;
+  /** The channel's cut from the host's side. */
+  channel_fee?: number | null;
   host_payout?: number | null;
   reservation_code?: string | null;
 };
