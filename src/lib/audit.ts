@@ -316,6 +316,7 @@ const FIELDS: Record<string, [string, Kind]> = {
   business_address: ["Business address", "text"],
   payment_accounts: ["Payment accounts", "text"],
   guest_templates: ["Guest messages", "text"],
+  owner_notices: ["Owner notifications", "text"],
 };
 
 function enumLabel(col: string, v: string): string {

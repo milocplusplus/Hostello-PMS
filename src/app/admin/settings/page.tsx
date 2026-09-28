@@ -17,7 +17,9 @@ import {
   saveDealDefaults,
   saveGuestTemplate,
   saveOpsRules,
+  saveOwnerNoticeDefaults,
 } from "./actions";
+import { OWNER_NOTICE_GROUPS } from "@/lib/owner-notices";
 
 function Section({
   id,
@@ -250,6 +252,21 @@ export default async function SettingsPage({
               <span>
                 <span className="block text-sm font-bold">{r.label}</span>
                 <span className="block text-xs text-ink-muted">{r.about}</span>
+              </span>
+            </label>
+          ))}
+          <div><SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton></div>
+        </form>
+      </Section>
+
+      <Section id="owner-notices" title="Owner notifications" about="What every owner is sent by default. You can change it for one owner on their client page, and owners can mute more themselves.">
+        <form action={saveOwnerNoticeDefaults} className="flex flex-col gap-3">
+          {OWNER_NOTICE_GROUPS.map((g) => (
+            <label key={g.key} className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name={g.key} defaultChecked={s.ownerNotices[g.key]} className="mt-1 h-4 w-4 accent-[var(--color-hostello-purple)]" />
+              <span>
+                <span className="block text-sm font-bold">{g.label}</span>
+                <span className="block text-xs text-ink-muted">{g.about}</span>
               </span>
             </label>
           ))}

@@ -6,6 +6,7 @@ import { currentUser } from "@/lib/auth";
 import {
   deleteClientRecord,
   setClientActive,
+  setClientNotices,
   viewAsOwner,
   deletePropertyRecord,
   createLoginForClient,
@@ -23,6 +24,8 @@ import { loadAudit } from "@/lib/audit";
 import { AuditTrail } from "@/components/admin/AuditTrail";
 import { clientHasHistory } from "@/lib/client-history";
 import { SessionList } from "@/components/admin/SessionList";
+import { OWNER_NOTICE_GROUPS, type OwnerNotices } from "@/lib/owner-notices";
+import { loadSettings } from "@/lib/settings";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -53,7 +56,7 @@ export default async function ClientDetailPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent, deactivated_at, deactivated_note, owner_user_id")
+    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent, deactivated_at, deactivated_note, owner_user_id, owner_notices")
     .eq("id", id)
     .single();
 
@@ -97,6 +100,7 @@ export default async function ClientDetailPage({
     .reduce((sum, b) => sum + Number(b.hostello_share ?? 0), 0);
 
   const deactivated = Boolean(clientRecord.deactivated_at);
+  const settings = await loadSettings();
   const tile =
     "flex flex-col items-center justify-center gap-1.5 h-[4.25rem] rounded-2xl text-[11px] font-bold transition-transform active:scale-95 md:h-10 md:flex-row md:px-4 md:text-xs";
 
@@ -467,6 +471,43 @@ export default async function ClientDetailPage({
           </div>
         )}
       </section>
+
+      {clientRecord.owner_user_id && (
+        <section id="notices" className="card p-5 flex flex-col gap-3 scroll-mt-24">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">Notifications to this owner</h2>
+            <p className="text-xs text-ink-muted mt-1">
+              &ldquo;Default&rdquo; follows Settings. They can still mute more on their own Alerts page.
+            </p>
+          </div>
+          <form action={setClientNotices} className="flex flex-col gap-2">
+            <input type="hidden" name="id" value={id} />
+            {OWNER_NOTICE_GROUPS.map((g) => {
+              const own = (clientRecord.owner_notices as OwnerNotices | null)?.[g.key];
+              return (
+                <label key={g.key} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold">{g.label}</span>
+                    <span className="block text-[11px] text-ink-muted truncate">{g.about}</span>
+                  </span>
+                  <select
+                    name={g.key}
+                    defaultValue={own === undefined ? "default" : own ? "on" : "off"}
+                    className={`${fieldInput} w-auto shrink-0`}
+                  >
+                    <option value="default">Default ({settings.ownerNotices[g.key] ? "on" : "off"})</option>
+                    <option value="on">On</option>
+                    <option value="off">Off</option>
+                  </select>
+                </label>
+              );
+            })}
+            <div>
+              <SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton>
+            </div>
+          </form>
+        </section>
+      )}
 
       {clientRecord.owner_user_id && (
         <section id="devices" className="card p-5 flex flex-col gap-3 scroll-mt-24">

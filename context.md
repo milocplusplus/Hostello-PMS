@@ -184,6 +184,18 @@ Pre-launch: real data has not been entered yet.
   devices" and each ops account on `/admin/staff`, the owner's devices on the
   client page. Ended sessions take effect on the next request (the
   middleware's `getUser()` finds the session gone).
+- **Owner notification rules** — defaults in `app_settings.owner_notices`,
+  per-client overrides in `clients.owner_notices` (only the keys that
+  differ). `owner_notice_group(kind)` (SQL) maps each kind to bookings /
+  calendar / payments / digest / reminder — keep it in step with
+  `src/lib/owner-notices.ts`. `fan_out_notification` skips the owner's
+  recipient row when `owner_notice_allowed()` says no, so a switched-off
+  notice is never sent at all; the owner's own muted categories still apply.
+  Weekly reminder: cron `hostello-payment-reminders` (Mon 05:00 UTC = 10:00
+  Karachi) → `notify_payment_reminders()` for any balance above zero, using
+  `owed_to_hostello()` — **a SQL copy of `loadOwed(…, "to_hostello")`; change
+  both together.** UI: Settings "Owner notifications" section; per-client
+  Default/On/Off on the client page (`setClientNotices`).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

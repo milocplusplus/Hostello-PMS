@@ -5,6 +5,7 @@ import { currentProfile } from "@/lib/auth";
 import type { DealModel, OtaModel } from "@/lib/payout";
 import { DEFAULT_SHORT_STAY } from "@/lib/short-stay";
 import type { HouseStyle } from "@/lib/guest-messages";
+import type { OwnerNoticeGroup, OwnerNotices } from "@/lib/owner-notices";
 import { paymentDetailsText, type BusinessContact, type PaymentAccount } from "@/lib/settings-shared";
 
 export { WALLET_LABEL, paymentDetailsText, type BusinessContact, type PaymentAccount } from "@/lib/settings-shared";
@@ -41,6 +42,8 @@ export type AppSettings = {
   businessAddress: string | null;
   paymentAccounts: PaymentAccount[];
   guestTemplates: Partial<Record<"arrival" | "balance" | "checkout", string>>;
+  /** Which owner notices go out by default. Admin-only in the view; all on otherwise. */
+  ownerNotices: Record<OwnerNoticeGroup, boolean>;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -64,6 +67,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   businessAddress: null,
   paymentAccounts: [],
   guestTemplates: {},
+  ownerNotices: { bookings: true, calendar: true, payments: true, digest: true, reminder: true },
 };
 
 type Row = Record<string, unknown>;
@@ -101,6 +105,7 @@ function fromRow(r: Row | null): AppSettings {
       r.guest_templates && typeof r.guest_templates === "object"
         ? (r.guest_templates as AppSettings["guestTemplates"])
         : {},
+    ownerNotices: { ...d.ownerNotices, ...((r.owner_notices as OwnerNotices | null) ?? {}) },
   };
 }
 

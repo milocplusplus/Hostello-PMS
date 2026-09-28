@@ -1,6 +1,17 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 9 of 9: owner notification rules** (2026-09-28). Owner's
+  choices: defaults in Settings + per-client override; switchable groups
+  bookings / calendar / payments / morning summary & bills, plus a weekly
+  Monday reminder of what an owner owes Hostello (any amount above zero,
+  same balance as the Money page); owner's own mutes still apply;
+  switched-off notices are not sent at all. Migrations `owner_notice_rules`
+  + `owner_notice_rules_view` **applied to the live DB** (+ cron
+  `hostello-payment-reminders`). Tested rolled back with a throwaway owner:
+  balance 5,000/1 stay, reminder delivered, client off → none, default off
+  → none, client on overrides default off. Settings section renders.
+  **All 9 admin controls are done.**
 - **Admin controls 8 of 9: session control** (2026-09-28). Owner's choices:
   see who is signed in on which device, sign out one device or everywhere,
   own other devices too; on Staff (mine + each ops account) and the client

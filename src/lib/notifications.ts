@@ -111,6 +111,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // The owner's 07:15 summary (notify_owner_digest, in SQL). It replaces the
   // per-stay notices above for the owner; those now go to the admin only.
   daily_digest: Sun,
+  // Mondays, from notify_payment_reminders() in SQL: what the owner owes Hostello.
+  payment_reminder: HandCoins,
   // Written by the audit log itself (audit_alert(), in SQL). Admin only.
   audit_staff_price: History,
   audit_staff_cancelled: CalendarX2,
@@ -174,6 +176,11 @@ export function notificationHref(
     return portal === "admin" ? "/admin/calendar/feeds" : "/client/calendar";
   }
   if (row.kind === "audit_deleted") return "/admin/audit";
+
+  // The reminder is paid from the Money screen, on the owed-to-Hostello tab.
+  if (row.kind === "payment_reminder") {
+    return portal === "admin" ? "/admin/settlements?tab=to-hostello" : "/client/settlements?tab=to-hostello";
+  }
 
   // The morning summary is the day sheet in one line; the day sheet is where it goes.
   if (row.kind === "daily_digest") return portal === "admin" ? "/admin/today" : "/client/today";

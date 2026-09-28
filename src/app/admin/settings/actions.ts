@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/auth";
 import { DEAL_MODELS, OTA_MODELS } from "@/lib/payout";
 import { readSettings, type PaymentAccount } from "@/lib/settings";
+import { OWNER_NOTICE_GROUPS } from "@/lib/owner-notices";
 
 /**
  * One action per section of /admin/settings. Each writes only its own columns,
@@ -144,4 +145,10 @@ export async function saveGuestTemplate(f: FormData) {
   else delete templates[id];
 
   await save("messages", { guest_templates: templates }, body ? "Message saved." : "Back to the built-in wording.");
+}
+
+export async function saveOwnerNoticeDefaults(f: FormData) {
+  await save("owner-notices", {
+    owner_notices: Object.fromEntries(OWNER_NOTICE_GROUPS.map((g) => [g.key, f.get(g.key) === "on"])),
+  });
 }

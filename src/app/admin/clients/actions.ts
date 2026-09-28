@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { DEAL_MODELS } from "@/lib/payout";
 import { clientHasHistory } from "@/lib/client-history";
+import { OWNER_NOTICE_GROUPS, type OwnerNotices } from "@/lib/owner-notices";
 import { requireOwner } from "@/lib/auth";
 import { VIEW_AS_COOKIE, VIEW_AS_PATH } from "@/lib/view-as";
 import {
@@ -578,4 +579,26 @@ export async function bulkUpdateUnitRates(formData: FormData) {
     notice: `Updated ${changed.length} unit${changed.length === 1 ? "" : "s"}.`,
     ...(skipped.length ? { error: `Skipped — ${skipped.join(", ")}.` } : {}),
   });
+}
+
+/**
+ * This owner's notice rules. Each group is "default" (follow Settings — the
+ * key is left out), "on" or "off". Checked in `fan_out_notification`.
+ */
+export async function setClientNotices(formData: FormData) {
+  await requireOwner();
+  const id = formData.get("id") as string;
+  const rules: OwnerNotices = {};
+  for (const g of OWNER_NOTICE_GROUPS) {
+    const v = formData.get(g.key);
+    if (v === "on") rules[g.key] = true;
+    if (v === "off") rules[g.key] = false;
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update({ owner_notices: rules }).eq("id", id);
+  if (error) redirect(`/admin/clients/${id}?error=${encodeURIComponent(error.message)}#notices`);
+
+  revalidatePath(`/admin/clients/${id}`);
+  redirect(`/admin/clients/${id}?notice=${encodeURIComponent("Notification rules saved.")}#notices`);
 }
