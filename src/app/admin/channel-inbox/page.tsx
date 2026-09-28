@@ -35,6 +35,8 @@ import { SubmitButton } from "@/components/shared/Busy";
 import {
   approveReservation,
   applyCancellation,
+  applyAlteration,
+  confirmRequest,
   dismissMessage,
   markHandled,
 } from "./actions";
@@ -62,6 +64,7 @@ type MessageRow = {
   external_ref: string | null;
   property_id: string | null;
   booking_id: string | null;
+  booking_match: "code" | "guest_dates" | null;
   admin_note: string | null;
   raw_text: string | null;
   properties: { name: string; clients: { name: string } | null } | null;
@@ -116,6 +119,56 @@ function Fact({ label, value }: { label: string; value: string }) {
       <span className="text-[11px] text-ink-muted">{label}</span>
       <span className="text-sm text-ink-primary">{value}</span>
     </div>
+  );
+}
+
+type BookingRow = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  status: string;
+  sale_price: number | string | null;
+  booking_properties: { properties: { name: string } | null }[] | null;
+};
+
+type BookingSummary = {
+  id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  status: string;
+  sale_price: number | null;
+  units: string;
+};
+
+/** The booking a cancellation or change is about, as it stands here. */
+function BookingFacts({ booking }: { booking: BookingSummary }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <Fact label="Guest" value={booking.guest_name ?? "—"} />
+      <Fact label="Booked here" value={nights(booking.check_in, booking.check_out)} />
+      <Fact label="Unit" value={booking.units || "—"} />
+      <div className="col-span-2 sm:col-span-3 text-xs">
+        <Link href={`/admin/bookings/${booking.id}`} className="text-hostello-gold hover:underline">
+          Open the booking
+        </Link>
+        {booking.status === "cancelled" && (
+          <span className="text-ink-muted"> · already cancelled</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A booking found without the channel's code is a weaker match, and says so. */
+function MatchNote({ row }: { row: MessageRow }) {
+  if (row.booking_match !== "guest_dates") return null;
+  return (
+    <p className="text-xs text-status-pending">
+      Matched by guest, dates and unit — this booking has no {sourceLabel(row.source)} code on
+      it. Check it is the same stay.
+    </p>
   );
 }
 
@@ -189,7 +242,7 @@ export default async function ChannelInboxPage({
     supabase
       .from("ota_messages")
       .select(
-        "id, subject, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, admin_note, raw_text, properties:properties_v(name, clients:clients_v(name))"
+        "id, subject, received_at, source, kind, status, parse_error, parsed, external_ref, property_id, booking_id, booking_match, admin_note, raw_text, properties:properties_v(name, clients:clients_v(name))"
       )
       .order("received_at", { ascending: false })
       .limit(60),
@@ -229,22 +282,61 @@ export default async function ChannelInboxPage({
   const from = earliest && earliest < todayISO() ? earliest : todayISO();
   const unitIds = units.map((u) => u.id);
 
-  const [holdsRes, feedsRes, busy] =
+  // …and, for cancellations and changes, the booking each names and the hold
+  // the calendar keeps for it — which is how the card knows whether the
+  // calendar has freed or moved the stay too.
+  const bookingIds = [...new Set(open.map((r) => r.booking_id).filter((b): b is string => Boolean(b)))];
+
+  const [holdsRes, feedsRes, busy, bookingsRes, linkedRes, unexplainedRes] = await Promise.all([
     reservations.length > 0
-      ? await Promise.all([
-          supabase
-            .from("calendar_blocks")
-            .select("id, property_id, start_date, end_date, source")
-            .not("feed_id", "is", null)
-            .is("booking_id", null)
-            .gte("end_date", from),
-          supabase.from("calendar_feeds").select("property_id, source").eq("active", true),
-          listUnavailable(supabase, unitIds, { from }),
-        ])
-      : [{ data: [] }, { data: [] }, []];
+      ? supabase
+          .from("calendar_blocks")
+          .select("id, property_id, start_date, end_date, source")
+          .not("feed_id", "is", null)
+          .is("booking_id", null)
+          .gte("end_date", from)
+      : Promise.resolve({ data: [] }),
+    reservations.length > 0
+      ? supabase.from("calendar_feeds").select("property_id, source").eq("active", true)
+      : Promise.resolve({ data: [] }),
+    reservations.length > 0 ? listUnavailable(supabase, unitIds, { from }) : Promise.resolve([]),
+    bookingIds.length > 0
+      ? supabase
+          .from("bookings_v")
+          .select("id, guest_name, check_in, check_out, status, sale_price, booking_properties(properties:properties_v(name))")
+          .in("id", bookingIds)
+      : Promise.resolve({ data: [] }),
+    bookingIds.length > 0
+      ? supabase
+          .from("calendar_blocks")
+          .select("id, booking_id, property_id, start_date, end_date, source")
+          .not("feed_id", "is", null)
+          .in("booking_id", bookingIds)
+      : Promise.resolve({ data: [] }),
+    supabase.rpc("unexplained_channel_holds", { p_min_age: "1 hour" }),
+  ]);
 
   const holds = (holdsRes.data ?? []) as ImportedHold[];
   const feeds = (feedsRes.data ?? []) as { property_id: string; source: string }[];
+  const bookings = new Map(
+    ((bookingsRes.data ?? []) as unknown as BookingRow[]).map((b) => [
+      b.id,
+      {
+        id: b.id,
+        guest_name: b.guest_name,
+        check_in: b.check_in,
+        check_out: b.check_out,
+        status: b.status,
+        sale_price: b.sale_price === null ? null : Number(b.sale_price),
+        units: (b.booking_properties ?? []).map((bp) => bp.properties?.name).filter(Boolean).join(", "),
+      } satisfies BookingSummary,
+    ])
+  );
+  const linkedHolds = new Map(
+    ((linkedRes.data ?? []) as (ImportedHold & { booking_id: string })[]).map((h) => [h.booking_id, h])
+  );
+  const unexplained = (unexplainedRes.data ?? []) as (ImportedHold & { created_at: string })[];
+  const unitName = new Map(units.map((u) => [u.id, u.name]));
 
   const matches = new Map<string, InboxMatch>(
     reservations.map((r) => [
@@ -302,13 +394,26 @@ export default async function ChannelInboxPage({
         const currency = currencyWarning(parsed);
         const match = matches.get(row.id);
         const extranet = channelReservationUrl(row.source, parsed);
+        const booking = row.booking_id ? bookings.get(row.booking_id) : undefined;
+        const linkedHold = row.booking_id ? linkedHolds.get(row.booking_id) : undefined;
+        const holdDiffers =
+          booking && linkedHold
+            ? linkedHold.start_date !== booking.check_in ||
+              addDaysISO(linkedHold.end_date, 1) !== booking.check_out
+            : false;
 
         return (
           <div key={row.id} className="card p-6 flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">{KIND_LABEL[row.kind]}</span>
+                  <span className="text-sm font-medium">
+                    {row.kind === "new_booking" && parsed.is_request
+                      ? "Request to book"
+                      : row.kind === "new_booking" && booking
+                        ? "Request accepted"
+                        : KIND_LABEL[row.kind]}
+                  </span>
                   <Chip status={row.status} />
                 </div>
                 <Channel source={row.source} />
@@ -340,8 +445,41 @@ export default async function ChannelInboxPage({
               </p>
             )}
 
+            {/* ── A request the channel has now accepted: confirm the tentative booking ── */}
+            {row.kind === "new_booking" && booking && booking.status === "tentative" && (
+              <form action={confirmRequest} className="flex flex-col gap-4">
+                <input type="hidden" name="id" value={row.id} />
+                <BookingFacts booking={booking} />
+                <p className="text-xs text-ink-muted">
+                  {sourceLabel(row.source)} accepted this request. It&apos;s here as a tentative
+                  booking, which earns nothing until it&apos;s confirmed.
+                </p>
+                <div className="flex flex-col gap-1.5 sm:max-w-[14rem]">
+                  <label className={fieldLabel}>Sale price (PKR)</label>
+                  <input
+                    type="number"
+                    name="sale_price"
+                    min="0"
+                    step="1"
+                    defaultValue={parsed.host_payout ?? booking.sale_price ?? ""}
+                    className={fieldInput}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <SubmitButton
+                    className={primaryButton}
+                    blocking
+                    busy="Confirming the booking…"
+                    note="Working out the payout now that the stay is real."
+                  >
+                    Confirm the booking
+                  </SubmitButton>
+                </div>
+              </form>
+            )}
+
             {/* ── A new reservation: the approval form ── */}
-            {row.kind === "new_booking" && match && (
+            {row.kind === "new_booking" && match && !row.booking_id && (
               <form action={approveReservation} className="flex flex-col gap-4">
                 <input type="hidden" name="id" value={row.id} />
                 {match.hold && <input type="hidden" name="from_block" value={match.hold.id} />}
@@ -448,7 +586,11 @@ export default async function ChannelInboxPage({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className={fieldLabel}>Status</label>
-                    <select name="status" defaultValue="confirmed" className={fieldInput}>
+                    <select
+                      name="status"
+                      defaultValue={parsed.is_request ? "tentative" : "confirmed"}
+                      className={fieldInput}
+                    >
                       <option value="confirmed">Confirmed</option>
                       <option value="tentative">Tentative</option>
                     </select>
@@ -492,8 +634,9 @@ export default async function ChannelInboxPage({
                 />
 
                 <p className="text-xs text-ink-muted">
-                  Approving runs the client&apos;s own deal terms over the sale price, closes
-                  the nights, and notifies the owner.
+                  {parsed.is_request
+                    ? "A request the host hasn't accepted yet. Approving holds the nights as a tentative booking; when the channel confirms it, it shows up here to confirm."
+                    : "Approving runs the client's own deal terms over the sale price, closes the nights, and notifies the owner."}
                 </p>
 
                 <div className="flex gap-2">
@@ -513,38 +656,38 @@ export default async function ChannelInboxPage({
             {row.kind === "cancellation" && row.status === "pending" && (
               <form action={applyCancellation} className="flex flex-col gap-3">
                 <input type="hidden" name="id" value={row.id} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Fact label="Guest" value={parsed.guest_name ?? "—"} />
-                  <Fact
-                    label="Dates"
-                    value={
-                      parsed.check_in && parsed.check_out
-                        ? `${formatDayMonth(parsed.check_in)} → ${formatDayMonth(parsed.check_out)}`
-                        : "—"
-                    }
-                  />
-                </div>
-                {row.booking_id ? (
-                  <p className="text-xs text-ink-muted">
-                    Matches{" "}
-                    <Link
-                      href={`/admin/bookings/${row.booking_id}`}
-                      className="text-hostello-gold hover:underline"
-                    >
-                      this booking
-                    </Link>
-                    . Confirming cancels it and reopens the nights.
-                  </p>
+                {booking ? (
+                  <>
+                    <BookingFacts booking={booking} />
+                    <MatchNote row={row} />
+                    <p className="text-xs text-ink-muted">
+                      {linkedHold
+                        ? `The ${sourceLabel(row.source)} calendar still shows this stay — it usually catches up within a minute.`
+                        : `✓ The ${sourceLabel(row.source)} calendar has freed these nights too.`}{" "}
+                      Confirming cancels the booking, reopens the nights and tells the owner.
+                    </p>
+                  </>
                 ) : (
-                  <p className="text-xs text-ink-muted">
-                    No booking here carries that confirmation code — there may be nothing to
-                    cancel.
-                  </p>
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Fact label="Guest" value={parsed.guest_name ?? "—"} />
+                      <Fact
+                        label="Dates"
+                        value={
+                          parsed.check_in && parsed.check_out ? nights(parsed.check_in, parsed.check_out) : "—"
+                        }
+                      />
+                    </div>
+                    <p className="text-xs text-ink-muted">
+                      No booking here matches — by confirmation code, or by guest, dates and unit.
+                      There may be nothing to cancel; if there is, cancel it from the booking.
+                    </p>
+                  </>
                 )}
                 <div className="flex gap-2">
                   <SubmitButton
                     className={primaryButton}
-                    disabled={!row.booking_id}
+                    disabled={!booking || booking.status === "cancelled"}
                     blocking
                     busy="Cancelling the booking…"
                     note="Freeing the dates and notifying the client."
@@ -555,71 +698,94 @@ export default async function ChannelInboxPage({
               </form>
             )}
 
-            {/* ── Date change and payout: surfaced, applied where they belong ── */}
-            {(row.kind === "alteration" || row.kind === "payout") && row.status === "pending" && (
+            {/* ── A change: the booking's dates next to the channel's ── */}
+            {row.kind === "alteration" && row.status === "pending" && booking && (
+              <form action={applyAlteration} className="flex flex-col gap-4">
+                <input type="hidden" name="id" value={row.id} />
+                <BookingFacts booking={booking} />
+                <MatchNote row={row} />
+                <p className={linkedHold && holdDiffers ? errorBanner : "text-xs text-ink-muted"}>
+                  {linkedHold
+                    ? holdDiffers
+                      ? `The ${sourceLabel(row.source)} calendar now shows ${nights(linkedHold.start_date, addDaysISO(linkedHold.end_date, 1))}. The new dates below are taken from it.`
+                      : `The ${sourceLabel(row.source)} calendar still shows the booked dates — it may not have caught up yet, or only the price or guest count changed.`
+                    : `No ${sourceLabel(row.source)} calendar is linked to this stay, so check the new dates on the reservation.`}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className={fieldLabel}>New check-in</label>
+                    <input
+                      type="date"
+                      name="check_in"
+                      required
+                      defaultValue={linkedHold?.start_date ?? booking.check_in}
+                      className={fieldInput}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={fieldLabel}>New check-out</label>
+                    <input
+                      type="date"
+                      name="check_out"
+                      required
+                      defaultValue={linkedHold ? addDaysISO(linkedHold.end_date, 1) : booking.check_out}
+                      className={fieldInput}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className={fieldLabel}>Sale price (PKR)</label>
+                    <input
+                      type="number"
+                      name="sale_price"
+                      min="0"
+                      step="1"
+                      defaultValue={parsed.host_payout ?? booking.sale_price ?? ""}
+                      className={fieldInput}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-ink-muted">
+                  {parsed.host_payout
+                    ? "The price is the new payout from the email."
+                    : "The email doesn't say the new price, so this is the booking's current one."}{" "}
+                  {extranet && (
+                    <a href={extranet} target="_blank" rel="noreferrer" className="text-hostello-gold hover:underline">
+                      Check it on {sourceLabel(row.source)}
+                    </a>
+                  )}
+                  {extranet && ". "}
+                  Applying recomputes the split from the booking&apos;s own terms and tells the owner.
+                </p>
+                <div className="flex gap-2">
+                  <SubmitButton
+                    className={primaryButton}
+                    blocking
+                    busy="Applying the change…"
+                    note="Checking the new dates are free, then recomputing the payout."
+                  >
+                    Apply the change
+                  </SubmitButton>
+                </div>
+              </form>
+            )}
+
+            {/* ── A payout notice: surfaced here, recorded where money is ── */}
+            {row.kind === "payout" && row.status === "pending" && (
               <form action={markHandled} className="flex flex-col gap-3">
                 <input type="hidden" name="id" value={row.id} />
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <Fact label="Guest" value={parsed.guest_name ?? "—"} />
-                  <Fact
-                    label={row.kind === "alteration" ? "New dates" : "Dates"}
-                    value={
-                      parsed.check_in && parsed.check_out
-                        ? `${formatDayMonth(parsed.check_in)} → ${formatDayMonth(parsed.check_out)}`
-                        : "—"
-                    }
-                  />
-                  <Fact
-                    label={row.kind === "payout" ? "Channel paid" : "New price"}
-                    value={
-                      row.kind === "payout"
-                        ? parsed.host_payout
-                          ? formatPKR(parsed.host_payout)
-                          : "—"
-                        : parsed.gross
-                          ? formatPKR(parsed.gross)
-                          : "—"
-                    }
-                  />
+                  <Fact label="Channel paid" value={money(parsed.host_payout, parsed.currency)} />
                 </div>
-
                 <p className="text-xs text-ink-muted">
-                  {row.kind === "alteration" ? (
-                    <>
-                      Apply this on the booking itself, so the split is recomputed from the
-                      terms it was saved with rather than today&apos;s.{" "}
-                      {row.booking_id ? (
-                        <Link
-                          href={`/admin/bookings/${row.booking_id}/edit`}
-                          className="text-hostello-gold hover:underline"
-                        >
-                          Open the booking
-                        </Link>
-                      ) : (
-                        "No booking here matches that confirmation code."
-                      )}{" "}
-                      Then tick it off here.
-                    </>
-                  ) : (
-                    <>
-                      This is the channel saying it sent money — it settles nothing on its own.
-                      Record it on{" "}
-                      <Link
-                        href="/admin/settlements?tab=to-hostello"
-                        className="text-hostello-gold hover:underline"
-                      >
-                        Owed to Hostello
-                      </Link>{" "}
-                      if it applies, then tick it off here.
-                    </>
-                  )}
+                  This is the channel saying it sent money — it settles nothing on its own. Record it
+                  on{" "}
+                  <Link href="/admin/settlements?tab=to-hostello" className="text-hostello-gold hover:underline">
+                    Owed to Hostello
+                  </Link>{" "}
+                  if it applies, then tick it off here.
                 </p>
-
-                <input
-                  name="admin_note"
-                  placeholder="What you did (optional)"
-                  className={fieldInput}
-                />
+                <input name="admin_note" placeholder="What you did (optional)" className={fieldInput} />
                 <div className="flex gap-2">
                   <SubmitButton className={secondaryButton} busy="Marking it handled…">
                     Mark handled
@@ -654,6 +820,46 @@ export default async function ChannelInboxPage({
           </div>
         );
       })}
+
+      {unexplained.length > 0 && (
+        <>
+          <h2 className="text-sm font-medium text-ink-secondary -mb-2">
+            Calendar stays with no email
+          </h2>
+          <div className="card divide-y divide-border-hairline">
+            {unexplained.map((h) => {
+              const lastNight = addDaysISO(h.end_date, 1);
+              const writeUp = `/admin/bookings/new?${new URLSearchParams({
+                property: h.property_id,
+                date: h.start_date,
+                checkout: lastNight,
+                source: h.source ?? "",
+                block: h.id,
+              }).toString()}`;
+              return (
+                <div key={h.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-sm truncate">
+                      {unitName.get(h.property_id) ?? "A unit"} · {nights(h.start_date, lastNight)}
+                    </span>
+                    <span className="text-xs text-ink-muted">
+                      <Channel source={h.source} /> · reserved {ago(h.created_at)}, no email since
+                    </span>
+                  </div>
+                  <Link href={writeUp} className="text-xs text-hostello-gold hover:underline shrink-0">
+                    Write it up
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-ink-muted -mt-3">
+            The channel&apos;s calendar has these stays, but no reservation email arrived for them
+            within an hour. Write each one up from the reservation itself — and check that
+            listing&apos;s emails are being forwarded.
+          </p>
+        </>
+      )}
 
       {closed.length > 0 && (
         <>

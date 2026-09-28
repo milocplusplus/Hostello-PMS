@@ -1,6 +1,25 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 3: changes, cancellations, requests, missing mail**
+  (2026-09-28). Migrations `channel_inbox_changes` +
+  `channel_stay_moved_wording` **applied to the live DB**. Cancellation card
+  shows the booking and whether the calendar has freed it; change card shows
+  booked vs calendar dates, pre-filled, one tap (`applyAlteration`); a
+  request is approved as tentative and its confirmation confirms it
+  (`confirmRequest`); "Calendar stays with no email" list with Write it up.
+  SQL: hold→booking auto-link, moved/dropped alerts, guest+dates fallback,
+  overtaking (cancel closes an unapproved reservation; confirmation closes
+  its request), `unexplained_channel_holds()` + health-check alert. Parser:
+  Airbnb requests (`is_request`), expired/declined requests → cancellation,
+  inquiries skipped — **no real request mail seen yet**, so those rules are
+  from Airbnb's wording and checked only on made-up variants (22/22).
+  Fixed: `applyCancellation` filed the mail as done even when the cancel
+  was refused (ops rule). **Tested:** 8 SQL cases rolled back on the live
+  DB (link, moved, dropped, feed-delete silent, cancel-before-approval,
+  request→confirm, fallback match + wrong-guest refusal, unexplained +
+  alert); lint, types, build. **Not seen rendered** (no `.env.local`, no
+  live data).
 - **Channel inbox 2: matching and shared room types** (2026-09-28).
   Migration `channel_ids_and_matching` **applied to the live DB**:
   `properties.airbnb_listing_id` / `booking_hotel_id` / `booking_room_type`
@@ -2210,7 +2229,7 @@ reassign the alias, so nothing broke.
      Booking.com offers an iCal link for a shared type. Booking.com mails carry only code + `hotel_id` +
      subject date (read as arrival — **unconfirmed**, the only sample was
      same-day); guest and price are typed from the extranet link.
-   - **One-tap changes:** cancellations and date changes apply through the
+   - **One-tap changes (done, part 3):** cancellations and date changes apply through the
      normal booking paths. Airbnb's "updated" mail has no new dates or price —
      dates from iCal, price typed. Airbnb requests to book → tentative.
    - **Money:** sale price = host payout ("You earn"); keep code, guest count,

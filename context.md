@@ -173,7 +173,22 @@ Pre-launch: real data has not been entered yet.
   `booking_com_count` notice ("Lower/Raise Deluxe Studio on Booking.com")
   whenever a non-Booking.com stay fills or frees such a flat (insert, unit
   move, date change, cancel), because Booking.com's count must be moved by
-  hand.
+  hand. **Later reports** (part 3): `link_channel_hold_to_booking` links an
+  imported hold to a live same-channel booking with exactly its nights (a
+  stay typed in first, an approved request) instead of the sync calling it a
+  clash; `channel_hold_changed` raises `channel_stay_moved` /
+  `channel_stay_dropped` when the calendar moves or frees a *linked* hold
+  (not when a feed is deleted). A cancellation or change the code cannot
+  place matches by guest + dates + unit (`ota_messages.booking_match =
+  'guest_dates'`, shown on the card). A cancellation closes the unapproved
+  reservation it overtakes; a confirmation closes its unapproved request and,
+  if the request was approved as tentative, stays open to confirm it
+  (`confirmRequest`). Changes apply via `applyAlteration`; both go through
+  `editBookingInline` (bookings actions — `applyBookingUpdate` without the
+  redirect). `unexplained_channel_holds()` is the one definition of "calendar
+  stay with no email" (page list + `check_channel_health` →
+  `ota_hold_unexplained`), counted only once that channel's mail is flowing
+  and only for `booked` holds (Booking.com's iCal marks everything closed).
 - **Bulk actions** — in the existing pages, one notice per owner via
   `notifyBulkSummary()` in `notify.ts`. **Block dates**: `UnitPicker` (units
   or a whole client) → `createCalendarBlock` takes `property_ids[]`, skips and

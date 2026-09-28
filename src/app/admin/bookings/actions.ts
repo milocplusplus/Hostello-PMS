@@ -848,6 +848,33 @@ async function editExistingBooking(id: string, change: (form: FormData) => void)
   await updateBooking(id, form);
 }
 
+/**
+ * The same edit for a caller that stays on its own page — the channel inbox
+ * applying a date change or confirming a request. `patch` overwrites fields of
+ * the booking's own form; everything else goes back untouched, and the edit
+ * form's rules (clash check, payout from the booking's snapshots, the owner's
+ * notice) run exactly as they do there.
+ */
+export async function editBookingInline(
+  id: string,
+  patch: Record<string, string>
+): Promise<{ error: string | null }> {
+  const form = await currentBookingForm(id);
+  if (!form) return { error: "That booking no longer exists." };
+
+  for (const [key, value] of Object.entries(patch)) form.set(key, value);
+
+  const result = await applyBookingUpdate(id, form);
+  if ("error" in result) return { error: result.error };
+
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/bookings/[id]", "page");
+  revalidatePath("/admin/calendar");
+  revalidatePath(`/admin/clients/${result.clientId}`);
+  revalidatePath("/client", "layout");
+  return { error: null };
+}
+
 /** Move or extend a stay in place. A short stay keeps its hours and its date. */
 export async function changeBookingDates(formData: FormData) {
   const id = formData.get("id") as string;

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
-import { createBookingInline, cancelBooking } from "@/app/admin/bookings/actions";
+import { createBookingInline, cancelBooking, editBookingInline } from "@/app/admin/bookings/actions";
 import { sourceLabel } from "@/lib/block-sources";
 import type { ParsedReservation } from "@/lib/ota";
 
@@ -200,10 +200,85 @@ export async function applyCancellation(formData: FormData) {
   cancel.set("id", message.booking_id);
   await cancelBooking(cancel);
 
+  // `cancelBooking` reports nothing back, and an ops login may be refused the
+  // cancel by Settings — so look, rather than file the mail as done over a
+  // booking that is still live.
+  const { data: after } = await supabase
+    .from("bookings")
+    .select("status")
+    .eq("id", message.booking_id)
+    .maybeSingle();
+  if (after?.status !== "cancelled") {
+    redirect(backTo({ error: "The booking could not be cancelled. Ask the owner to cancel it." }));
+  }
+
   await close(supabase, id, "applied");
 
   refresh();
   redirect(backTo({ notice: "Booking cancelled and the nights reopened." }));
+}
+
+/**
+ * The channel changed a reservation: apply the new dates (and the price, if
+ * the reviewer changed it) through the booking's ordinary edit, so the split
+ * is recomputed from the terms the booking was made on.
+ *
+ * Airbnb's "reservation updated" mail carries neither dates nor price — the
+ * form comes pre-filled from the channel's calendar, and the price from the
+ * booking as it stands.
+ */
+export async function applyAlteration(formData: FormData) {
+  const id = (formData.get("id") as string) || "";
+  const { supabase, message } = await loadMessage(id);
+
+  if (!message) redirect(backTo({ error: "That message is gone." }));
+  if (!message.booking_id) redirect(backTo({ error: "No booking matches this change." }));
+
+  const patch: Record<string, string> = {
+    check_in: (formData.get("check_in") as string) ?? "",
+    check_out: (formData.get("check_out") as string) ?? "",
+  };
+  const price = ((formData.get("sale_price") as string) ?? "").trim();
+  if (price) {
+    patch.price_mode = "total";
+    patch.sale_price = price;
+  }
+
+  const result = await editBookingInline(message.booking_id, patch);
+  if (result.error) redirect(backTo({ error: result.error }));
+
+  await close(supabase, id, "applied");
+
+  refresh();
+  redirect(backTo({ notice: "Change applied. The owner has been told the new dates." }));
+}
+
+/**
+ * The channel accepted a request that is already here as a tentative booking.
+ * Confirming goes through the edit too: a tentative stay earns Hostello
+ * nothing, so the split has to be worked out again now that it is real.
+ */
+export async function confirmRequest(formData: FormData) {
+  const id = (formData.get("id") as string) || "";
+  const { supabase, message } = await loadMessage(id);
+
+  if (!message) redirect(backTo({ error: "That message is gone." }));
+  if (!message.booking_id) redirect(backTo({ error: "No booking matches this confirmation." }));
+
+  const patch: Record<string, string> = { status: "confirmed" };
+  const price = ((formData.get("sale_price") as string) ?? "").trim();
+  if (price) {
+    patch.price_mode = "total";
+    patch.sale_price = price;
+  }
+
+  const result = await editBookingInline(message.booking_id, patch);
+  if (result.error) redirect(backTo({ error: result.error }));
+
+  await close(supabase, id, "applied");
+
+  refresh();
+  redirect(backTo({ notice: "Booking confirmed. The owner has been told." }));
 }
 
 /** Not ours, a duplicate, or handled elsewhere. The raw mail is kept either way. */
@@ -223,10 +298,9 @@ export async function dismissMessage(formData: FormData) {
 /**
  * "I have dealt with this."
  *
- * Date changes and payout notices are surfaced here but applied on the screens
- * that own them — the booking's own edit form, and the payouts page. Both
- * recompute money from the booking's snapshots in ways this queue must not
- * shortcut, so what the inbox offers is the detail and a tick, not a write.
+ * For payout notices, which are surfaced here but worked on Settlements: money
+ * that has moved is recorded where it is allocated, so what the inbox offers
+ * is the detail and a tick, not a write.
  */
 export async function markHandled(formData: FormData) {
   const id = (formData.get("id") as string) || "";

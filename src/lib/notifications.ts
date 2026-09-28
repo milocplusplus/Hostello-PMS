@@ -96,6 +96,11 @@ const KIND_ICON: Record<string, LucideIcon> = {
   // A flat in a shared Booking.com room type was filled or freed some other
   // way; staff move Booking.com's count by hand (trigger, in SQL).
   booking_com_count: CalendarCog,
+  // The channel's calendar moved or dropped a stay that is booked here, or has
+  // a stay no email explained (triggers + check_channel_health, in SQL).
+  channel_stay_moved: CalendarCog,
+  channel_stay_dropped: CalendarX2,
+  ota_hold_unexplained: TriangleAlert,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the

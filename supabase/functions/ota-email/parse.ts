@@ -66,6 +66,12 @@ export type ParsedReservation = {
   /** What the channel says it will send the host. */
   host_payout: number | null;
   reservation_code: string | null;
+  /**
+   * A request to book the host has not accepted yet (Airbnb). Recorded as a
+   * new reservation, proposed as a *tentative* booking; the confirmation that
+   * follows, if it is accepted, confirms that booking.
+   */
+  is_request: boolean;
 };
 
 export type ParseOutcome = {
@@ -347,10 +353,13 @@ function detectSource(subject: string, from: string, body: string): OtaSource | 
  * reached us through a filter keeps its headers; one forwarded by hand does
  * not, which is why the wording rules below are still needed.
  */
-function kindFromTemplate(template: string): OtaKind | "skip" | null {
+function kindFromTemplate(template: string): OtaKind | "skip" | "request" | null {
   const t = template.trim().toUpperCase();
   if (!t) return null;
-  if (t.startsWith("MESSAGING_")) return "skip";
+  if (t.startsWith("MESSAGING_") || t.includes("INQUIRY")) return "skip";
+  // A request that expired or was declined is that reservation going away.
+  if (t.includes("REQUEST") && /EXPIRE|DECLINE|WITHDR|CANCEL/.test(t)) return "cancellation";
+  if (t.includes("REQUEST") && !t.startsWith("ALTERATION")) return "request";
   if (t.startsWith("BOOKING_CONFIRMATION")) return "new_booking";
   if (t.startsWith("CANCELLATION")) return "cancellation";
   // A requested change is not yet a change; only an accepted one is.
@@ -358,11 +367,25 @@ function kindFromTemplate(template: string): OtaKind | "skip" | null {
   return null;
 }
 
+/**
+ * No sample of these has been seen yet (September 2026), so the wording is
+ * Airbnb's as documented, and a mail that slips past lands as "unrecognised"
+ * rather than as something wrong. Add a fixture when the first one arrives.
+ */
+const REQUEST_PATTERNS = [
+  /\b(?:reservation|booking) request\b/i,
+  /\brequest to book\b/i,
+  /\bwants to book\b/i,
+  /\brespond to .{1,60}request\b/i,
+];
+const DEAD_REQUEST = /\brequest (?:has |was )?(?:expired|declined|withdrawn|cancell?ed)\b/i;
+
 /** Order matters: a cancellation mail often still says "reservation confirmed". */
 const KIND_RULES: { kind: OtaKind; patterns: RegExp[] }[] = [
   {
     kind: "cancellation",
     patterns: [
+      DEAD_REQUEST,
       /\bcancell?ed\b/i,
       /\bcancellation\b/i,
       /has been cancell?ed/i,
@@ -420,6 +443,7 @@ function detectKind(subject: string, body: string): OtaKind {
 function isGuestMessage(subject: string, body: string): boolean {
   return (
     /^re:/i.test(subject) ||
+    /\b(?:inquiry|enquiry)\b/i.test(subject) ||
     /respond by replying directly to this email/i.test(body)
   );
 }
@@ -469,7 +493,7 @@ type Reader = (ctx: {
   subject: string;
   kind: OtaKind;
   reference: Date;
-}) => ParsedReservation;
+}) => Omit<ParsedReservation, "is_request">;
 
 const READERS: Record<OtaSource, Reader> = {
   airbnb: ({ rows, body, raw, subject, reference }) => {
@@ -560,6 +584,7 @@ const EMPTY: ParsedReservation = {
   listing: null, listing_id: null, guest_name: null, guest_phone: null,
   check_in: null, check_out: null, guests: null,
   currency: null, gross: null, channel_fee: null, host_payout: null, reservation_code: null,
+  is_request: false,
 };
 
 export function parseOtaEmail(input: {
@@ -598,8 +623,16 @@ export function parseOtaEmail(input: {
     return { source, kind: "unknown", parsed: EMPTY, error: null, skip: "A guest message, not a reservation." };
   }
 
-  const kind = fromTemplate ?? detectKind(subject, body);
-  const parsed = READERS[source]({ rows, body, raw, subject, kind, reference });
+  const request =
+    fromTemplate === "request" ||
+    (fromTemplate === null &&
+      !DEAD_REQUEST.test(subject) &&
+      REQUEST_PATTERNS.some((re) => re.test(subject)));
+  const kind: OtaKind = request ? "new_booking" : (fromTemplate as OtaKind | null) ?? detectKind(subject, body);
+  const parsed: ParsedReservation = {
+    ...READERS[source]({ rows, body, raw, subject, kind, reference }),
+    is_request: request,
+  };
 
   if (kind === "unknown") {
     return { source, kind, parsed, error: "Could not tell what this email is about.", skip: null };

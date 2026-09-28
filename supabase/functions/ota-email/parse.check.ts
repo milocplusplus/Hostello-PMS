@@ -52,6 +52,7 @@ const CASES: Record<string, Expected> = {
       channel_fee: 6.05,
       host_payout: 32.95,
       reservation_code: "HMTESTCNF1",
+      is_request: false,
     },
   },
   "airbnb-cancellation": {
@@ -155,9 +156,39 @@ for (const [name, expected] of Object.entries(CASES)) {
   }
 }
 
+// ── Made-up variants of real mails ──────────────────────────────────────────
+// No Airbnb request-to-book mail has been seen yet, so these only prove the
+// subject rules route one; replace them with a real fixture when one arrives.
+{
+  const base = JSON.parse(
+    readFileSync(new URL("./fixtures/airbnb-new-booking.json", import.meta.url), "utf8")
+  ) as Fixture;
+  const variants: [string, string, string, Partial<ReturnType<typeof parseOtaEmail>> & { request: boolean }][] = [
+    ["request by subject", "Reservation request: Sana Malik wants to book", "", { kind: "new_booking", request: true }],
+    ["request by template", "Please respond", "RESERVATION_REQUEST_TO_HOST", { kind: "new_booking", request: true }],
+    ["expired request", "Request expired: Sana Malik", "", { kind: "cancellation", request: false }],
+    ["inquiry", "Inquiry from Sana Malik", "", { kind: "unknown", request: false }],
+  ];
+  for (const [label, subject, template, want] of variants) {
+    const out = parseOtaEmail({
+      subject,
+      from: base.from,
+      template,
+      textBody: base.text,
+      htmlBody: base.html,
+      receivedAt: new Date(base.date),
+    });
+    checks++;
+    if (out.kind !== want.kind) fail(`${label} (made up)`, `kind ${out.kind}, expected ${want.kind}`);
+    if (out.parsed.is_request !== want.request) fail(`${label} (made up)`, `is_request ${out.parsed.is_request}`);
+    if (label === "inquiry" && !out.skip) fail(`${label} (made up)`, "not skipped");
+    if (want.request && out.parsed.check_in !== "2026-09-28") fail(`${label} (made up)`, `check_in ${out.parsed.check_in}`);
+  }
+}
+
 console.log(
   failures === 0
-    ? `All ${checks} parses match (${Object.keys(CASES).length} mails × ${Object.keys(WAYS).length} ways).`
+    ? `All ${checks} parses match (${Object.keys(CASES).length} real mails × ${Object.keys(WAYS).length} ways, plus made-up request variants).`
     : `${failures} mismatch${failures === 1 ? "" : "es"}.`
 );
 

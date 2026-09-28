@@ -44,6 +44,8 @@ export type ParsedReservation = {
   channel_fee?: number | null;
   host_payout?: number | null;
   reservation_code?: string | null;
+  /** An Airbnb request to book, not yet accepted: proposed as tentative. */
+  is_request?: boolean;
 };
 
 export const KIND_LABEL: Record<OtaMessageKind, string> = {
