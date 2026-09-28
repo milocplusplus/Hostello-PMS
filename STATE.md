@@ -1,6 +1,14 @@
 # State — updated 2026-09-27
 
 ## Done
+- **Admin controls 8 of 9: session control** (2026-09-28). Owner's choices:
+  see who is signed in on which device, sign out one device or everywhere,
+  own other devices too; on Staff (mine + each ops account) and the client
+  page (owner); the person is not told; audit-logged. Migration
+  `session_control` **applied to the live DB**; tested rolled back (current
+  session marked and kept, others ended, device row cascades, audit line).
+  Staff page checked with the admin's 4 real sessions (all "Unknown device"
+  — they predate device recording). Nobody was actually signed out.
 - **Admin controls 7 of 9: Excel export** (2026-09-28). Owner's choices:
   bookings, payments, owner expenses, clients & units; one .xlsx, a sheet
   each; date range + one client or all + quick picks; download only; on

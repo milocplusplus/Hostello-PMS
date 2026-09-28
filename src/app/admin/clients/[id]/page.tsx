@@ -22,6 +22,7 @@ import { formatDayMonth, todayISO } from "@/lib/calendar";
 import { loadAudit } from "@/lib/audit";
 import { AuditTrail } from "@/components/admin/AuditTrail";
 import { clientHasHistory } from "@/lib/client-history";
+import { SessionList } from "@/components/admin/SessionList";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -52,7 +53,7 @@ export default async function ClientDetailPage({
 
   const { data: clientRecord } = await supabase
     .from("clients")
-    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent, deactivated_at, deactivated_note")
+    .select("id, name, contact_email, contact_phone, deal_model, monthly_fee, share_percent, deduct_percent, ota_model, ota_share_percent, deactivated_at, deactivated_note, owner_user_id")
     .eq("id", id)
     .single();
 
@@ -466,6 +467,17 @@ export default async function ClientDetailPage({
           </div>
         )}
       </section>
+
+      {clientRecord.owner_user_id && (
+        <section id="devices" className="card p-5 flex flex-col gap-3 scroll-mt-24">
+          <h2 className="text-sm font-semibold tracking-tight">Owner&apos;s devices</h2>
+          <SessionList
+            userId={clientRecord.owner_user_id}
+            name={clientRecord.name}
+            from={`/admin/clients/${id}`}
+          />
+        </section>
+      )}
 
       <section id="status" className="card p-5 flex flex-col gap-3 scroll-mt-24">
         <h2 className="text-sm font-semibold tracking-tight">

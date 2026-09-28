@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isStaffRole } from "@/lib/auth";
@@ -52,6 +52,20 @@ export async function login(formData: FormData) {
   if (!user) {
     redirect(`/login?error=${encodeURIComponent("Something went wrong. Try again.")}`);
   }
+
+  // The browser this session belongs to, for the device lists on Staff and the
+  // client page. Supabase's own record says "Vercel Edge Functions", because
+  // the server is what refreshes the token. Best-effort, never blocks sign-in.
+  const h = await headers();
+  await supabase
+    .rpc("record_session_device", {
+      p_user_agent: h.get("user-agent") ?? "",
+      p_ip: (h.get("x-forwarded-for") ?? "").split(",")[0].trim(),
+    })
+    .then(
+      () => undefined,
+      () => undefined
+    );
 
   const { data: profile } = await supabase
     .from("profiles")

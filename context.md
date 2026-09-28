@@ -174,6 +174,16 @@ Pre-launch: real data has not been entered yet.
   cap, and logs `log_export()` to the audit log. Guest names in, phones out.
   The browser builds the file with `src/lib/xlsx.ts` — a ~150-line
   stored-zip SpreadsheetML writer, no dependency (verified opening in Excel).
+- **Session control** — `auth.sessions` only knows the server that refreshed
+  a token ("Vercel Edge Functions"), so the login action records the real
+  browser + IP in `session_devices` via `record_session_device()` (keyed by
+  the JWT's `session_id`, cascades with the session). `list_user_sessions()`
+  (admin, or yourself) and `end_user_sessions()` (one session, all, or all
+  but the caller's current; audit-logged as `signed_out`). UI:
+  `components/admin/SessionList.tsx` + `endSessions` (staff actions) — "My
+  devices" and each ops account on `/admin/staff`, the owner's devices on the
+  client page. Ended sessions take effect on the next request (the
+  middleware's `getUser()` finds the session gone).
 - `src/app/client/**` — client portal mirror: `page.tsx`, `calendar/`, `bookings/`,
   `notifications/`, `payouts/`
 - `src/app/client/expenses/**` + `src/lib/expenses.ts` — **owner expenses**, the

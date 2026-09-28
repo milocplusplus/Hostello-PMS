@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
-import { requireOwner } from "@/lib/auth";
+import { currentUser, requireOwner } from "@/lib/auth";
+import { SessionList } from "@/components/admin/SessionList";
 import { createClient } from "@/lib/supabase/server";
 import { opsCanPriceBookings } from "@/lib/payout-inputs";
 import { Avatar } from "@/components/shared/Avatar";
@@ -55,7 +56,10 @@ export default async function StaffPage({
   const { error, notice } = await searchParams;
 
   const supabase = await createClient();
-  const { data, error: listError } = await supabase.rpc("list_ops_logins");
+  const [{ data, error: listError }, me] = await Promise.all([
+    supabase.rpc("list_ops_logins"),
+    currentUser(),
+  ]);
   const staff = (data ?? []) as StaffRow[];
   const canPrice = opsCanPriceBookings();
 
@@ -88,6 +92,13 @@ export default async function StaffPage({
           booking&apos;s split needs the deal terms, which an operations login is not allowed to
           read, so the server reads them instead.
         </p>
+      )}
+
+      {me && (
+        <section id="devices" className="card p-6 flex flex-col gap-3 scroll-mt-24">
+          <h2 className="text-sm font-semibold tracking-tight">My devices</h2>
+          <SessionList userId={me.id} name="you" from="/admin/staff" self />
+        </section>
       )}
 
       <section className="card p-6 flex flex-col gap-4">
@@ -209,6 +220,11 @@ export default async function StaffPage({
                   />
                 )}
               </form>
+            </div>
+
+            <div className="border-t border-border-hairline pt-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-ink-muted mb-1">Devices</p>
+              <SessionList userId={s.id} name={s.full_name ?? s.email} from="/admin/staff" />
             </div>
           </div>
         ))}

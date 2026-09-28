@@ -84,3 +84,32 @@ export async function resetOpsPassword(formData: FormData) {
   revalidatePath("/admin/staff");
   back("Password changed, and their old session is signed out. Pass it on yourself.", "notice");
 }
+
+/**
+ * Sign someone out: one device, or all of them. Used from the Staff page (ops
+ * accounts and your own devices) and a client's page (the owner's login).
+ * `end_user_sessions` checks the caller is the admin or the person themselves.
+ */
+export async function endSessions(formData: FormData) {
+  await requireOwner();
+  const userId = formData.get("user_id") as string;
+  const sessionId = (formData.get("session_id") as string) || null;
+  const keepCurrent = formData.get("keep_current") === "true";
+  // Only two places send people here; anything else goes back to Staff.
+  const from = String(formData.get("from") ?? "");
+  const target = /^\/admin\/clients\/[0-9a-f-]{36}$/i.test(from) ? from : "/admin/staff";
+  const go = (key: "notice" | "error", message: string): never =>
+    redirect(`${target}?${key}=${encodeURIComponent(message)}#devices`);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("end_user_sessions", {
+    p_user_id: userId,
+    p_session_id: sessionId,
+    p_keep_current: keepCurrent,
+  });
+  if (error) go("error", error.message);
+
+  revalidatePath(target);
+  const n = Number(data ?? 0);
+  go("notice", n === 0 ? "Nothing to sign out." : `Signed out of ${n} device${n === 1 ? "" : "s"}.`);
+}
