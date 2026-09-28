@@ -340,9 +340,21 @@ Pre-launch: real data has not been entered yet.
   `block-events.ts` (what a calendar block announces);
   `src/components/shared/{NotificationBell,NotificationFeed,NotificationLive,
   NotificationSettings}.tsx`; `src/app/notifications/actions.ts` — shared read /
-  preference / subscription actions, a folder with no `page.tsx` so it is no route.
-  `docs/notifications.svg` draws the whole path: the two writers, where the cron
-  bypasses `emit_notification`, and why only the app path can reach Web Push.
+  preference / subscription actions; `notifications/open/[id]/page.tsx` is its
+  one route — where a database-sent push lands (marks read, then redirects via
+  `notificationHref`, so routing has one home).
+  `docs/notifications.svg` draws the path as it was before 2026-09-29: the two
+  writers and where the cron bypasses `emit_notification`.
+  **Two push senders.** The app's `deliverPush` (Server Actions, immediate).
+  And the **push sweep** for everything SQL raises (sync, channel inbox, cron
+  jobs, health check): cron `hostello-push-sweep` every minute →
+  `run_push_sweep()` → edge function `push-sweep` → `push_sweep_claim()`,
+  which stamps and returns recipient rows 30 s–15 min old with no `pushed_at`
+  (the 30 s is the app's head start, so they never double-send), applying the
+  same push-on / muted-category rule. VAPID keys in **Vault**
+  (`vapid_public_key`, `vapid_private_key`, optional `vapid_subject`); with no
+  private key the sweep does nothing. `POST {action:"selftest"}` with the
+  secret proves Web Push still signs in that runtime.
 - `src/components/shared/GlobalSearch.tsx` — top-bar search input. Takes a
   `searchAction` prop; admin passes `admin/search/actions.ts`, the client portal
   `client/search/actions.ts`. `SearchResult` lives in `src/lib/search.ts`.
@@ -759,9 +771,8 @@ Pre-launch: real data has not been entered yet.
   a re-run a no-op. Owners get **one** `daily_digest` instead:
   `notify_owner_digest()`, cron `hostello-owner-digest` at 02:15 UTC (07:15
   Karachi) — arrivals / departures today, arrivals tomorrow, due bills, pending
-  Hostello payments to confirm; nothing on an empty day; links to /client/today. It cannot send push —
-  push is sent from the Next server, and nothing external can call a Server
-  Action — so cron-born notifications reach the bell and Realtime only.
+  Hostello payments to confirm; nothing on an empty day; links to /client/today. Its
+  push comes from the push sweep (see **Notifications**), not the Next server.
 - Vercel is git-connected to `milocplusplus/Hostello-PMS`, production branch
   `main` — **pushing to main is the deploy**. There is no Vercel CLI auth and no
   `.vercel/` link on this machine, so `git push` is the only mechanism.

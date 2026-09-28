@@ -1,6 +1,21 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox 5: alerts** (2026-09-29). Owner's choices: push *every*
+  database-raised alert (not just the inbox), one reminder at 2 h, no quiet
+  hours, channel mail to admin + ops (payouts admin-only). Migration
+  `push_sweep` **applied to the live DB**; edge function `push-sweep`
+  **deployed** (v2, JWT off, Vault secret). Also: `/notifications/open/[id]`
+  (middleware now covers `/notifications`), nav badge for open inbox mail
+  (payout excluded), "waiting 2h" tag, "Alerts on this phone" for ops on the
+  inbox page (push was only switchable on owner-only Activity), and a fix in
+  `push.ts` that sent **ops** push links into `/client`. **Tested:** self-test
+  signed + encrypted a push in the Supabase runtime (FCM answered 410 to the
+  fake endpoint); wrong secret → 401; claim rolled back on the live DB (right
+  subscriptions, muted/dead/android/too-new/too-old skipped, no double
+  claim); reminder + audiences rolled back. **Not live yet: the sweep reports
+  `no_keys`.** `VAPID_PRIVATE_KEY` is a Vercel *sensitive* var and cannot be
+  read back, so it is not in Vault — the owner has to add it (see Next).
 - **Channel inbox 4: foreign currency** (2026-09-29). Owner's choices:
   Airbnb pays out PKR at its own rate; use the market rate; re-convert from
   a one-tap list (nothing automatic); a settled stay keeps its rate.
@@ -2249,7 +2264,12 @@ reassign the alias, so nothing broke.
      guest-paid total + fee (admin only), original-currency amount. Non-PKR
      converts at a live rate, provisional until check-in, re-converted on
      check-in day with the owner told.
-   - **Alerts:** push to admin + ops for every new mail, badge, "waiting 2h".
+   - **Alerts (built, part 5 — waiting on one key):** add the VAPID private
+     key to Vault once: Supabase → SQL editor →
+     `select vault.create_secret('<VAPID_PRIVATE_KEY>', 'vapid_private_key');`
+     (the same value as Vercel's `VAPID_PRIVATE_KEY`). The next minute's sweep
+     starts sending. If the value is lost, a new key pair means every device
+     re-enabling push, and Vercel's two VAPID vars changing to match.
    - **Access:** admin + ops (payout mails stay admin-only).
    - **Intake:** one Hostello address. Listings are on a mix of Hostello's and
      owners' accounts: Hostello as co-host / extranet user where possible,

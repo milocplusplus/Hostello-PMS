@@ -43,6 +43,8 @@ import {
   markHandled,
 } from "./actions";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { NotificationSettings } from "@/components/shared/NotificationSettings";
+import { readNotificationPreferences } from "@/lib/notification-feed";
 
 /**
  * What the channels have emailed in, and what to do about it.
@@ -88,6 +90,16 @@ function ago(iso: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/**
+ * How long a mail has sat unreviewed. Past an hour it stops being "2m ago"
+ * and becomes a warning, because a channel booking nobody has written up is
+ * a guest nobody is expecting.
+ */
+function waiting(since: string): { text: string; late: boolean } {
+  const late = Date.now() - new Date(since).getTime() >= 3_600_000;
+  return { text: late ? `waiting ${ago(since).replace(/ ago$/, "")}` : ago(since), late };
 }
 
 function Chip({ status }: { status: OtaMessageStatus }) {
@@ -309,6 +321,9 @@ export default async function ChannelInboxPage({
   // A payout mail is the channel saying what it paid Hostello, and it is worked
   // on "Owed to Hostello" — both the owner's. Ops never sees that queue.
   const showMoney = canSeeSplit(profile?.role);
+  // Push is switched on from Activity, which is owner-only; an ops login needs
+  // somewhere to do it, and this is the page its alerts are about.
+  const opsPreferences = showMoney ? null : await readNotificationPreferences(user.id);
   const rows = ((messages ?? []) as unknown as MessageRow[]).filter(
     (r) => showMoney || r.kind !== "payout"
   );
@@ -453,6 +468,17 @@ export default async function ChannelInboxPage({
         Bookings.
       </p>
 
+      {opsPreferences && (
+        <details className="group">
+          <summary className="text-xs text-hostello-gold cursor-pointer hover:underline">
+            Alerts on this phone
+          </summary>
+          <div className="mt-3">
+            <NotificationSettings preferences={opsPreferences} />
+          </div>
+        </details>
+      )}
+
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}
 
@@ -558,7 +584,11 @@ export default async function ChannelInboxPage({
                 </div>
                 <Channel source={row.source} />
               </div>
-              <span className="text-xs text-ink-muted shrink-0">{ago(row.received_at)}</span>
+              <span
+                className={`text-xs shrink-0 ${waiting(row.received_at).late ? "text-status-pending" : "text-ink-muted"}`}
+              >
+                {waiting(row.received_at).text}
+              </span>
             </div>
 
             {row.subject && (

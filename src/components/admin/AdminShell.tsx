@@ -139,7 +139,10 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
 };
 
 /** Every page in the sidebar that is not a tab, in sidebar order. */
-function moreItems(role: StaffRole, unreadCount: number): MoreItem[] {
+/** Count badges by nav href: unread activity, and channel emails waiting. */
+type Badges = Record<string, number>;
+
+function moreItems(role: StaffRole, badges: Badges): MoreItem[] {
   const tabs = new Set(phoneTabs(role).map((t) => t.href));
   return navGroups(role)
     .flatMap((g) => g.items)
@@ -152,7 +155,7 @@ function moreItems(role: StaffRole, unreadCount: number): MoreItem[] {
         icon: look?.icon ?? i.icon,
         tint: look?.tint ?? "linear-gradient(135deg, #4c1d95, #7c3aed)",
         soon: i.soon,
-        badge: i.href === "/admin/notifications" ? unreadCount : undefined,
+        badge: badges[i.href] || undefined,
       };
     });
 }
@@ -176,12 +179,12 @@ function Logo() {
 function NavLinks({
   role,
   pathname,
-  unreadCount,
+  badges,
   onNavigate,
 }: {
   role: StaffRole;
   pathname: string;
-  unreadCount: number;
+  badges: Badges;
   onNavigate?: () => void;
 }) {
   return (
@@ -192,7 +195,7 @@ function NavLinks({
           {group.items.map((item) => {
             const active = isActive(pathname, item.href, item.exact);
             const Icon = item.icon;
-            const badge = item.href === "/admin/notifications" ? unreadCount : 0;
+            const badge = badges[item.href] ?? 0;
             return (
               <Link
                 key={item.href}
@@ -284,6 +287,7 @@ export function AdminShell({
   searchAction,
   notifications,
   unreadCount,
+  inboxCount = 0,
   markAllReadAction,
   children,
 }: {
@@ -293,6 +297,8 @@ export function AdminShell({
   searchAction: (query: string) => Promise<SearchResult[]>;
   notifications: NotificationItem[];
   unreadCount: number;
+  /** Channel emails still waiting for someone (open statuses). */
+  inboxCount?: number;
   markAllReadAction: () => Promise<void>;
   children: ReactNode;
 }) {
@@ -304,6 +310,7 @@ export function AdminShell({
   // is looking at it.
   const roleLabel = role === "ops" ? "Operations" : "Owners View";
   const showBell = role === "admin";
+  const badges: Badges = { "/admin/notifications": unreadCount, "/admin/channel-inbox": inboxCount };
 
   return (
     <div className="min-h-screen flex text-ink-primary">
@@ -314,7 +321,7 @@ export function AdminShell({
         </div>
 
         <nav className="flex-1 px-3 flex flex-col gap-1 overflow-y-auto pb-4">
-          <NavLinks role={role} pathname={pathname} unreadCount={unreadCount} />
+          <NavLinks role={role} pathname={pathname} badges={badges} />
         </nav>
 
         <SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />
@@ -335,15 +342,15 @@ export function AdminShell({
 
       <TabBar
         tabs={phoneTabs(role)}
-        more={moreItems(role, unreadCount)}
+        more={moreItems(role, badges)}
         pathname={pathname}
-        dot={showBell && unreadCount > 0}
+        dot={(showBell && unreadCount > 0) || inboxCount > 0}
         onMore={openMore}
       />
       <MoreSheet
         open={menuOpen}
         onClose={closeMore}
-        items={moreItems(role, unreadCount)}
+        items={moreItems(role, badges)}
         footer={<SidebarFooter roleLabel={roleLabel} userName={userName} logoutAction={logoutAction} />}
       />
 

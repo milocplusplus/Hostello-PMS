@@ -101,6 +101,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   channel_stay_moved: CalendarCog,
   channel_stay_dropped: CalendarX2,
   ota_hold_unexplained: TriangleAlert,
+  // A channel email still unreviewed after two hours (notify_ota_waiting).
+  ota_waiting: Inbox,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the

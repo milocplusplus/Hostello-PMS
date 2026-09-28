@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 import { VIEW_AS_COOKIE, VIEW_AS_PATH } from "@/lib/view-as";
 
-const PROTECTED_PREFIXES = ["/admin", "/client"];
+const PROTECTED_PREFIXES = ["/admin", "/client", "/notifications"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -72,5 +72,7 @@ export const config = {
   // to Supabase on every match, so an allow-list beats an exclude-list: the
   // service worker, the manifest, the icons, `/offline` and the password-reset
   // flow are all public and were each paying for a session lookup.
-  matcher: ["/", "/login", "/admin/:path*", "/client/:path*"],
+  // `/notifications/open/<id>` is where a tapped push lands, often hours later
+  // on a phone whose access token has long expired — it needs the refresh.
+  matcher: ["/", "/login", "/admin/:path*", "/client/:path*", "/notifications/:path*"],
 };

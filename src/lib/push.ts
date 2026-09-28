@@ -96,7 +96,9 @@ export async function deliverPush(notificationId: string): Promise<void> {
         if (pref && pref.push_enabled === false) return;
         if (pref && (pref.muted_categories ?? []).includes(notification.category)) return;
 
-        const portal = roleByUser.get(sub.user_id) === "admin" ? "admin" : "client";
+        // Both staff roles work in /admin; only an owner belongs in /client.
+        const role = roleByUser.get(sub.user_id);
+        const portal = role === "admin" || role === "ops" ? "admin" : "client";
         const payload: PushPayload = {
           title: notification.title,
           body: notification.body,
