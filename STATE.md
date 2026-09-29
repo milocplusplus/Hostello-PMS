@@ -1,6 +1,20 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Booking form restyle** (2026-09-29). Owner asked for the Coming Soon
+  look on Add booking; chose all four screens (admin/owner add + edit) and a
+  wide layout. `BookingForm` is now four numbered step cards (badge turns
+  gold when answered) + "More details", with a sticky `card-hero` stay card
+  on the right that fills in live (unit, dates/nights, guest, channel,
+  price, status) and the split under it. Two columns via a container query
+  (`@3xl`), so the calendar quick-add modal stays one column. Source is
+  coloured chips; status is a toggle on the stay card and **always posted**
+  (it used to be missing unless "More details" was open, so the server fell
+  back to confirmed even with a Tentative default). `StayDates`: bigger
+  cells, gold ribbon range, lock on blocked nights, today dot, month fade.
+  Glow layers use `overflow-clip` — `overflow-hidden` let the calendar box
+  scroll sideways. Checked rendered at 800px and 375px on a temporary
+  preview route (deleted); lint + build.
 - **Channel inbox ON HOLD** (2026-09-29). Owner paused it before the
   Cloudflare step. `CHANNEL_INBOX_ON_HOLD = true` in `src/lib/ota.ts`:
   `/admin/channel-inbox` shows `ChannelInboxComingSoon` (no queries),

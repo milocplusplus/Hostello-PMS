@@ -76,9 +76,10 @@ export default async function NewBookingPage({
         : undefined;
 
   return (
-    <div className="max-w-lg mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Add a booking"
+        sub="Four quick steps — the stay card fills in as you go."
         back={{ href: "/admin/calendar", label: "Calendar" }}
       />
 

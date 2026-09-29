@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { nightsBetween } from "@/lib/payout";
 import {
@@ -113,34 +113,39 @@ export function StayDates({
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <input type="hidden" name="check_in" value={checkIn} />
       <input type="hidden" name="check_out" value={checkOut} />
 
-      <div className="rounded-md border border-border-hairline bg-surface-2 p-3 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+      <div className="relative overflow-clip rounded-2xl border border-border-hairline bg-surface-2/70 p-3 sm:p-4 flex flex-col gap-3">
+        <span className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-hostello-purple-glow/15 blur-3xl" aria-hidden />
+
+        <div className="relative flex items-center justify-between">
           <button
             type="button"
             onClick={() => setView(addMonths(view.year, view.month0, -1))}
             aria-label="Previous month"
-            className="p-1 rounded text-ink-muted hover:text-ink-primary hover:bg-surface-3 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full border border-border-hairline text-ink-muted hover:text-ink-primary hover:border-hostello-purple-mid hover:bg-hostello-purple-glow/15 transition-colors"
           >
             <ChevronLeft size={15} />
           </button>
-          <p className="text-xs text-ink-primary">{formatMonthLabel(view.year, view.month0)}</p>
+          <p key={`${view.year}-${view.month0}`} className="animate-fade text-sm font-semibold text-ink-primary">
+            {formatMonthLabel(view.year, view.month0)}
+          </p>
           <button
             type="button"
             onClick={() => setView(addMonths(view.year, view.month0, 1))}
             aria-label="Next month"
-            className="p-1 rounded text-ink-muted hover:text-ink-primary hover:bg-surface-3 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full border border-border-hairline text-ink-muted hover:text-ink-primary hover:border-hostello-purple-mid hover:bg-hostello-purple-glow/15 transition-colors"
           >
             <ChevronRight size={15} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-px">
+        {/* No column gap, so a picked range reads as one gold ribbon across the week. */}
+        <div key={`grid-${view.year}-${view.month0}`} className="animate-fade relative grid grid-cols-7 gap-y-1">
           {WEEKDAYS.map((w, i) => (
-            <div key={i} className="text-center text-[9px] uppercase tracking-wide text-ink-muted py-1">
+            <div key={i} className="text-center text-[10px] font-semibold uppercase tracking-wider text-ink-muted pb-1">
               {w}
             </div>
           ))}
@@ -151,6 +156,7 @@ export function StayDates({
             const state = cellState(date);
             const day = Number(date.slice(8, 10));
             const disabled = state === "taken" || state === "unreachable";
+            const blockNight = state === "taken" && takenNights.get(date) === "block";
 
             return (
               <button
@@ -160,18 +166,24 @@ export function StayDates({
                 onClick={() => pick(date)}
                 title={
                   state === "taken"
-                    ? `${takenNights.get(date) === "booking" ? "Booked" : "Blocked"} — ${formatDayMonth(date)}`
+                    ? `${blockNight ? "Blocked" : "Booked"} — ${formatDayMonth(date)}`
                     : formatDayMonth(date)
                 }
-                className={`relative h-8 text-xs rounded transition-colors ${cellClass(state)} ${
-                  date === today ? "ring-1 ring-inset ring-hostello-gold/60" : ""
-                }`}
+                className={`relative h-10 text-xs tabular-nums transition-all duration-150 ${cellClass(state)}`}
               >
                 {day}
-                {state === "taken" && (
+                {state === "taken" &&
+                  (blockNight ? (
+                    <Lock size={8} aria-hidden className="absolute top-1 right-1 opacity-70" />
+                  ) : (
+                    <span aria-hidden className="absolute inset-x-2.5 top-1/2 h-px bg-current opacity-60" />
+                  ))}
+                {date === today && (
                   <span
                     aria-hidden
-                    className="absolute inset-x-1.5 top-1/2 h-px bg-current opacity-60"
+                    className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${
+                      state === "start" || state === "end" ? "bg-surface-0" : "bg-hostello-gold"
+                    }`}
                   />
                 )}
               </button>
@@ -179,24 +191,27 @@ export function StayDates({
           })}
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap text-[10px] text-ink-muted pt-1 border-t border-border-hairline">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-status-booked/50" /> Booked
+        <div className="relative flex items-center gap-3 flex-wrap text-[10px] text-ink-muted pt-2 border-t border-border-hairline">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-status-booked/60" /> Booked
           </span>
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1.5">
             <Lock size={9} /> Blocked
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-hostello-gold" /> Your stay
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full gradient-gold" /> Your stay
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1 h-1 rounded-full bg-hostello-gold" /> Today
           </span>
         </div>
       </div>
 
-      <p className="text-xs text-ink-secondary">
+      <p className="text-xs text-ink-secondary flex items-center gap-1.5 flex-wrap">
         {mode === "day" ? (
           checkIn ? (
             <>
-              Short stay on <span className="text-ink-primary">{formatDayMonth(checkIn)}</span>
+              Short stay on <DatePill>{formatDayMonth(checkIn)}</DatePill>
             </>
           ) : (
             "Pick the day of the short stay."
@@ -205,13 +220,15 @@ export function StayDates({
           "Pick the check-in night."
         ) : !checkOut ? (
           <>
-            Check-in {formatDayMonth(checkIn)}. Now pick the check-out morning
+            Check-in <DatePill>{formatDayMonth(checkIn)}</DatePill> Now pick the check-out morning
             {nextTaken ? ` — free up to ${formatDayMonth(nextTaken)}.` : "."}
           </>
         ) : (
           <>
-            {formatDayMonth(checkIn)} → {formatDayMonth(checkOut)} ·{" "}
-            <span className="text-ink-primary">
+            <DatePill>{formatDayMonth(checkIn)}</DatePill>
+            <span aria-hidden>→</span>
+            <DatePill>{formatDayMonth(checkOut)}</DatePill>
+            <span className="text-ink-primary font-semibold">
               {nights} night{nights === 1 ? "" : "s"}
             </span>
           </>
@@ -221,20 +238,28 @@ export function StayDates({
   );
 }
 
+function DatePill({ children }: { children: ReactNode }) {
+  return (
+    <span className="rounded-full border border-hostello-gold/40 bg-hostello-gold/10 px-2.5 py-0.5 text-ink-primary font-medium">
+      {children}
+    </span>
+  );
+}
+
 function cellClass(state: CellState) {
   switch (state) {
     case "taken":
-      return "text-status-booked/70 bg-status-booked/10 cursor-not-allowed";
+      return "rounded-xl text-status-booked/80 bg-status-booked/10 cursor-not-allowed";
     case "start":
     case "end":
-      return "bg-hostello-gold text-surface-0 font-medium";
+      return "z-10 rounded-xl gradient-gold text-surface-0 font-bold scale-105 shadow-[0_8px_22px_-8px_rgba(245,201,104,0.9)]";
     case "mid":
-      return "bg-hostello-gold/25 text-ink-primary";
+      return "bg-hostello-gold/20 text-ink-primary font-medium";
     case "reachable":
-      return "text-ink-secondary hover:bg-hostello-gold/20";
+      return "rounded-xl text-ink-primary hover:bg-hostello-gold/25 hover:scale-105";
     case "unreachable":
-      return "text-ink-muted/40 cursor-not-allowed";
+      return "rounded-xl text-ink-muted/35 cursor-not-allowed";
     default:
-      return "text-ink-secondary hover:bg-surface-3";
+      return "rounded-xl text-ink-secondary hover:bg-hostello-purple-glow/20 hover:text-ink-primary hover:scale-105";
   }
 }

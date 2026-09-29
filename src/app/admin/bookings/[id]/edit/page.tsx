@@ -76,7 +76,7 @@ export default async function EditBookingPage({
   );
 
   return (
-    <div className="max-w-lg mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Edit booking"
         back={{ href: `/admin/bookings/${id}`, label: "Booking" }}
