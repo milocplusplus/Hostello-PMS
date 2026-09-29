@@ -164,8 +164,10 @@ export default async function ChannelInboxSetupPage() {
           <ol className="list-decimal pl-5 mt-3 text-sm flex flex-col gap-2 text-ink-secondary">
             <li>
               Add the domain to Cloudflare (free plan): <em>Add a site</em>, keep the DNS records it
-              finds, then change the nameservers at the registrar to the two Cloudflare gives. Check
-              the website still loads once it switches.
+              finds — and check the website ones (A, <code className="text-xs">www</code>) and the
+              existing mailbox ones (MX, SPF, DKIM) are all there — then change the nameservers at the
+              registrar to the two Cloudflare gives. Check the website and the existing mailbox still
+              work once it switches.
             </li>
             <li>
               <em>Workers &amp; Pages</em> → <em>Create</em> → a &quot;Hello World&quot; worker named{" "}
@@ -181,10 +183,12 @@ export default async function ChannelInboxSetupPage() {
               and paste the value.
             </li>
             <li>
-              The domain → <em>Email</em> → <em>Email Routing</em> → enable (Cloudflare adds its MX
-              records) → <em>Routing rules</em> → custom address, e.g.{" "}
-              <code className="text-xs">bookings@</code> → action <em>Send to a Worker</em> →{" "}
-              <code className="text-xs">hostello-intake</code>.
+              The domain → <em>Email</em> → <em>Email Routing</em>. If the domain already has a
+              mailbox (hostello.pro does — info@ on Titan), <strong>do not enable it for the main
+              domain</strong>: that replaces its MX records and stops info@. Instead, under{" "}
+              <em>Settings → Subdomains</em>, add <code className="text-xs">in</code>, then create
+              the custom address <code className="text-xs">bookings@in.…</code> → action{" "}
+              <em>Send to a Worker</em> → <code className="text-xs">hostello-intake</code>.
             </li>
             <li>
               Put that address in{" "}

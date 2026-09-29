@@ -2285,8 +2285,16 @@ reassign the alias, so nothing broke.
      starts sending. If the value is lost, a new key pair means every device
      re-enabling push, and Vercel's two VAPID vars changing to match.
    - **Access:** admin + ops (payout mails stay admin-only).
-   - **Intake (built, part 6 — owner's steps left):** add the domain to
-     Cloudflare and point the registrar's nameservers at it; create worker
+   - **Intake (built, part 6 — owner's steps left):** hostello.pro's DNS is
+     at Hostinger (`ns1/ns2.dns-parking.com`) and **info@hostello.pro is live
+     on Titan** — so Email Routing goes on the **subdomain** only
+     (`bookings@in.hostello.pro`), never the root, or info@ stops. Records
+     that must survive the move to Cloudflare (checked 2026-09-29): A @
+     76.76.21.21, CNAME www → cname.vercel-dns.com, MX mx1.titan.email (10) /
+     mx2.titan.email (20), TXT SPF `v=spf1 include:spf.titan.email ~all`,
+     TXT `titan1._domainkey` DKIM. Owner chose Cloudflare (free) over
+     Postmark. Add the domain to Cloudflare and point Hostinger's nameservers
+     at it; create worker
      `hostello-intake` from `cloudflare/email-worker.js` with secret
      `OTA_SECRET` = Vault `ota_inbound_secret`; Email Routing → a custom
      address → Send to Worker; put the address (and Hostello's Airbnb
