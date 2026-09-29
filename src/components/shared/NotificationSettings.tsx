@@ -12,19 +12,7 @@ import { playNotificationSound } from "@/lib/notification-sounds";
 import { iosNeedsInstallForPush } from "@/lib/pwa-install";
 import { secondaryButton } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
-
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
-
-/** The push service wants the VAPID key as raw bytes, not base64url text. */
-function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-  const raw = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
-  // Built over an explicit ArrayBuffer: `applicationServerKey` will not take a
-  // Uint8Array that might be backed by a SharedArrayBuffer.
-  const out = new Uint8Array(new ArrayBuffer(raw.length));
-  for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i);
-  return out;
-}
+import { VAPID_PUBLIC_KEY, urlBase64ToUint8Array } from "@/lib/push-client";
 
 type PushState =
   | "checking"

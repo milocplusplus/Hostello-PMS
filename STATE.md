@@ -27,9 +27,15 @@
   signed + encrypted a push in the Supabase runtime (FCM answered 410 to the
   fake endpoint); wrong secret → 401; claim rolled back on the live DB (right
   subscriptions, muted/dead/android/too-new/too-old skipped, no double
-  claim); reminder + audiences rolled back. **Not live yet: the sweep reports
-  `no_keys`.** `VAPID_PRIVATE_KEY` is a Vercel *sensitive* var and cannot be
-  read back, so it is not in Vault — the owner has to add it (see Next).
+  claim); reminder + audiences rolled back. **Keys replaced 2026-09-29**: the
+  old private key was a Vercel *sensitive* var (unreadable) and the owner no
+  longer had it, so a new VAPID pair was generated and set in Vercel (all 3
+  `VAPID_PRIVATE_KEY` targets + `NEXT_PUBLIC_VAPID_PUBLIC_KEY`) and in Vault
+  (`vapid_public_key`, `vapid_private_key`). Old web subscriptions marked
+  `failed_at`. `src/lib/push-client.ts` `refreshStalePushSubscription()`
+  (run by `PwaSetup` on every load) moves a device subscribed under an old
+  key onto the current one silently if notification permission is still
+  granted — so each phone only has to open the app once.
 - **Channel inbox 4: foreign currency** (2026-09-29). Owner's choices:
   Airbnb pays out PKR at its own rate; use the market rate; re-convert from
   a one-tap list (nothing automatic); a settled stay keeps its rate.
@@ -2278,12 +2284,9 @@ reassign the alias, so nothing broke.
      guest-paid total + fee (admin only), original-currency amount. Non-PKR
      converts at a live rate, provisional until check-in, re-converted on
      check-in day with the owner told.
-   - **Alerts (built, part 5 — waiting on one key):** add the VAPID private
-     key to Vault once: Supabase → SQL editor →
-     `select vault.create_secret('<VAPID_PRIVATE_KEY>', 'vapid_private_key');`
-     (the same value as Vercel's `VAPID_PRIVATE_KEY`). The next minute's sweep
-     starts sending. If the value is lost, a new key pair means every device
-     re-enabling push, and Vercel's two VAPID vars changing to match.
+   - **Alerts (live, part 5):** keys replaced and in Vault (see Done). Each
+     phone that had push on opens the app once to re-register. Hostello's
+     Airbnb account (`channel_cohost_email`) is nabeelsarwar504@gmail.com.
    - **Access:** admin + ops (payout mails stay admin-only).
    - **Intake (built, part 6 — owner's steps left):** hostello.pro's DNS is
      at Hostinger (`ns1/ns2.dns-parking.com`) and **info@hostello.pro is live

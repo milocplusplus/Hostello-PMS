@@ -8,6 +8,7 @@ import {
   serverInstallState,
   subscribeInstall,
 } from "@/lib/pwa-install";
+import { refreshStalePushSubscription } from "@/lib/push-client";
 
 const DISMISSED_KEY = "hostello-install-dismissed";
 
@@ -46,9 +47,15 @@ export function PwaSetup() {
     // Production only: in dev, cache-first would hand back stale Turbopack chunks
     // after an edit, which looks exactly like a bug that isn't there.
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
-        // A failed registration only costs the offline fallback — never the app.
-      });
+      navigator.serviceWorker
+        .register("/sw.js")
+        // Every page load is also the moment to move a device that subscribed
+        // under an old push key onto the current one — see push-client.ts.
+        .then(() => navigator.serviceWorker.ready)
+        .then(refreshStalePushSubscription)
+        .catch(() => {
+          // A failed registration only costs the offline fallback — never the app.
+        });
     }
   }, []);
 
