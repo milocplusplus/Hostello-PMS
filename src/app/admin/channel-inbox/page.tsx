@@ -12,6 +12,7 @@ import {
   KIND_LABEL,
   STATUS_LABEL,
   OPEN_STATUSES,
+  CHANNEL_INBOX_ON_HOLD,
   statusTone,
   blockers,
   matchReservation,
@@ -43,6 +44,7 @@ import {
   markHandled,
 } from "./actions";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ChannelInboxComingSoon } from "@/components/shared/ChannelInboxComingSoon";
 import { NotificationSettings } from "@/components/shared/NotificationSettings";
 import { readNotificationPreferences } from "@/lib/notification-feed";
 import { loadSettings } from "@/lib/settings";
@@ -318,6 +320,15 @@ export default async function ChannelInboxPage({
 }: {
   searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
+  // On hold: the teaser, and not one query behind it.
+  if (CHANNEL_INBOX_ON_HOLD) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <ChannelInboxComingSoon audience="staff" />
+      </div>
+    );
+  }
+
   const { error, notice } = await searchParams;
 
   const supabase = await createClient();

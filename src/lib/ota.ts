@@ -13,6 +13,15 @@
 
 import { addDaysISO } from "@/lib/calendar";
 
+/**
+ * The owner put the channel inbox on hold (2026-09-29) before its email route
+ * went live. While true, the inbox and its setup page show the Coming Soon
+ * screen, Settings hides its section, and owners get a teaser instead of the
+ * forwarding guide. Everything behind it — parser, matching, alerts, the
+ * database side — stays built and deployed; flip this to bring it back.
+ */
+export const CHANNEL_INBOX_ON_HOLD = true;
+
 export type OtaMessageKind =
   | "new_booking"
   | "cancellation"

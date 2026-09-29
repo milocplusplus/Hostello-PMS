@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
@@ -36,6 +38,9 @@ function isQuiet(listings: number, lastEmailAt: string | null): boolean {
 }
 
 export default async function ChannelInboxSetupPage() {
+  // On hold: nothing to set up yet — the inbox page shows what's coming.
+  if (CHANNEL_INBOX_ON_HOLD) redirect("/admin/channel-inbox");
+
   const [profile, settings, supabase, h] = await Promise.all([
     currentProfile(),
     loadSettings(),

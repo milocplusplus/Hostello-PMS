@@ -1,18 +1,30 @@
 import { redirect } from "next/navigation";
 import { currentClient, currentUser } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
+import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ChannelForwardingGuide } from "@/components/shared/ChannelForwardingGuide";
+import { ChannelInboxComingSoon } from "@/components/shared/ChannelInboxComingSoon";
 
 /**
  * The owner's half of the channel inbox: how to get their Airbnb and
  * Booking.com emails to Hostello. Staff send owners here from Inbox setup;
  * the steps are the same component staff read, so the two cannot disagree.
+ * While the inbox is on hold, it is the owners' Coming Soon screen instead.
  */
 export default async function ChannelSetupPage() {
   const [user, clientRecord, settings] = await Promise.all([currentUser(), currentClient(), loadSettings()]);
   if (!user) redirect("/login");
   if (!clientRecord) redirect("/client");
+
+  if (CHANNEL_INBOX_ON_HOLD) {
+    return (
+      <div className="max-w-3xl mx-auto flex flex-col gap-4">
+        <PageHeader title="Booking updates" back={{ href: "/client", label: "Home" }} />
+        <ChannelInboxComingSoon audience="owner" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">

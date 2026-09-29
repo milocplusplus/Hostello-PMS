@@ -1,6 +1,19 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Channel inbox ON HOLD** (2026-09-29). Owner paused it before the
+  Cloudflare step. `CHANNEL_INBOX_ON_HOLD = true` in `src/lib/ota.ts`:
+  `/admin/channel-inbox` shows `ChannelInboxComingSoon` (no queries),
+  `/admin/channel-inbox/setup` redirects there, Settings hides its Channel
+  inbox section, the nav keeps "Soon" and skips the count. Owners: a Coming
+  soon card on their dashboard → `/client/channel-setup` shows the owner
+  version of the same screen. Promises (owner-approved): guest names &
+  prices filled in, cancellations & changes in one tap, instant phone
+  alerts, USD → rupees. No dates, names or figures on it. Checked rendered
+  at 800px and 375px on a temporary unauthenticated preview route (deleted):
+  no sideways scroll, flow dots animate, reduced motion stills them.
+  **To resume:** set the flag to false, then do the Cloudflare steps under
+  Next. Everything else (parser, matching, alerts, push keys, DB) stays live.
 - **Channel inbox 6: email intake** (2026-09-29). Owner's choices:
   Cloudflare Email Routing on Hostello's own domain (DNS currently at the
   registrar — to be moved), in-app setup page + shareable owner page +

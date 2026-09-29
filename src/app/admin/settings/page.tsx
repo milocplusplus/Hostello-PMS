@@ -22,6 +22,7 @@ import {
   saveOwnerNoticeDefaults,
 } from "./actions";
 import { OWNER_NOTICE_GROUPS } from "@/lib/owner-notices";
+import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 
 function Section({
   id,
@@ -192,22 +193,27 @@ export default async function SettingsPage({
         </details>
       </Section>
 
-      <Section id="channel-inbox" title="Channel inbox" about="Where Airbnb and Booking.com emails are forwarded, and the account owners invite as co-host. Setting the address takes the inbox out of 'coming soon' and fills in the setup guides.">
-        <form action={saveChannelInbox} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Inbox address" htmlFor="channel_inbox_address">
-            <input id="channel_inbox_address" name="channel_inbox_address" type="email" placeholder="bookings@yourdomain.com" defaultValue={s.channelInboxAddress ?? ""} className={fieldInput} />
-          </Field>
-          <Field label="Hostello's channel account email" htmlFor="channel_cohost_email">
-            <input id="channel_cohost_email" name="channel_cohost_email" type="email" placeholder="The email on Hostello's Airbnb account" defaultValue={s.channelCohostEmail ?? ""} className={fieldInput} />
-          </Field>
-          <div className="sm:col-span-2 flex items-center gap-3 flex-wrap">
-            <SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton>
-            <Link href="/admin/channel-inbox/setup" className="text-xs text-hostello-gold hover:underline">
-              Setup guide
-            </Link>
-          </div>
-        </form>
-      </Section>
+      {/* Hidden while the channel inbox is on hold (ota.ts). */}
+      {!CHANNEL_INBOX_ON_HOLD && (
+        <>
+        <Section id="channel-inbox" title="Channel inbox" about="Where Airbnb and Booking.com emails are forwarded, and the account owners invite as co-host. Setting the address takes the inbox out of 'coming soon' and fills in the setup guides.">
+          <form action={saveChannelInbox} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Inbox address" htmlFor="channel_inbox_address">
+              <input id="channel_inbox_address" name="channel_inbox_address" type="email" placeholder="bookings@yourdomain.com" defaultValue={s.channelInboxAddress ?? ""} className={fieldInput} />
+            </Field>
+            <Field label="Hostello's channel account email" htmlFor="channel_cohost_email">
+              <input id="channel_cohost_email" name="channel_cohost_email" type="email" placeholder="The email on Hostello's Airbnb account" defaultValue={s.channelCohostEmail ?? ""} className={fieldInput} />
+            </Field>
+            <div className="sm:col-span-2 flex items-center gap-3 flex-wrap">
+              <SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton>
+              <Link href="/admin/channel-inbox/setup" className="text-xs text-hostello-gold hover:underline">
+                Setup guide
+              </Link>
+            </div>
+          </form>
+        </Section>
+        </>
+      )}
 
       <Section id="deals" title="Default deal terms" about="Pre-filled when you add a client. Existing clients keep their own terms.">
         <form action={saveDealDefaults} className="grid grid-cols-1 sm:grid-cols-2 gap-3">

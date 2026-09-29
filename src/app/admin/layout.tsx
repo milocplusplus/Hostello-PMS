@@ -4,7 +4,7 @@ import { currentProfile, currentUser, isStaffRole } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { createClient } from "@/lib/supabase/server";
-import { OPEN_STATUSES } from "@/lib/ota";
+import { CHANNEL_INBOX_ON_HOLD, OPEN_STATUSES } from "@/lib/ota";
 import { loadSettings } from "@/lib/settings";
 import { NavProgress } from "@/components/shared/NavProgress";
 import { NotificationLive } from "@/components/shared/NotificationLive";
@@ -36,11 +36,14 @@ export default async function AdminLayout({
     // Channel emails nobody has dealt with, for the nav badge: a count, no
     // rows. RLS lets both staff roles read the inbox. Payout mails are left
     // out — ops never sees them, and the admin has the bell for those.
-    supabase
-      .from("ota_messages")
-      .select("id", { count: "exact", head: true })
-      .in("status", OPEN_STATUSES)
-      .neq("kind", "payout"),
+    // On hold, there is no inbox to count.
+    CHANNEL_INBOX_ON_HOLD
+      ? Promise.resolve({ count: 0 })
+      : supabase
+          .from("ota_messages")
+          .select("id", { count: "exact", head: true })
+          .in("status", OPEN_STATUSES)
+          .neq("kind", "payout"),
     loadSettings(),
   ]);
 
@@ -61,7 +64,7 @@ export default async function AdminLayout({
         notifications={notifications}
         unreadCount={unreadCount}
         inboxCount={inbox.count ?? 0}
-        inboxLive={Boolean(settings.channelInboxAddress)}
+        inboxLive={!CHANNEL_INBOX_ON_HOLD && Boolean(settings.channelInboxAddress)}
         markAllReadAction={markAllNotificationsRead}
       >
         {children}

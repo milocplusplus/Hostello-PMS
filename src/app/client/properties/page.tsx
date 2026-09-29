@@ -24,6 +24,7 @@ import {
 import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { loadSettings } from "@/lib/settings";
+import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-status-available",
@@ -106,7 +107,7 @@ export default async function ClientPropertiesPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       {/* Only once the inbox is live — before that the page has nothing to ask. */}
-      {settings.channelInboxAddress && (
+      {settings.channelInboxAddress && !CHANNEL_INBOX_ON_HOLD && (
         <Link href="/client/channel-setup" className="text-sm text-hostello-gold hover:underline -mt-2">
           Send your Airbnb and Booking.com emails to Hostello →
         </Link>

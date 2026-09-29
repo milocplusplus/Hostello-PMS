@@ -894,7 +894,34 @@ h3 {
   }
 }
 
+/* A dot travelling along a line — the Channel inbox teaser's "bookings flowing
+   in" from each channel to Hostello. Transform only, so it costs a phone
+   nothing; stilled below with the rest for reduced motion. */
+.flow-dot {
+  animation: flow-dot 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes flow-dot {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--flow-distance, 5rem));
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .flow-dot {
+    animation: none;
+    opacity: 0;
+  }
+
   .draw-in {
     animation: none;
     stroke-dashoffset: 0;

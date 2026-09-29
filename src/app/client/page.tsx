@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BedDouble, CalendarPlus, Plus, Wallet } from "lucide-react";
+import { BedDouble, CalendarPlus, Plus, Sparkles, Wallet } from "lucide-react";
+import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
 import { formatPKR, isPassThroughSource } from "@/lib/payout";
@@ -330,6 +331,28 @@ export default async function ClientDashboard({
           />
         </div>
       </div>
+
+      {/* What's coming, while the channel inbox is on hold (ota.ts). */}
+      {CHANNEL_INBOX_ON_HOLD && (
+        <Link
+          href="/client/channel-setup"
+          className="card card-hover relative overflow-hidden p-5 flex items-center gap-4"
+        >
+          <span className="orb w-40 h-40 -top-16 -right-10 bg-hostello-purple-glow/30" aria-hidden />
+          <span className="relative shrink-0 w-11 h-11 rounded-2xl gradient-brand flex items-center justify-center text-white">
+            <Sparkles size={19} aria-hidden />
+          </span>
+          <span className="relative flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-hostello-gold-bright">
+              Coming soon
+            </span>
+            <span className="text-sm font-semibold">
+              Airbnb &amp; Booking.com reservation updates, right here
+            </span>
+          </span>
+          <span className="relative text-[13px] font-bold text-hostello-purple-light shrink-0">See what&apos;s coming</span>
+        </Link>
+      )}
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
