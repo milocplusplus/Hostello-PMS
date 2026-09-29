@@ -43,8 +43,12 @@ export function StayDates({
   checkOut: string;
   onChange: (checkIn: string, checkOut: string) => void;
   busy: BusyRange[];
-  /** "day" picks a single date — a short stay, which is stored as one night. */
-  mode?: "nights" | "day";
+  /**
+   * "day" picks a single date — a short stay, which is stored as one night.
+   * "days" picks a first and last day, both included — a block, posted as
+   * `start_date` / `end_date` (tap the first day again for a one-day block).
+   */
+  mode?: "nights" | "day" | "days";
 }) {
   const today = todayISO();
   const [view, setView] = useState(() => parseMonthParam((checkIn || today).slice(0, 7)));
@@ -81,7 +85,9 @@ export function StayDates({
     // In day mode the check-out is the next morning, not a night on the sheet.
     if (mode !== "day" && checkOut && date === checkOut) return "end";
     if (checkIn && checkOut && date > checkIn && date < checkOut) return "mid";
-    if (picking === "out" && date > checkIn && (!nextTaken || date <= nextTaken)) {
+    // A stay may check out on the next taken night; a block may not cover it.
+    const reach = !nextTaken || (mode === "days" ? date < nextTaken : date <= nextTaken);
+    if (picking === "out" && date > checkIn && reach) {
       return "reachable";
     }
     if (picking === "out") return "unreachable";
@@ -100,22 +106,27 @@ export function StayDates({
 
     // Anything at or before the current check-in restarts the selection, which
     // is also how you correct a mis-click without a Clear button.
+    if (mode === "days" && picking === "out" && date === checkIn) {
+      onChange(checkIn, checkIn);
+      return;
+    }
     if (picking === "in" || date <= checkIn) {
       onChange(date, "");
       setView(parseMonthParam(date.slice(0, 7)));
       return;
     }
-    if (nextTaken && date > nextTaken) return;
+    if (nextTaken && (mode === "days" ? date >= nextTaken : date > nextTaken)) return;
     onChange(checkIn, date);
   }
 
   const grid = getMonthGrid(view.year, view.month0);
-  const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
+  const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) + (mode === "days" ? 1 : 0) : 0;
+  const days = mode === "days";
 
   return (
     <div className="flex flex-col gap-3">
-      <input type="hidden" name="check_in" value={checkIn} />
-      <input type="hidden" name="check_out" value={checkOut} />
+      <input type="hidden" name={days ? "start_date" : "check_in"} value={checkIn} />
+      <input type="hidden" name={days ? "end_date" : "check_out"} value={checkOut} />
 
       <div className="relative overflow-clip rounded-2xl border border-border-hairline bg-surface-2/70 p-3 sm:p-4 flex flex-col gap-3">
         <span className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-hostello-purple-glow/15 blur-3xl" aria-hidden />
@@ -199,7 +210,7 @@ export function StayDates({
             <Lock size={9} /> Blocked
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full gradient-gold" /> Your stay
+            <span className="w-2.5 h-2.5 rounded-full gradient-gold" /> {days ? "Picked" : "Your stay"}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-hostello-gold" /> Today
@@ -216,6 +227,14 @@ export function StayDates({
           ) : (
             "Pick the day of the short stay."
           )
+        ) : days && !checkIn ? (
+          "Pick the first day."
+        ) : days && !checkOut ? (
+          <>
+            From <DatePill>{formatDayMonth(checkIn)}</DatePill> Now pick the last day — or tap it again for
+            just that one
+            {nextTaken ? `, free up to ${formatDayMonth(addDaysISO(nextTaken, -1))}.` : "."}
+          </>
         ) : !checkIn ? (
           "Pick the check-in night."
         ) : !checkOut ? (
@@ -229,7 +248,8 @@ export function StayDates({
             <span aria-hidden>→</span>
             <DatePill>{formatDayMonth(checkOut)}</DatePill>
             <span className="text-ink-primary font-semibold">
-              {nights} night{nights === 1 ? "" : "s"}
+              {nights} {days ? "day" : "night"}
+              {nights === 1 ? "" : "s"}
             </span>
           </>
         )}

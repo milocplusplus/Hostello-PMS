@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -11,8 +11,8 @@ import {
   Sparkles,
   Users,
   Wallet,
-  type LucideIcon,
 } from "lucide-react";
+import { FormGlow, FormStep } from "@/components/shared/FormStep";
 import {
   calculatePayout,
   formatPKR,
@@ -265,12 +265,7 @@ export function BookingForm({
 
   return (
     <div className="@container relative isolate">
-      {/* The same drifting purple and gold light as the Coming Soon screens. */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-clip" aria-hidden>
-        <span className="orb w-72 h-72 top-[4%] left-[6%] bg-hostello-purple-glow/20" />
-        <span className="orb w-64 h-64 top-1/3 right-[8%] bg-hostello-gold/12" />
-        <span className="orb w-56 h-56 bottom-[8%] left-1/3 bg-hostello-magenta/12" />
-      </div>
+      <FormGlow />
 
       <form action={action} className="grid gap-4 @3xl:grid-cols-[minmax(0,1fr)_320px] @3xl:items-start">
         {client && <input type="hidden" name="client_id" value={client.id} />}
@@ -292,7 +287,7 @@ export function BookingForm({
         <input type="hidden" name="source" value={source} />
 
         <div className="stagger flex flex-col gap-4 min-w-0">
-          <Step n={1} icon={Building2} title="Where are they staying?" done={steps.where}>
+          <FormStep n={1} icon={Building2} title="Where are they staying?" done={steps.where}>
             <select
               id="property"
               aria-label="Property"
@@ -343,9 +338,9 @@ export function BookingForm({
                 </div>
               </div>
             )}
-          </Step>
+          </FormStep>
 
-          <Step
+          <FormStep
             n={2}
             icon={CalendarDays}
             title={shortStay ? "Which day?" : "Which nights?"}
@@ -444,9 +439,9 @@ export function BookingForm({
                 </div>
               </div>
             )}
-          </Step>
+          </FormStep>
 
-          <Step n={3} icon={Users} title="Who's coming?" done={steps.who}>
+          <FormStep n={3} icon={Users} title="Who's coming?" done={steps.who}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="guest_name" className={fieldLabel}>
@@ -496,9 +491,9 @@ export function BookingForm({
                 booking.
               </p>
             </div>
-          </Step>
+          </FormStep>
 
-          <Step n={4} icon={Wallet} title="Price & channel" done={steps.price}>
+          <FormStep n={4} icon={Wallet} title="Price & channel" done={steps.price}>
             <div className="flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between gap-2">
                 <label htmlFor={perNight ? "nightly_price" : "sale_price"} className={fieldLabel}>
@@ -618,7 +613,7 @@ export function BookingForm({
                 })}
               </div>
             </div>
-          </Step>
+          </FormStep>
 
           <section className="card p-5 flex flex-col gap-4">
             <button
@@ -893,50 +888,5 @@ export function BookingForm({
         </aside>
       </form>
     </div>
-  );
-}
-
-/** One numbered question on the form. Its badge turns gold once it's answered. */
-function Step({
-  n,
-  icon: Icon,
-  title,
-  done,
-  aside,
-  children,
-}: {
-  n: number;
-  icon: LucideIcon;
-  title: string;
-  done: boolean;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="card p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <span
-            className={`shrink-0 w-9 h-9 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-              done
-                ? "gradient-gold text-surface-0 shadow-[0_8px_22px_-8px_rgba(245,201,104,0.9)]"
-                : "gradient-brand-subtle border border-hostello-purple-glow/25 text-hostello-gold-bright"
-            }`}
-          >
-            {done ? (
-              <Check key="done" size={17} strokeWidth={3} className="animate-receipt-pop" aria-label="Done" />
-            ) : (
-              <Icon size={16} aria-hidden />
-            )}
-          </span>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-muted">Step {n}</span>
-            <h2 className="text-sm">{title}</h2>
-          </div>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </section>
   );
 }

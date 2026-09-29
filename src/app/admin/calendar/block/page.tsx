@@ -3,12 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { createCalendarBlock, deleteCalendarBlock } from "../actions";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import { SubmitButton } from "@/components/shared/Busy";
-import { fieldLabel, fieldInput, primaryButton, errorBanner, noticeBanner } from "@/lib/form-styles";
-import { formatMonthParam, parseMonthParam } from "@/lib/calendar";
-import { MANUAL_BLOCK_TYPES, blockTypeLabel } from "@/lib/block-sources";
+import { errorBanner, noticeBanner } from "@/lib/form-styles";
+import { formatDayMonth, formatMonthParam, parseMonthParam } from "@/lib/calendar";
+import { blockTypeColor, blockTypeLabel } from "@/lib/block-sources";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { UnitPicker, type UnitGroup } from "@/components/admin/UnitPicker";
+import { BlockDatesForm, type UnitGroup } from "@/components/shared/BlockDatesForm";
+import { listUnavailable } from "@/lib/availability";
 import { staffMay } from "@/lib/settings";
 
 export default async function BlockDatesPage({
@@ -42,6 +42,11 @@ export default async function BlockDatesPage({
   }
   const unitGroups = [...groups.values()].sort((a, b) => a.clientName.localeCompare(b.clientName));
 
+  const unavailable = await listUnavailable(
+    supabase,
+    (properties ?? []).map((p) => p.id)
+  );
+
   const { data: blocks } = await supabase
     .from("calendar_blocks")
     .select("id, property_id, start_date, end_date, block_type, notes, properties:properties_v(name)")
@@ -52,9 +57,10 @@ export default async function BlockDatesPage({
     .limit(50);
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Block dates"
+        sub={canBlock ? "Three quick steps — the block card fills in as you go." : undefined}
         back={{ href: "/admin/calendar", label: "Calendar" }}
         info={
           <p>
@@ -73,66 +79,18 @@ export default async function BlockDatesPage({
       )}
 
       {canBlock && (
-        <form action={createCalendarBlock} className="card p-6 flex flex-col gap-4">
-          <input type="hidden" name="month" value={monthStr} />
-
-          <div className="flex flex-col gap-1.5">
-            <p className={fieldLabel}>Units — one or many</p>
-            <UnitPicker groups={unitGroups} />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="start_date" className={fieldLabel}>
-                Start date
-              </label>
-              <input id="start_date" name="start_date" type="date" required className={fieldInput} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="end_date" className={fieldLabel}>
-                End date
-              </label>
-              <input id="end_date" name="end_date" type="date" required className={fieldInput} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="block_type" className={fieldLabel}>
-                Why
-              </label>
-              {/* `booked` is not offered: that is what a channel sync writes for
-                  an imported reservation, not something anyone picks here. */}
-              <select id="block_type" name="block_type" defaultValue="blocked" className={fieldInput}>
-                {MANUAL_BLOCK_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="reason" className={fieldLabel}>
-                Note (optional)
-              </label>
-              <input
-                id="reason"
-                name="reason"
-                placeholder="e.g. Owner personal use, boiler replacement"
-                className={fieldInput}
-              />
-            </div>
-          </div>
-
-          <SubmitButton className={`mt-1 ${primaryButton}`} busy="Blocking the dates…">
-            Block these dates
-          </SubmitButton>
-        </form>
+        <BlockDatesForm
+          action={createCalendarBlock}
+          groups={unitGroups}
+          multiple
+          month={monthStr}
+          unavailable={unavailable}
+        />
       )}
 
       <div className="card p-6">
         <div className="flex items-center justify-between gap-3 mb-4">
-          <h2 className="text-sm font-medium text-ink-secondary">Recent blocks</h2>
+          <h2 className="text-base">Recent blocks</h2>
           {/* The row tick boxes join this form by id, so each row keeps its own Unblock too. */}
           {canBlock && blocks && blocks.length > 1 && (
             <form id="bulk-unblock" action={deleteCalendarBlock}>
@@ -156,9 +114,9 @@ export default async function BlockDatesPage({
               return (
                 <li
                   key={b.id}
-                  className="flex items-center justify-between gap-2 text-sm border-b border-border-hairline last:border-0 pb-2 last:pb-0"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border-hairline bg-surface-2/50 px-3 py-2.5 hover:border-border-strong transition-colors"
                 >
-                  <div className="min-w-0 flex items-start gap-2.5">
+                  <div className="min-w-0 flex items-center gap-3">
                     {canBlock && blocks.length > 1 && (
                       <input
                         type="checkbox"
@@ -166,14 +124,21 @@ export default async function BlockDatesPage({
                         value={b.id}
                         form="bulk-unblock"
                         aria-label="Tick to unblock with the others"
-                        className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-hostello-purple)]"
+                        className="h-4 w-4 shrink-0 accent-[var(--color-hostello-gold)]"
                       />
                     )}
+                    <span
+                      className="shrink-0 w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: blockTypeColor(b.block_type), boxShadow: `0 0 8px ${blockTypeColor(b.block_type)}` }}
+                      aria-hidden
+                    />
                     <div className="min-w-0">
-                      <p className="text-ink-primary">
-                        {propName} — {b.start_date === b.end_date ? b.start_date : `${b.start_date} → ${b.end_date}`}
-                      </p>
+                      <p className="text-sm font-semibold text-ink-primary truncate">{propName}</p>
                       <p className="text-xs text-ink-muted truncate">
+                        {b.start_date === b.end_date
+                          ? formatDayMonth(b.start_date)
+                          : `${formatDayMonth(b.start_date)} → ${formatDayMonth(b.end_date)}`}
+                        {" · "}
                         {blockTypeLabel(b.block_type)}
                         {b.notes ? ` · ${b.notes}` : ""}
                       </p>

@@ -24,7 +24,7 @@ import { readBookingDetails } from "@/lib/booking-details";
 import { bookingWriter } from "@/lib/payout-inputs";
 import { readBookingPrice } from "@/lib/booking-price";
 
-type SaveResult = { error: string } | { bookingId: string };
+type SaveResult = { error: string } | { bookingId: string; checkIn: string };
 
 /**
  * The one place a client-side booking gets written. Returns instead of
@@ -197,7 +197,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   revalidatePath("/client/bookings/[id]", "page");
   revalidatePath("/client/calendar");
 
-  return { bookingId: newBooking.id };
+  return { bookingId: newBooking.id, checkIn: check_in };
 }
 
 export async function createClientBooking(formData: FormData) {
@@ -207,7 +207,7 @@ export async function createClientBooking(formData: FormData) {
     redirect(`/client/bookings/new?error=${encodeURIComponent(result.error)}`);
   }
 
-  redirect("/client/calendar");
+  redirect(`/client/calendar?month=${result.checkIn.slice(0, 7)}`);
 }
 
 /** Same write, but for the calendar's quick-add modal: it stays on the page. */

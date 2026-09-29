@@ -36,7 +36,7 @@ import { readBookingPrice } from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
 import { readFx } from "@/lib/fx";
 
-type SaveResult = { error: string } | { clientId: string; bookingId: string };
+type SaveResult = { error: string } | { clientId: string; bookingId: string; checkIn: string };
 
 /**
  * The one place a booking gets written. Returns instead of redirecting so both
@@ -279,7 +279,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   revalidatePath(`/admin/clients/${client_id}`);
   revalidatePath("/client", "layout");
 
-  return { clientId: client_id, bookingId: bookingId };
+  return { clientId: client_id, bookingId: bookingId, checkIn: check_in };
 }
 
 export async function createBooking(formData: FormData) {
@@ -289,7 +289,8 @@ export async function createBooking(formData: FormData) {
     redirect(`/admin/bookings/new?error=${encodeURIComponent(result.error)}`);
   }
 
-  redirect(`/admin/clients/${result.clientId}`);
+  // Straight to the calendar the booking now sits on: its client, its month.
+  redirect(`/admin/calendar?client=${result.clientId}&month=${result.checkIn.slice(0, 7)}`);
 }
 
 /**

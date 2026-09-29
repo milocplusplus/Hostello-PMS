@@ -1,6 +1,20 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Block dates restyle + booking lands on the calendar** (2026-09-29).
+  New booking now redirects to the calendar month it's in:
+  `/admin/calendar?client=<id>&month=<YYYY-MM>` (was the client page) and
+  `/client/calendar?month=<YYYY-MM>` (was the current month). Both Block
+  dates pages use `components/shared/BlockDatesForm.tsx` (3 steps + live
+  block card; staff multi-pick with "All N" per client, owner single-pick);
+  `UnitPicker` removed. `StayDates` gained `mode="days"`: inclusive first..
+  last day, tap the first day again for one day, posts `start_date` /
+  `end_date`. Taken days grey out only with **one** unit picked — with
+  several, the server's skip-and-name still decides. Step card + glow moved
+  to `components/shared/FormStep.tsx` (booking form uses it too). Also fixed:
+  the owner's block list dropped the note text. Checked rendered (desktop +
+  375px) on a temporary preview route (deleted), form posts verified; lint +
+  build.
 - **Booking form restyle** (2026-09-29). Owner asked for the Coming Soon
   look on Add booking; chose all four screens (admin/owner add + edit) and a
   wide layout. `BookingForm` is now four numbered step cards (badge turns
