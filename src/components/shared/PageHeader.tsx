@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, type LucideIcon } from "lucide-react";
 import { InfoSheet } from "@/components/shared/InfoSheet";
 
 /**
@@ -22,7 +22,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="relative isolate flex flex-col gap-2">
+      {/* A pool of light behind every page title. */}
+      <span aria-hidden className="orb -z-10 w-64 h-32 -top-8 left-0 bg-hostello-purple-glow/30" />
       {back && (
         <Link
           href={back.href}
@@ -34,7 +36,7 @@ export function PageHeader({
       )}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex items-center gap-2">
-          <h1 className="text-[28px] md:text-3xl truncate">{title}</h1>
+          <h1 className="text-[28px] md:text-3xl truncate text-gradient-brand pb-0.5">{title}</h1>
           {info && (
             <InfoSheet title={title} className="bg-white/8 text-ink-secondary">
               {info}
@@ -44,6 +46,35 @@ export function PageHeader({
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
       {sub && <p className="text-sm font-semibold text-ink-secondary -mt-1">{sub}</p>}
+      <span aria-hidden className="bar-grow block h-1 w-12 rounded-full gradient-brand mt-1" />
+    </div>
+  );
+}
+
+/**
+ * An honest empty state that still looks alive: an icon in a glowing badge and
+ * one line saying why there is nothing here, with an optional way forward.
+ */
+export function EmptyState({
+  icon: Icon,
+  title,
+  body,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="card relative overflow-clip isolate p-8 flex flex-col items-center text-center gap-3">
+      <span aria-hidden className="orb -z-10 w-48 h-48 -top-16 left-1/2 -translate-x-1/2 bg-hostello-purple-glow/25" />
+      <span className="bob w-12 h-12 rounded-2xl gradient-brand-subtle border border-hostello-purple-glow/30 flex items-center justify-center text-hostello-gold-bright shadow-[0_12px_30px_-12px_rgba(139,92,246,0.8)]">
+        <Icon size={20} aria-hidden />
+      </span>
+      <p className="text-sm font-semibold text-ink-primary">{title}</p>
+      {body && <p className="text-xs text-ink-secondary max-w-sm">{body}</p>}
+      {action}
     </div>
   );
 }

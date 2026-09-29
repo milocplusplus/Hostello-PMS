@@ -244,7 +244,7 @@ export function ClientShell({
           <UserMenu userName={userName} roleLabel="Owner" logoutAction={logoutAction} />
         </div>
 
-        <div className="max-w-5xl w-full mx-auto px-4 md:px-8 safe-main flex-1">{children}</div>
+        <div className="page-stage max-w-5xl w-full mx-auto px-4 md:px-8 safe-main flex-1">{children}</div>
       </div>
     </div>
   );

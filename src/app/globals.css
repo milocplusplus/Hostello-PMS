@@ -151,10 +151,11 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(40rem 34rem at 18% 8%, rgba(139, 92, 246, 0.3), transparent 62%),
-    radial-gradient(32rem 28rem at 92% 34%, rgba(245, 201, 104, 0.1), transparent 60%),
-    radial-gradient(38rem 32rem at 12% 92%, rgba(192, 38, 211, 0.16), transparent 62%);
-  animation: ambient-drift 28s ease-in-out infinite alternate;
+    radial-gradient(40rem 34rem at 18% 8%, rgba(139, 92, 246, 0.38), transparent 62%),
+    radial-gradient(32rem 28rem at 92% 34%, rgba(245, 201, 104, 0.16), transparent 60%),
+    radial-gradient(38rem 32rem at 12% 92%, rgba(192, 38, 211, 0.22), transparent 62%),
+    radial-gradient(26rem 22rem at 70% 78%, rgba(139, 92, 246, 0.14), transparent 60%);
+  animation: ambient-drift 20s ease-in-out infinite alternate;
 }
 
 @keyframes ambient-drift {
@@ -312,7 +313,8 @@ h3 {
 
   body::before,
   .orb,
-  .card-hero::after {
+  .card-hero::after,
+  .btn-gold:not(:disabled)::after {
     animation: none;
   }
 }
@@ -368,6 +370,23 @@ h3 {
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Light catching the top edge of every card — static, so it costs nothing. */
+.card::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(175, 160, 216, 0.5), rgba(245, 201, 104, 0.4), transparent);
+}
+
+.card:hover {
+  border-color: rgba(139, 92, 246, 0.26);
 }
 
 .card-hover {
@@ -536,6 +555,42 @@ h3 {
   transform: none;
 }
 
+.btn-primary,
+.btn-gold {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-primary::after,
+.btn-gold::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+
+.btn-gold:not(:disabled)::after {
+  animation: hero-sheen 6s 2s ease-in-out infinite;
+}
+
+.btn-primary:hover:not(:disabled)::after,
+.btn-gold:hover:not(:disabled)::after {
+  animation: btn-sheen 700ms ease-out;
+}
+
+@keyframes btn-sheen {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
 .btn-primary {
   color: #fff;
   background: linear-gradient(135deg, var(--color-hostello-purple-glow) 0%, var(--color-hostello-magenta) 100%);
@@ -619,11 +674,20 @@ h3 {
 }
 
 .data-table tbody tr {
-  transition: background-color 140ms ease;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+  animation: fade-in-up 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
+
+.data-table tbody tr:nth-child(2) { animation-delay: 40ms; }
+.data-table tbody tr:nth-child(3) { animation-delay: 80ms; }
+.data-table tbody tr:nth-child(4) { animation-delay: 120ms; }
+.data-table tbody tr:nth-child(5) { animation-delay: 160ms; }
+.data-table tbody tr:nth-child(6) { animation-delay: 200ms; }
+.data-table tbody tr:nth-child(n + 7) { animation-delay: 240ms; }
 
 .data-table tbody tr:hover {
   background-color: color-mix(in srgb, var(--color-surface-2) 55%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-hostello-gold);
 }
 
 /* Inset tiles inside a card (today's counts, legend rows, empty states) */
@@ -635,9 +699,10 @@ h3 {
 }
 
 .tile-hover:hover {
-  border-color: var(--color-border-strong);
+  border-color: rgba(139, 92, 246, 0.35);
   background-color: var(--color-surface-2);
   transform: translateY(-1px);
+  box-shadow: 0 10px 26px -14px rgba(139, 92, 246, 0.7);
 }
 
 }
@@ -666,14 +731,27 @@ h3 {
 }
 
 .animate-in {
-  animation: fade-in-up 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-in-up 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* Children arrive in sequence rather than all at once. Capped at the 7th so a
    long list does not spend a second appearing. */
 .stagger > * {
-  animation: fade-in-up 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-in-up 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
+
+/* Every page: its sections arrive one after another. The shells put this on
+   the element around the page, so no page has to opt in. */
+.page-stage > * > * {
+  animation: fade-in-up 640ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.page-stage > * > *:nth-child(2) { animation-delay: 60ms; }
+.page-stage > * > *:nth-child(3) { animation-delay: 120ms; }
+.page-stage > * > *:nth-child(4) { animation-delay: 180ms; }
+.page-stage > * > *:nth-child(5) { animation-delay: 240ms; }
+.page-stage > * > *:nth-child(6) { animation-delay: 300ms; }
+.page-stage > * > *:nth-child(n + 7) { animation-delay: 360ms; }
 
 .stagger > *:nth-child(1) { animation-delay: 0ms; }
 .stagger > *:nth-child(2) { animation-delay: 70ms; }
@@ -927,6 +1005,10 @@ h3 {
     stroke-dashoffset: 0;
   }
 
+  .page-stage > * > *,
+  .data-table tbody tr,
+  .btn-primary::after,
+  .btn-gold::after,
   .ring-in,
   .bar-grow,
   .pulse-gold,

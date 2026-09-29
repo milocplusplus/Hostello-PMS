@@ -380,7 +380,7 @@ export function AdminShell({
           <UserMenu userName={userName} roleLabel={roleLabel} logoutAction={logoutAction} />
         </div>
 
-        <div className="max-w-6xl w-full mx-auto px-4 md:px-8 safe-main flex-1">
+        <div className="page-stage max-w-6xl w-full mx-auto px-4 md:px-8 safe-main flex-1">
           {children}
         </div>
       </div>
