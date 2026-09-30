@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, CalendarPlus, Clock, Plus } from "lucide-react";
+import { Building2, CalendarPlus, ChartNoAxesColumn, Clock, Inbox, Plus } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -337,7 +338,7 @@ export default async function AdminDashboard({
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg">Today</h2>
+          <h2 className="text-lg flex items-center gap-2">Today <span aria-hidden className="animate-pulse-dot w-2 h-2 rounded-full bg-status-available shadow-[0_0_10px_var(--color-status-available)]" /></h2>
           <div className="flex items-center gap-4 text-[13px] font-bold text-hostello-purple-light">
             <Link href="/admin/checkins">Check-ins</Link>
             <Link href="/admin/today">Day sheet</Link>
@@ -355,12 +356,7 @@ export default async function AdminDashboard({
             </Link>
           </div>
           {upcomingRows.length === 0 ? (
-            <div className="card px-4 py-6 flex flex-col items-center gap-3 text-center">
-              <span className="w-12 h-12 rounded-2xl gradient-brand-subtle flex items-center justify-center text-hostello-purple-light">
-                <CalendarPlus size={22} />
-              </span>
-              <p className="text-sm text-ink-secondary">Nothing booked in the next 30 days.</p>
-            </div>
+            <EmptyState icon={CalendarPlus} title="Nothing booked in the next 30 days." />
           ) : (
             <ul className="flex flex-col gap-2.5">
               {upcomingRows.map((b) => (
@@ -393,7 +389,7 @@ export default async function AdminDashboard({
               <Delta current={periodGross} previous={prevPeriodGross} suffix={period.compareLabel} />
             </div>
             {periodGross === 0 ? (
-              <p className="tile px-5 py-8 text-center text-sm text-ink-secondary">No revenue in {period.label}.</p>
+              <EmptyState inset icon={ChartNoAxesColumn} title={`No revenue in ${period.label}.`} />
             ) : (
               <RevenueChart dates={period.days} series={periodSeries} />
             )}
@@ -409,13 +405,16 @@ export default async function AdminDashboard({
           </Link>
         </div>
         {!recentBookings || recentBookings.length === 0 ? (
-          <div className="card px-4 py-6 flex flex-col items-center gap-3 text-center">
-            <p className="text-sm text-ink-secondary">No bookings yet.</p>
-            <Link href="/admin/bookings/new" className="btn btn-primary">
-              <Plus size={16} strokeWidth={2.5} />
-              New booking
-            </Link>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No bookings yet."
+            action={
+              <Link href="/admin/bookings/new" className="btn btn-primary">
+                <Plus size={16} strokeWidth={2.5} />
+                New booking
+              </Link>
+            }
+          />
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {(recentBookings as unknown as BookingRow[]).map((b) => (

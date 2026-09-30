@@ -1,7 +1,7 @@
 import { blockTypeLabel } from "@/lib/block-sources";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LogIn, LogOut, BedDouble, Clock, Lock } from "lucide-react";
+import { CircleCheck, LogIn, LogOut, BedDouble, Clock, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { hhmm, rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentUser } from "@/lib/auth";
@@ -10,7 +10,7 @@ import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
 import { markStayProgress } from "@/app/admin/bookings/actions";
 import { Avatar } from "@/components/shared/Avatar";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, PageHeader } from "@/components/shared/PageHeader";
 
 type Row = {
   id: string;
@@ -187,9 +187,9 @@ export default async function AdminTodayPage() {
           </Link>
         </div>
         {outstanding.length === 0 ? (
-          <p className="px-4 py-8 text-center text-xs text-ink-muted">
-            Every confirmed booking has its token in.
-          </p>
+          <div className="p-3">
+            <EmptyState inset icon={CircleCheck} title="Every confirmed booking has its token in." />
+          </div>
         ) : (
           <ul className="divide-y divide-[var(--color-border-hairline)]">
             {outstanding.slice(0, 8).map((b) => {

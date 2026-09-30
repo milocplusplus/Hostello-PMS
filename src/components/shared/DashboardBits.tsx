@@ -81,7 +81,13 @@ export function OccupancyRing({ pct, href }: { pct: number | null; href: string 
   return (
     <Link href={href} className="card card-hover row-span-2 p-4 flex flex-col items-center justify-center gap-2.5">
       <span className="relative w-[7.5rem] h-[7.5rem]">
-        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" aria-hidden>
+        {pct !== null && pct > 0 && (
+          <span
+            aria-hidden
+            className="halo absolute inset-2 rounded-full blur-xl bg-[radial-gradient(circle,rgba(192,38,211,0.55),rgba(245,201,104,0.25)_60%,transparent_75%)]"
+          />
+        )}
+        <svg viewBox="0 0 120 120" className="relative w-full h-full -rotate-90" aria-hidden>
           <defs>
             <linearGradient id="occ-ring" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor="var(--color-hostello-gold-bright)" />
@@ -139,8 +145,14 @@ export function StatTile({
   valueClass?: string;
 }) {
   return (
-    <Link href={href} className="card card-hover p-4 flex flex-col gap-2.5 min-w-0">
-      <span className={`w-10 h-10 rounded-[14px] flex items-center justify-center ${tint}`}>
+    <Link href={href} className="group card card-hover p-4 flex flex-col gap-2.5 min-w-0 overflow-clip">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-hostello-purple-glow/15 blur-2xl transition-opacity opacity-60 group-hover:opacity-100"
+      />
+      <span
+        className={`relative w-10 h-10 rounded-[14px] flex items-center justify-center shadow-[0_10px_24px_-12px_currentColor] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${tint}`}
+      >
         <Icon size={20} />
       </span>
       <span className="min-w-0">
@@ -156,17 +168,17 @@ export function StatTile({
 const STORY = {
   arriving: {
     tag: "Arriving",
-    ring: "linear-gradient(135deg, #34d399, #0ea5e9)",
+    ring: "conic-gradient(#34d399, #0ea5e9, #34d399)",
     chip: "bg-emerald-400/15 text-emerald-300",
   },
   leaving: {
     tag: "Leaving",
-    ring: "linear-gradient(135deg, #fb923c, #f43f5e)",
+    ring: "conic-gradient(#fb923c, #f43f5e, #fb923c)",
     chip: "bg-orange-400/15 text-orange-300",
   },
   staying: {
     tag: "Staying",
-    ring: "linear-gradient(135deg, #a855f7, #6366f1)",
+    ring: "conic-gradient(#a855f7, #6366f1, #a855f7)",
     chip: "bg-violet-400/20 text-violet-300",
   },
 } as const;
@@ -196,8 +208,10 @@ export function TodayStories({
 
   if (stories.length === 0) {
     return (
-      <p className="card px-4 py-4 flex items-center gap-3 text-sm text-ink-secondary">
-        <Sun size={18} className="text-hostello-gold-bright shrink-0" />
+      <p className="card px-4 py-4 flex items-center gap-3 text-sm text-ink-secondary overflow-clip">
+        <span className="bob shrink-0 w-10 h-10 rounded-2xl gradient-gold flex items-center justify-center text-surface-0 shadow-[0_10px_26px_-10px_rgba(245,201,104,0.9)]">
+          <Sun size={18} />
+        </span>
         No arrivals or departures today.
       </p>
     );
@@ -210,7 +224,12 @@ export function TodayStories({
             href={`${hrefBase}/${b.id}`}
             className="w-[4.75rem] flex flex-col items-center gap-1.5 active:scale-95 transition-transform"
           >
-            <span className="rounded-full p-[3px]" style={{ background: STORY[kind].ring }}>
+            <span className="relative rounded-full p-[3px] overflow-hidden isolate">
+              <span
+                aria-hidden
+                className="spin-slow absolute -inset-1/2 -z-10"
+                style={{ background: STORY[kind].ring }}
+              />
               <span className="block rounded-full border-[3px] border-surface-0">
                 <Avatar name={b.guestName} size={58} />
               </span>
@@ -251,9 +270,12 @@ export function StayRow({
   photo?: string | null;
 }) {
   return (
-    <Link href={href} className="card card-hover p-2.5 flex items-center gap-3">
+    <Link
+      href={href}
+      className="group card card-hover p-2.5 flex items-center gap-3 hover:shadow-[inset_3px_0_0_var(--color-hostello-gold),var(--shadow-card-hover)]"
+    >
       <span
-        className="w-[3.25rem] h-[3.25rem] rounded-[17px] flex items-center justify-center shrink-0 text-white/90"
+        className="w-[3.25rem] h-[3.25rem] rounded-[17px] flex items-center justify-center shrink-0 text-white/90 transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3"
         style={{ background: unitArt(units || "unit", photo) }}
       >
         {!photo && <Home size={22} />}

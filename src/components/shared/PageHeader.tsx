@@ -60,14 +60,19 @@ export function EmptyState({
   title,
   body,
   action,
+  inset = false,
 }: {
   icon: LucideIcon;
-  title: string;
+  title: ReactNode;
   body?: ReactNode;
   action?: ReactNode;
+  /** Inside a card already: a tile rather than a second card. */
+  inset?: boolean;
 }) {
   return (
-    <div className="card relative overflow-clip isolate p-8 flex flex-col items-center text-center gap-3">
+    <div
+      className={`${inset ? "tile px-5 py-8" : "card p-8"} relative overflow-clip isolate flex flex-col items-center text-center gap-3`}
+    >
       <span aria-hidden className="orb -z-10 w-48 h-48 -top-16 left-1/2 -translate-x-1/2 bg-hostello-purple-glow/25" />
       <span className="bob w-12 h-12 rounded-2xl gradient-brand-subtle border border-hostello-purple-glow/30 flex items-center justify-center text-hostello-gold-bright shadow-[0_12px_30px_-12px_rgba(139,92,246,0.8)]">
         <Icon size={20} aria-hidden />

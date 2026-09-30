@@ -1,4 +1,5 @@
-import { CircleDollarSign, Wallet, CalendarDays, Moon } from "lucide-react";
+import { ChartNoAxesColumn, CircleDollarSign, Wallet, CalendarDays, Moon } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
 import { sourceColor } from "@/lib/block-sources";
 import { formatPKR, isPassThroughSource } from "@/lib/payout";
 import type { SourceStats } from "@/lib/stats";
@@ -88,9 +89,7 @@ export function StatsBoard({
         </div>
 
         {total.bookings === 0 ? (
-          <p className="rounded-lg bg-surface-2/60 py-10 text-center text-sm text-ink-secondary">
-            No revenue recorded in {periodLabel} yet.
-          </p>
+          <EmptyState inset icon={ChartNoAxesColumn} title={<>No revenue recorded in {periodLabel} yet.</>} />
         ) : (
           <ul className="flex flex-col gap-4">
             {sources.map((s) => (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BedDouble, CalendarPlus, Plus, Sparkles, Wallet } from "lucide-react";
+import { BedDouble, CalendarPlus, ChartNoAxesColumn, Plus, Sparkles, Wallet } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
@@ -356,7 +357,7 @@ export default async function ClientDashboard({
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg">Today</h2>
+          <h2 className="text-lg flex items-center gap-2">Today <span aria-hidden className="animate-pulse-dot w-2 h-2 rounded-full bg-status-available shadow-[0_0_10px_var(--color-status-available)]" /></h2>
           <Link href="/client/today" className="text-[13px] font-bold text-hostello-purple-light">
             Day sheet
           </Link>
@@ -372,16 +373,16 @@ export default async function ClientDashboard({
           </Link>
         </div>
         {comingUp.length === 0 ? (
-          <div className="card px-4 py-6 flex flex-col items-center gap-3 text-center">
-            <span className="w-12 h-12 rounded-2xl gradient-brand-subtle flex items-center justify-center text-hostello-purple-light">
-              <CalendarPlus size={22} />
-            </span>
-            <p className="text-sm text-ink-secondary">Nothing booked in the next 30 days.</p>
-            <Link href="/client/bookings/new" className="btn btn-primary">
-              <Plus size={16} strokeWidth={2.5} />
-              New booking
-            </Link>
-          </div>
+          <EmptyState
+            icon={CalendarPlus}
+            title="Nothing booked in the next 30 days."
+            action={
+              <Link href="/client/bookings/new" className="btn btn-primary">
+                <Plus size={16} strokeWidth={2.5} />
+                New booking
+              </Link>
+            }
+          />
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {comingUp.map((b) => (
@@ -415,9 +416,7 @@ export default async function ClientDashboard({
         {periodPayout > 0 ? (
           <RevenueChart dates={period.days} series={periodSeries} />
         ) : (
-          <p className="tile px-5 py-8 text-center text-sm text-ink-secondary">
-            No payouts in {period.label}.
-          </p>
+          <EmptyState inset icon={ChartNoAxesColumn} title={`No payouts in ${period.label}.`} />
         )}
       </section>
     </div>

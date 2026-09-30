@@ -9,7 +9,8 @@ import { Delta } from "@/components/shared/Kpi";
 import { PeriodSelect } from "@/components/shared/PeriodSelect";
 import { StatsBoard } from "@/components/shared/StatsBoard";
 import { RevenueChart } from "@/components/admin/RevenueChart";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, PageHeader } from "@/components/shared/PageHeader";
+import { ChartNoAxesColumn } from "lucide-react";
 
 export default async function ClientStatsPage({
   searchParams,
@@ -78,9 +79,7 @@ export default async function ClientStatsPage({
         {total.gross > 0 ? (
           <RevenueChart dates={period.days} series={series} />
         ) : (
-          <p className="rounded-lg bg-surface-2/60 py-10 text-center text-sm text-ink-secondary">
-            Nothing to chart for {period.label} yet.
-          </p>
+          <EmptyState inset icon={ChartNoAxesColumn} title={<>Nothing to chart for {period.label} yet.</>} />
         )}
       </section>
     </div>

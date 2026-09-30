@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogIn, LogOut, BedDouble, Phone } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
 import {
   StayTick,
   type ProgressStep,
@@ -159,7 +160,9 @@ export function StaySection({
         </span>
       </div>
       {stays.length === 0 ? (
-        <p className="px-4 py-8 text-center text-xs text-ink-muted">{empty}</p>
+        <div className="p-3">
+          <EmptyState inset icon={Icon} title={empty} />
+        </div>
       ) : (
         <ul className="divide-y divide-[var(--color-border-hairline)]">
           {stays.map((s) => (

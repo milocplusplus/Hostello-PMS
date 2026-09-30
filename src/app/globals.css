@@ -313,6 +313,7 @@ h3 {
 
   body::before,
   .orb,
+  .card-hero::before,
   .card-hero::after,
   .btn-gold:not(:disabled)::after {
     animation: none;
@@ -405,12 +406,28 @@ h3 {
 .card-hero {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   color: #fff;
   border-radius: 30px;
   background:
     radial-gradient(circle at 96% 0%, rgba(245, 201, 104, 0.5), transparent 42%),
     linear-gradient(140deg, #5b21b6 0%, #9333ea 52%, var(--color-hostello-magenta) 100%);
   box-shadow: 0 28px 60px -26px rgba(147, 51, 234, 0.95);
+}
+
+/* A gold light drifting under the hero's content */
+.card-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 70%;
+  aspect-ratio: 1;
+  right: -20%;
+  bottom: -45%;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(245, 201, 104, 0.38), transparent 65%);
+  animation: orb-wander 11s ease-in-out infinite alternate;
 }
 
 /* A light sweep across the hero every few seconds */
@@ -946,6 +963,34 @@ h3 {
   }
 }
 
+/* A ring of colour turning slowly — today's guests on the dashboards */
+.spin-slow {
+  animation: spin-turn 5s linear infinite;
+}
+
+@keyframes spin-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A soft halo breathing behind something that matters now */
+.halo {
+  animation: halo 3.2s ease-in-out infinite;
+}
+
+@keyframes halo {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
 /* A gentle float, for the logo on the sign-in screen */
 .bob {
   animation: bob 4.5s ease-in-out infinite;
@@ -1007,6 +1052,9 @@ h3 {
 
   .page-stage > * > *,
   .data-table tbody tr,
+  .card-hero::before,
+  .spin-slow,
+  .halo,
   .btn-primary::after,
   .btn-gold::after,
   .ring-in,
