@@ -32,7 +32,7 @@ export default async function EditPropertyPage({
   if (!clientRecord || !property) notFound();
 
   return (
-    <div className="max-w-sm mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Edit property"
         back={{ href: `/admin/clients/${id}`, label: clientRecord.name }}

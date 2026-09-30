@@ -13,7 +13,7 @@ export default async function NewClientPage({
   const s = await loadSettings();
 
   return (
-    <div className="max-w-sm mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Add a client"
         back={{ href: "/admin/clients", label: "Clients" }}

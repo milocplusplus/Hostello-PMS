@@ -24,7 +24,7 @@ export default async function NewPropertyPage({
   if (!clientRecord) notFound();
 
   return (
-    <div className="max-w-sm mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Add a property"
         back={{ href: `/admin/clients/${id}`, label: clientRecord.name }}

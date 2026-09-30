@@ -1,15 +1,27 @@
-import { Paperclip } from "lucide-react";
-import { todayISO } from "@/lib/calendar";
+"use client";
+
+import { useState } from "react";
+import { CircleCheck, Paperclip, Receipt, Tag, Wallet } from "lucide-react";
+import { formatDayMonth, todayISO } from "@/lib/calendar";
+import { formatPKR } from "@/lib/payout";
 import { RECEIPT_ACCEPT } from "@/lib/receipts";
 import { EXPENSE_METHODS, type Expense, type ExpenseCategory } from "@/lib/expenses";
 import { errorBanner, fieldInput, fieldLabel, primaryButton } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
+import { ChoiceChips, FormStep, StepForm, SummaryCard } from "@/components/shared/FormStep";
 import { saveExpense } from "@/app/client/expenses/actions";
 
+const PAID = [
+  { value: "yes", label: "Paid", color: "var(--color-status-available)" },
+  { value: "no", label: "Not paid yet", color: "var(--color-status-pending)" },
+] as const;
+
+const METHODS = [{ value: "", label: "Not said" }, ...EXPENSE_METHODS] as const;
+
 /**
- * Add or edit one expense. A plain server-rendered form — `expense` present is
- * what makes it an edit. Unit is optional on purpose: a general cost belongs
- * to no one unit, and is not a unit left blank by mistake.
+ * Add or edit one expense — `expense` present is what makes it an edit. Unit is
+ * optional on purpose: a general cost belongs to no one unit, and is not a
+ * unit left blank by mistake.
  */
 export function ExpenseForm({
   expense,
@@ -27,44 +39,97 @@ export function ExpenseForm({
   const standard = categories.filter((c) => !c.own);
   const own = categories.filter((c) => c.own);
 
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [date, setDate] = useState(expense?.incurredOn ?? defaultDate ?? todayISO());
+  const [categoryId, setCategoryId] = useState(expense?.categoryId ?? "");
+  const [unit, setUnit] = useState(expense?.propertyId ?? "general");
+  const [vendor, setVendor] = useState(expense?.vendor ?? "");
+  const [method, setMethod] = useState<string>(expense?.method ?? "");
+  const [paid, setPaid] = useState<"yes" | "no">(expense && !expense.paid ? "no" : "yes");
+  const [dueOn, setDueOn] = useState(expense?.dueOn ?? "");
+
+  const amountN = Number(amount);
+  const categoryName = categories.find((c) => c.id === categoryId)?.name;
+  const done = [amountN > 0 && Boolean(date), Boolean(categoryId), true, true];
+
   return (
-    <form action={saveExpense} className="card p-6 flex flex-col gap-4">
+    <StepForm
+      action={saveExpense}
+      aside={
+        <>
+          <SummaryCard
+            icon={Receipt}
+            label={expense ? "This expense" : "New expense"}
+            done={done}
+            title={categoryName ?? "Pick a category"}
+            sub={unit === "general" ? "All units / general" : properties.find((p) => p.id === unit)?.name}
+            rows={[
+              { label: "Bill date", value: date ? formatDayMonth(date) : "—", set: Boolean(date) },
+              { label: "Paid to", value: vendor.trim() || "Not said", set: Boolean(vendor.trim()) },
+              {
+                label: "Status",
+                value: paid === "yes" ? "Paid" : dueOn ? `Due ${formatDayMonth(dueOn)}` : "Not paid yet",
+              },
+              {
+                label: "Amount",
+                value: amountN > 0 ? formatPKR(amountN) : "Not set",
+                set: amountN > 0,
+                big: true,
+              },
+            ]}
+          />
+
+          {error && <p className={errorBanner}>{error}</p>}
+
+          <SubmitButton
+            className={`w-full ${primaryButton}`}
+            busy={expense ? "Saving the expense…" : "Adding the expense…"}
+          >
+            {!expense ? "Add expense" : expense.confirmed ? "Save changes" : "Confirm bill"}
+          </SubmitButton>
+        </>
+      }
+    >
       {expense && <input type="hidden" name="id" value={expense.id} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="amount" className={fieldLabel}>
-            Amount (PKR)
-          </label>
-          <input
-            id="amount"
-            name="amount"
-            type="number"
-            inputMode="decimal"
-            min={0.01}
-            step="any"
-            required
-            defaultValue={expense?.amount}
-            placeholder="e.g. 4500"
-            className={fieldInput}
-          />
+      <FormStep n={1} icon={Wallet} title="How much, and when?" done={done[0]}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="amount" className={fieldLabel}>
+              Amount (PKR)
+            </label>
+            <input
+              id="amount"
+              name="amount"
+              type="number"
+              inputMode="decimal"
+              min={0.01}
+              step="any"
+              required
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 4500"
+              className={`${fieldInput} text-base font-semibold`}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="incurred_on" className={fieldLabel}>
+              Bill date
+            </label>
+            <input
+              id="incurred_on"
+              name="incurred_on"
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={fieldInput}
+            />
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="incurred_on" className={fieldLabel}>
-            Bill date
-          </label>
-          <input
-            id="incurred_on"
-            name="incurred_on"
-            type="date"
-            required
-            defaultValue={expense?.incurredOn ?? defaultDate ?? todayISO()}
-            className={fieldInput}
-          />
-        </div>
-      </div>
+      </FormStep>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <FormStep n={2} icon={Tag} title="What was it for?" done={done[1]}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="category_id" className={fieldLabel}>
             Category
@@ -73,7 +138,8 @@ export function ExpenseForm({
             id="category_id"
             name="category_id"
             required
-            defaultValue={expense?.categoryId ?? ""}
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
             className={fieldInput}
           >
             <option value="" disabled>
@@ -95,27 +161,38 @@ export function ExpenseForm({
             )}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="property_id" className={fieldLabel}>
-            Unit
-          </label>
-          <select
-            id="property_id"
-            name="property_id"
-            defaultValue={expense?.propertyId ?? "general"}
-            className={fieldInput}
-          >
-            <option value="general">All units / general</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-2">
+          <p className={fieldLabel}>Unit</p>
+          <ChoiceChips
+            name="property_id"
+            label="Unit"
+            value={unit}
+            onChange={setUnit}
+            options={[{ value: "general", label: "All units / general" }, ...properties.map((p) => ({ value: p.id, label: p.name }))]}
+          />
+        </div>
+      </FormStep>
+
+      <FormStep n={3} icon={CircleCheck} title="Paid?" done={done[2]}>
+        <ChoiceChips name="paid" label="Status" value={paid} onChange={setPaid} options={PAID} />
+
+        {paid === "no" && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="due_on" className={fieldLabel}>
+              Due date (optional)
+            </label>
+            <input
+              id="due_on"
+              name="due_on"
+              type="date"
+              value={dueOn}
+              onChange={(e) => setDueOn(e.target.value)}
+              className={fieldInput}
+            />
+          </div>
+        )}
+
         <div className="flex flex-col gap-1.5">
           <label htmlFor="vendor" className={fieldLabel}>
             Paid to (optional)
@@ -123,102 +200,66 @@ export function ExpenseForm({
           <input
             id="vendor"
             name="vendor"
-            defaultValue={expense?.vendor ?? ""}
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
             placeholder="e.g. K-Electric, Ali plumber"
             className={fieldInput}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="method" className={fieldLabel}>
-            Paid by (optional)
-          </label>
-          <select id="method" name="method" defaultValue={expense?.method ?? ""} className={fieldInput}>
-            <option value="">—</option>
-            {EXPENSE_METHODS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <fieldset className="flex flex-col gap-1.5">
-          <legend className={`${fieldLabel} mb-1.5`}>Status</legend>
-          <div className="flex items-center gap-4 text-sm text-ink-primary h-full">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="paid" value="yes" defaultChecked={expense?.paid ?? true} />
-              Paid
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="paid" value="no" defaultChecked={expense ? !expense.paid : false} />
-              Not paid yet
-            </label>
-          </div>
-        </fieldset>
+        <div className="flex flex-col gap-2">
+          <p className={fieldLabel}>Paid by (optional)</p>
+          <ChoiceChips name="method" label="Paid by" value={method} onChange={setMethod} options={METHODS} />
+        </div>
+      </FormStep>
+
+      <FormStep n={4} icon={Paperclip} title="Bill & note" done={done[3]}>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="due_on" className={fieldLabel}>
-            Due date (if not paid yet)
+          <label htmlFor="note" className={fieldLabel}>
+            Note (optional)
           </label>
           <input
-            id="due_on"
-            name="due_on"
-            type="date"
-            defaultValue={expense?.dueOn ?? ""}
+            id="note"
+            name="note"
+            defaultValue={expense?.note ?? ""}
+            placeholder="e.g. AC gas refill, bedroom 2"
             className={fieldInput}
           />
         </div>
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="note" className={fieldLabel}>
-          Note (optional)
-        </label>
-        <input
-          id="note"
-          name="note"
-          defaultValue={expense?.note ?? ""}
-          placeholder="e.g. AC gas refill, bedroom 2"
-          className={fieldInput}
-        />
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="receipt" className={fieldLabel}>
-          {expense?.receiptPath ? "Replace the bill (optional)" : "Bill photo or PDF (optional)"}
-        </label>
-        <input id="receipt" name="receipt" type="file" accept={RECEIPT_ACCEPT} className={fieldInput} />
-        {expense?.receiptPath && (
-          <div className="flex items-center gap-4 text-xs mt-1 flex-wrap">
-            {expense.receiptUrl && (
-              <a
-                href={expense.receiptUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-ink-secondary hover:text-ink-primary transition-colors"
-              >
-                <Paperclip size={12} />
-                Current bill
-              </a>
-            )}
-            <label className="flex items-center gap-2 text-ink-muted cursor-pointer">
-              <input type="checkbox" name="remove_receipt" />
-              Remove it
-            </label>
-          </div>
-        )}
-        <p className="text-[11px] text-ink-muted">PNG, JPG, WebP or PDF, up to 8 MB. Only you and Hostello can open it.</p>
-      </div>
-
-      {error && <p className={errorBanner}>{error}</p>}
-
-      <SubmitButton
-        className={`mt-1 ${primaryButton}`}
-        busy={expense ? "Saving the expense…" : "Adding the expense…"}
-      >
-        {!expense ? "Add expense" : expense.confirmed ? "Save changes" : "Confirm bill"}
-      </SubmitButton>
-    </form>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="receipt" className={fieldLabel}>
+            {expense?.receiptPath ? "Replace the bill (optional)" : "Bill photo or PDF (optional)"}
+          </label>
+          <input
+            id="receipt"
+            name="receipt"
+            type="file"
+            accept={RECEIPT_ACCEPT}
+            className={`${fieldInput} file:mr-3 file:rounded-full file:border-0 file:bg-hostello-purple-glow/20 file:px-3 file:py-1 file:text-xs file:text-hostello-purple-light`}
+          />
+          {expense?.receiptPath && (
+            <div className="flex items-center gap-4 text-xs mt-1 flex-wrap">
+              {expense.receiptUrl && (
+                <a
+                  href={expense.receiptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-ink-secondary hover:text-ink-primary transition-colors"
+                >
+                  <Paperclip size={12} />
+                  Current bill
+                </a>
+              )}
+              <label className="flex items-center gap-2 text-ink-muted cursor-pointer">
+                <input type="checkbox" name="remove_receipt" />
+                Remove it
+              </label>
+            </div>
+          )}
+          <p className="text-[11px] text-ink-muted">PNG, JPG, WebP or PDF, up to 8 MB. Only you and Hostello can open it.</p>
+        </div>
+      </FormStep>
+    </StepForm>
   );
 }

@@ -33,7 +33,7 @@ export default async function EditExpensePage({
   const month = expense.incurredOn.slice(0, 7);
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title={expense.confirmed ? "Edit expense" : "Confirm bill"}
         back={{ href: `/client/expenses?month=${month}`, label: "Expenses" }}

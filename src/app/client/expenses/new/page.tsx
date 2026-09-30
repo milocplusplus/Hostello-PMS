@@ -28,7 +28,7 @@ export default async function NewExpensePage({
     month && /^\d{4}-\d{2}$/.test(month) && month !== today.slice(0, 7) ? `${month}-01` : today;
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Add expense"
         back={{ href: `/client/expenses${month ? `?month=${month}` : ""}`, label: "Expenses" }}

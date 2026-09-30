@@ -29,7 +29,7 @@ export default async function EditRecurringPage({
   if (!recurring) notFound();
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-5xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Edit recurring bill"
         back={{ href: "/client/expenses/recurring", label: "Recurring bills" }}

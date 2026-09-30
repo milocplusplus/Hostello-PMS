@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ADJUST_MODES, RATE_FIELDS, adjusted, type AdjustMode, type RateField } from "@/lib/bulk-rates";
 import { fieldInput, fieldLabel, primaryButton } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
+import { ChoiceChips } from "@/components/shared/FormStep";
 
 export type RateRow = {
   id: string;
@@ -51,32 +52,40 @@ export function BulkRatesTable({
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="client_id" value={clientId} />
 
-      <div className="card p-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="field" className={fieldLabel}>What</label>
-          <select id="field" name="field" value={field} onChange={(e) => setField(e.target.value as RateField)} className={fieldInput}>
-            {RATE_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
+      <div className="card p-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <p className={fieldLabel}>What</p>
+          <ChoiceChips
+            name="field"
+            label="What"
+            value={field}
+            onChange={setField}
+            options={RATE_FIELDS.map((f) => ({ value: f.key, label: f.label }))}
+          />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="mode" className={fieldLabel}>How</label>
-          <select id="mode" name="mode" value={mode} onChange={(e) => setMode(e.target.value as AdjustMode)} className={fieldInput}>
-            {ADJUST_MODES.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-          </select>
+        <div className="flex flex-col gap-2">
+          <p className={fieldLabel}>How</p>
+          <ChoiceChips
+            name="mode"
+            label="How"
+            value={mode}
+            onChange={setMode}
+            options={ADJUST_MODES.map((m) => ({ value: m.key, label: m.label }))}
+          />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 sm:max-w-xs">
           <label htmlFor="value" className={fieldLabel}>
             {mode.startsWith("pct") ? "Percent" : isMoney ? "Amount (PKR)" : "Guests"}
           </label>
-          <input id="value" name="value" type="number" min="0" step="1" required value={value} onChange={(e) => setValue(e.target.value)} className={fieldInput} />
+          <input id="value" name="value" type="number" min="0" step="1" required value={value} onChange={(e) => setValue(e.target.value)} className={`${fieldInput} text-base font-semibold`} />
         </div>
         {mode.startsWith("pct") && isMoney && (
-          <p className="sm:col-span-3 text-[11px] text-ink-muted">Rounded to the nearest Rs 100.</p>
+          <p className="text-[11px] text-ink-muted">Rounded to the nearest Rs 100.</p>
         )}
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="data-table w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-muted border-b border-border-hairline">
               <th className="p-3 w-8">
@@ -98,7 +107,7 @@ export function BulkRatesTable({
               const on = picked.has(r.id);
               const next = preview.get(r.id);
               return (
-                <tr key={r.id} className="border-b border-border-hairline last:border-0">
+                <tr key={r.id} className={`border-b border-border-hairline last:border-0 ${on ? "bg-hostello-gold/5" : ""}`}>
                   <td className="p-3">
                     <input
                       type="checkbox"
@@ -134,7 +143,7 @@ export function BulkRatesTable({
         </table>
       </div>
 
-      <SubmitButton className={primaryButton} busy="Updating the units…">
+      <SubmitButton className={primaryButton} disabled={picked.size === 0 || value === ""} busy="Updating the units…">
         Apply to {picked.size} unit{picked.size === 1 ? "" : "s"}
       </SubmitButton>
     </form>

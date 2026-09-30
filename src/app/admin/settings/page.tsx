@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { Landmark, Smartphone, Trash2 } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  Handshake,
+  Inbox,
+  Landmark,
+  MessageCircle,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { requireOwner } from "@/lib/auth";
 import { loadSettings, houseStyle, WALLET_LABEL } from "@/lib/settings";
 import { DEAL_MODELS, OTA_MODELS } from "@/lib/payout";
@@ -24,6 +36,18 @@ import {
 import { OWNER_NOTICE_GROUPS } from "@/lib/owner-notices";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 
+/** The sections, in page order — also the jump row at the top. */
+const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "business", label: "Business", icon: Building2 },
+  { id: "payments", label: "Payment details", icon: Landmark },
+  { id: "channel-inbox", label: "Channel inbox", icon: Inbox },
+  { id: "deals", label: "Deal terms", icon: Handshake },
+  { id: "bookings", label: "Bookings", icon: CalendarDays },
+  { id: "ops", label: "Operations", icon: ShieldCheck },
+  { id: "owner-notices", label: "Owner notices", icon: Bell },
+  { id: "messages", label: "Guest messages", icon: MessageCircle },
+];
+
 function Section({
   id,
   title,
@@ -35,11 +59,17 @@ function Section({
   about: string;
   children: React.ReactNode;
 }) {
+  const Icon = SECTIONS.find((x) => x.id === id)?.icon ?? Building2;
   return (
-    <section id={id} className="card p-5 md:p-6 flex flex-col gap-4 scroll-mt-24">
-      <div>
-        <h2 className="text-base font-bold tracking-tight">{title}</h2>
-        <p className="text-xs text-ink-muted mt-1">{about}</p>
+    <section id={id} className="card p-5 md:p-6 flex flex-col gap-4 scroll-mt-36">
+      <div className="flex items-start gap-3">
+        <span className="shrink-0 w-10 h-10 rounded-2xl gradient-brand-subtle border border-hostello-purple-glow/25 flex items-center justify-center text-hostello-gold-bright shadow-[0_10px_26px_-14px_rgba(139,92,246,0.9)]">
+          <Icon size={18} aria-hidden />
+        </span>
+        <div>
+          <h2 className="text-base font-bold tracking-tight">{title}</h2>
+          <p className="text-xs text-ink-muted mt-1">{about}</p>
+        </div>
       </div>
       {children}
     </section>
@@ -106,6 +136,22 @@ export default async function SettingsPage({
           </p>
         }
       />
+
+      <nav
+        aria-label="Settings sections"
+        className="sticky top-2 md:top-16 z-10 -mx-1 px-1 py-2 flex gap-2 overflow-x-auto glass-deep rounded-2xl"
+      >
+        {SECTIONS.filter((x) => x.id !== "channel-inbox" || !CHANNEL_INBOX_ON_HOLD).map(({ id, label, icon: Icon }) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="shrink-0 flex items-center gap-1.5 rounded-full border border-border-hairline px-3 py-1.5 text-xs text-ink-secondary hover:text-ink-primary hover:border-hostello-gold hover:bg-hostello-gold/10 transition-colors"
+          >
+            <Icon size={12} aria-hidden />
+            {label}
+          </a>
+        ))}
+      </nav>
 
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}
