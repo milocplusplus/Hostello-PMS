@@ -1,8 +1,9 @@
 "use client";
 
+import { EmptyState } from "@/components/shared/PageHeader";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Paperclip, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Check, Paperclip, ShieldCheck, CircleCheck } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
 import {
@@ -160,12 +161,15 @@ export function SendMoneyFlow({
 
   if (claimable <= 0 && !editing) {
     return (
-      <div className="card p-6 text-center flex flex-col gap-3 items-center">
-        <p className="text-sm text-ink-primary">{copy.empty}</p>
-        <Link href={backHref} className="btn btn-ghost btn-sm">
-          Back to settlements
-        </Link>
-      </div>
+      <EmptyState
+        icon={CircleCheck}
+        title={copy.empty}
+        action={
+          <Link href={backHref} className="btn btn-ghost btn-sm">
+            Back to settlements
+          </Link>
+        }
+      />
     );
   }
 

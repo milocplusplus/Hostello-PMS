@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, CircleCheck, Clock, Send } from "lucide-react";
@@ -120,7 +121,9 @@ export default async function ClientSettlementsPage({
           </div>
 
           {pending.length === 0 ? (
-            <p className="text-sm text-ink-muted px-5 py-6">Nothing to confirm.</p>
+            <div className="p-3">
+              <EmptyState inset icon={CircleCheck} title="Nothing to confirm." />
+            </div>
           ) : (
             <PayoutHistory
               entries={pending}

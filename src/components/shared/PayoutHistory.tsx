@@ -1,6 +1,7 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Receipt } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { formatNotificationTime } from "@/lib/notifications";
 import { methodLabel, PAYOUT_STATUS, type SettlementPayment } from "@/lib/owed";
@@ -26,7 +27,11 @@ export function PayoutHistory({
   actions?: (entry: SettlementPayment) => ReactNode;
 }) {
   if (entries.length === 0) {
-    return <p className="text-sm text-ink-muted px-5 py-6">{empty}</p>;
+    return (
+      <div className="p-3">
+        <EmptyState inset icon={Receipt} title={empty} />
+      </div>
+    );
   }
 
   return (

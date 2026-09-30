@@ -1,6 +1,33 @@
 # State — updated 2026-09-28
 
 ## Done
+- **Whole-app "lively" pass** (2026-09-30). Owner asked for everything to
+  feel like the Coming Soon screen; chose foundation-then-batches, all four
+  groups, **bold** motion. Shipped in five commits:
+  1. Foundation (`globals.css`, shells, `PageHeader`): `.page-stage` on both
+     shells staggers every page's sections in; gradient page titles with an
+     orb + accent bar; card top-edge light + violet hover border; gold/violet
+     button sweeps (gold also idles); `data-table` rows stagger + gold edge;
+     brighter/faster ambient light; `EmptyState` (with `inset` for inside a
+     card). **All entrance animations use `backwards`, not `both`** — a
+     leftover transform traps `fixed` pop-ups inside a section.
+  2. Forms: `ClientForm`, `PropertyForm`, `ExpenseForm` (now a client
+     component), `RecurringForm` on `StepForm` / `SummaryCard` /
+     `ChoiceChips` (all in `components/shared/FormStep.tsx`); Settings icons
+     + sticky jump row; rates tool pills (Apply disabled until units + amount).
+  3. Dashboards: `.card-hero::before` gold orb under every hero; `StatTile`,
+     `OccupancyRing` halo, spinning story rings (`.spin-slow`), `StayRow`
+     hover, live dot on Today.
+  4. Lists/detail: every plain "nothing here" → `EmptyState`; `.card.divide-y
+     > *` rows stagger + gold edge app-wide; `BookingCard` hover sweep;
+     `BookingHero` `.sheen-sweep`.
+  5. Money: settlements/payout/send-money empties, `data-table` on owed
+     bookings, `SettlementTabs` + `MoneyStat` hover/glow and count-up.
+  Phones still hold the endless motion still (existing perf rule, extended
+  to the new classes); reduced motion stills all of it. Checked rendered on
+  temporary preview routes (deleted) with sample data, forms' posted fields
+  compared; lint + build each commit. **Not seen on the real signed-in
+  pages** — no test login.
 - **Block dates restyle + booking lands on the calendar** (2026-09-29).
   New booking now redirects to the calendar month it's in:
   `/admin/calendar?client=<id>&month=<YYYY-MM>` (was the client page) and

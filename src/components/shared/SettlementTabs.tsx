@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowUpRight, type LucideIcon } from "lucide-react";
-import { formatPKR } from "@/lib/payout";
 import { CountUp } from "@/components/shared/CountUp";
 
 export type SettlementTab = "to-hostello" | "to-client";
@@ -57,13 +56,13 @@ export function SettlementTabs({
             key={t.key}
             href={`${base}?tab=${t.key}`}
             aria-current={active ? "page" : undefined}
-            className={`p-4 md:p-5 flex flex-col gap-2 text-left active:scale-[0.98] transition-transform ${
-              active ? "card-hero" : "card hover:bg-white/[0.03]"
+            className={`group p-4 md:p-5 flex flex-col gap-2 text-left active:scale-[0.98] transition-transform ${
+              active ? "card-hero" : "card card-hover hover:bg-white/[0.03]"
             }`}
           >
             <span
-              className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                active ? "bg-white/20" : "bg-white/6 text-ink-secondary"
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
+                active ? "bob bg-white/20 shadow-[0_8px_20px_-8px_rgba(255,255,255,0.6)]" : "bg-white/6 text-ink-secondary"
               }`}
             >
               <Icon size={18} strokeWidth={2.4} />
@@ -100,11 +99,19 @@ export function MoneyStat({
   valueClass?: string;
 }) {
   return (
-    <div className="card p-4 md:p-5 flex flex-col gap-2">
-      <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${tint}`}>
+    <div className="group card card-hover p-4 md:p-5 flex flex-col gap-2 overflow-clip">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-10 -right-10 w-28 h-28 rounded-full bg-hostello-purple-glow/15 blur-2xl opacity-60 transition-opacity group-hover:opacity-100"
+      />
+      <span
+        className={`relative w-9 h-9 rounded-xl flex items-center justify-center shadow-[0_10px_24px_-12px_currentColor] transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${tint}`}
+      >
         <Icon size={18} />
       </span>
-      <p className={`num text-lg md:text-2xl font-extrabold truncate ${valueClass}`}>{formatPKR(value)}</p>
+      <p className={`num text-lg md:text-2xl font-extrabold truncate ${valueClass}`}>
+        Rs <CountUp value={value} />
+      </p>
       <p className="text-xs font-bold text-ink-muted">{label}</p>
     </div>
   );

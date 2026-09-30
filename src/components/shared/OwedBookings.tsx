@@ -1,3 +1,5 @@
+import { CircleCheck } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { formatDayMonth } from "@/lib/calendar";
@@ -26,12 +28,16 @@ export function OwedBookings({
   actions?: (booking: OwedBooking) => ReactNode;
 }) {
   if (bookings.length === 0) {
-    return <p className="text-xs text-ink-muted px-5 py-6">{empty}</p>;
+    return (
+      <div className="p-3">
+        <EmptyState inset icon={CircleCheck} title={empty} />
+      </div>
+    );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm md:min-w-[560px]">
+      <table className="data-table w-full text-sm md:min-w-[560px]">
         <thead>
           <tr className="text-left text-ink-muted text-xs border-b border-border-hairline">
             <th className="px-4 md:px-5 py-2.5 font-normal">Booking</th>

@@ -1,5 +1,6 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Users } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import type { ClientBalance } from "@/lib/owed";
 import { Avatar } from "@/components/shared/Avatar";
@@ -22,7 +23,11 @@ export function RecipientPicker({
   const owing = balances.filter((b) => b.balance > 0);
 
   if (owing.length === 0) {
-    return <p className="text-xs text-ink-muted px-5 py-8 text-center">{empty}</p>;
+    return (
+      <div className="p-3">
+        <EmptyState inset icon={Users} title={empty} />
+      </div>
+    );
   }
 
   return (
