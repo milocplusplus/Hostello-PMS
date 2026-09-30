@@ -115,17 +115,22 @@ export function BookingCard({
 }) {
   const cancelled = status === "cancelled";
   return (
-    <article className={`card overflow-hidden flex flex-col ${cancelled ? "opacity-60" : ""}`}>
+    <article className={`group card card-hover overflow-hidden flex flex-col ${cancelled ? "opacity-60" : ""}`}>
       <Link href={href} className="block active:scale-[0.99] transition-transform">
         <div
           className="relative h-20 px-3.5 py-3 flex items-end justify-between gap-2 overflow-hidden"
           style={{ background: unitArt(units || "unit", photo) }}
         >
+          {/* Light sweeping across the banner when the card is pointed at. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.28)_50%,transparent_70%)]"
+          />
           {!photo && (
             <Home
               size={112}
               strokeWidth={1.2}
-              className="absolute -right-3 -top-5 text-white/20"
+              className="absolute -right-3 -top-5 text-white/20 transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110"
               aria-hidden
             />
           )}

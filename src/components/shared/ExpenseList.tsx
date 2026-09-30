@@ -1,5 +1,6 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Paperclip, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Paperclip, Pencil, Receipt } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { addMonths, formatDayMonth, formatMonthLabel, formatMonthParam, todayISO } from "@/lib/calendar";
 import { expenseMethodLabel, type Expense } from "@/lib/expenses";
@@ -19,7 +20,7 @@ export function ExpenseList({
   empty: string;
 }) {
   if (expenses.length === 0) {
-    return <div className="card p-8 text-center text-sm text-ink-secondary">{empty}</div>;
+    return <EmptyState icon={Receipt} title={<>{empty}</>} />;
   }
 
   const today = todayISO();

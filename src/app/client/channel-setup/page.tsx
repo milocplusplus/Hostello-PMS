@@ -1,8 +1,9 @@
+import { Building2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { currentClient, currentUser } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { ChannelForwardingGuide } from "@/components/shared/ChannelForwardingGuide";
 import { ChannelInboxComingSoon } from "@/components/shared/ChannelInboxComingSoon";
 
@@ -46,9 +47,7 @@ export default async function ChannelSetupPage() {
           audience="owner"
         />
       ) : (
-        <p className="card p-8 text-center text-sm text-ink-secondary">
-          Hostello hasn&apos;t switched this on yet — nothing to do for now.
-        </p>
+        <EmptyState icon={Building2} title={<>Hostello hasn&apos;t switched this on yet — nothing to do for now.</>} />
       )}
     </div>
   );

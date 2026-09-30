@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Pause, Pencil, Play, Plus, Trash2, Repeat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -18,7 +18,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { RecurringForm } from "@/components/client/RecurringForm";
 import { deleteRecurring, setRecurringActive } from "../actions";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 
 export default async function RecurringExpensesPage({
   searchParams,
@@ -57,9 +57,7 @@ export default async function RecurringExpensesPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       {bills.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-ink-secondary">
-          No recurring bills yet. Internet, society fees and utilities are the usual ones.
-        </div>
+        <EmptyState icon={Repeat} title={<>No recurring bills yet. Internet, society fees and utilities are the usual ones.</>} />
       ) : (
         <ul className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
           {bills.map((b) => {

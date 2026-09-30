@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import {
@@ -66,15 +67,11 @@ export function NotificationFeed({
       </div>
 
       {items.length === 0 ? (
-        <div className="card p-8 md:p-12 text-center flex flex-col items-center gap-2">
-          <Bell size={20} className="text-ink-muted" />
-          <p className="text-sm text-ink-secondary">
-            {unreadOnly ? "Nothing unread." : category ? "Nothing in this category yet." : "Nothing yet."}
-          </p>
-          <p className="text-xs text-ink-muted">
-            Activity appears here as bookings, payments and dates change.
-          </p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title={unreadOnly ? "Nothing unread." : category ? "Nothing in this category yet." : "Nothing yet."}
+          body="Activity appears here as bookings, payments and dates change."
+        />
       ) : (
         <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
           {items.map((n) => {

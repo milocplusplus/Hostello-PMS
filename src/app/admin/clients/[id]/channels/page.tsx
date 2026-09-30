@@ -1,8 +1,9 @@
+import { Building2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/auth";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner, primaryButton } from "@/lib/form-styles";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { SubmitButton } from "@/components/shared/Busy";
 import { saveChannelIds } from "../../actions";
 
@@ -71,7 +72,7 @@ export default async function ClientChannelsPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       {rows.length === 0 ? (
-        <p className="card p-8 text-center text-sm text-ink-secondary">This client has no units yet.</p>
+        <EmptyState icon={Building2} title={<>This client has no units yet.</>} />
       ) : (
         <form action={saveChannelIds} className="flex flex-col gap-3">
           <input type="hidden" name="client_id" value={id} />

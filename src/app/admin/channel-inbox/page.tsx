@@ -43,7 +43,7 @@ import {
   dismissMessage,
   markHandled,
 } from "./actions";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { ChannelInboxComingSoon } from "@/components/shared/ChannelInboxComingSoon";
 import { NotificationSettings } from "@/components/shared/NotificationSettings";
 import { readNotificationPreferences } from "@/lib/notification-feed";
@@ -588,15 +588,15 @@ export default async function ChannelInboxPage({
       )}
 
       {open.length === 0 && (
-        <div className="card p-8 flex flex-col items-center gap-2 text-center">
-          <Inbox className="w-5 h-5 text-ink-muted" aria-hidden />
-          <p className="text-sm text-ink-secondary">Nothing waiting.</p>
-          <p className="text-xs text-ink-muted">
-            {settings.channelInboxAddress
+        <EmptyState
+          icon={Inbox}
+          title="Nothing waiting."
+          body={
+            settings.channelInboxAddress
               ? "A channel's reservation email appears here within a few seconds of being sent."
-              : "Once the inbox address is live, a channel's reservation email will appear here within a few seconds of being sent."}
-          </p>
-        </div>
+              : "Once the inbox address is live, a channel's reservation email will appear here within a few seconds of being sent."
+          }
+        />
       )}
 
       {open.map((row) => {

@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import { CalendarDays, Clock, Lock, LogIn, LogOut } from "lucide-react";
 import { sourceInitial } from "@/lib/block-sources";
@@ -45,12 +46,7 @@ export function CalendarAgenda({
 
   if (shown.length === 0) {
     return (
-      <div className="card p-8 md:p-10 flex flex-col items-center gap-3 text-center">
-        <span className="w-12 h-12 rounded-2xl gradient-brand-subtle flex items-center justify-center text-hostello-purple-light">
-          <CalendarDays size={22} />
-        </span>
-        <p className="text-sm text-ink-secondary">Nothing scheduled this month.</p>
-      </div>
+      <EmptyState icon={CalendarDays} title="Nothing scheduled this month." />
     );
   }
 

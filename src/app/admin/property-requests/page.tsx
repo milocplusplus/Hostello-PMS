@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PencilRuler } from "lucide-react";
+import { PencilRuler, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
@@ -12,7 +12,7 @@ import {
 import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { applyPropertyChangeRequest, declinePropertyChangeRequest } from "./actions";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 
 type Row = {
   id: string;
@@ -74,9 +74,7 @@ export default async function PropertyRequestsPage({
       {error && <p className={errorBanner}>{error}</p>}
 
       {pending.length === 0 ? (
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No requests waiting.
-        </div>
+        <EmptyState icon={Inbox} title={<>No requests waiting.</>} />
       ) : (
         <div className="flex flex-col gap-3">
           {pending.map((r) => {

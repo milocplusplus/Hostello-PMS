@@ -15,7 +15,7 @@ import {
 } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { inviteOpsUser, resetOpsPassword, setOpsAccess } from "./actions";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 
 /**
  * Who else can sign in.
@@ -158,10 +158,7 @@ export default async function StaffPage({
         <h2 className="text-sm font-semibold tracking-tight">Operations team</h2>
 
         {staff.length === 0 && !listError && (
-          <div className="card p-8 flex flex-col items-center gap-2 text-center">
-            <ShieldCheck className="w-5 h-5 text-ink-muted" aria-hidden />
-            <p className="text-sm text-ink-secondary">No operations accounts yet.</p>
-          </div>
+          <EmptyState icon={ShieldCheck} title="No operations accounts yet." />
         )}
 
         {staff.map((s) => (

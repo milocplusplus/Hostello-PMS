@@ -1,8 +1,9 @@
+import { Building2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/auth";
 import { errorBanner, noticeBanner } from "@/lib/form-styles";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { BulkRatesTable, type RateRow } from "@/components/admin/BulkRatesTable";
 import { bulkUpdateUnitRates } from "../../actions";
 
@@ -54,7 +55,7 @@ export default async function ClientRatesPage({
       {notice && <p className={noticeBanner}>{notice}</p>}
       {error && <p className={errorBanner}>{error}</p>}
       {rows.length === 0 ? (
-        <p className="card p-8 text-center text-sm text-ink-secondary">This client has no active units.</p>
+        <EmptyState icon={Building2} title={<>This client has no active units.</>} />
       ) : (
         <BulkRatesTable clientId={id} rows={rows} action={bulkUpdateUnitRates} />
       )}

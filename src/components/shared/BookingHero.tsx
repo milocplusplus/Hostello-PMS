@@ -55,8 +55,9 @@ export function BookingHero({
         style={{ background: unitArt(units[0]?.name ?? "unit", units[0]?.photo) }}
       >
         {!units[0]?.photo && (
-          <Home size={180} strokeWidth={1} className="absolute -right-6 -top-8 text-white/20" aria-hidden />
+          <Home size={180} strokeWidth={1} className="bob absolute -right-6 -top-8 text-white/20" aria-hidden />
         )}
+        <span aria-hidden className="sheen-sweep" />
         <div className="relative flex items-center justify-between gap-3">
           <Link href={backHref} aria-label="Back" className={`${round} bg-black/45 text-white`}>
             <ArrowLeft size={20} />

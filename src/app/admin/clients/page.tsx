@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, ChevronRight, Search, X } from "lucide-react";
+import { Plus, ChevronRight, Search, X, SearchX, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { Avatar } from "@/components/shared/Avatar";
 import { DEAL_MODELS, formatPKR } from "@/lib/payout";
 import { todayISO } from "@/lib/calendar";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 
 function dealModelLabel(value: string) {
   return DEAL_MODELS.find((m) => m.value === value)?.label ?? value;
@@ -104,23 +104,23 @@ export default async function ClientsListPage({
       </form>
 
       {(!clients || clients.length === 0) && (
-        <div className="card p-8 md:p-10 text-center flex flex-col items-center gap-2">
-          {term ? (
-            <>
-              <p className="text-sm text-ink-secondary">No clients match “{term}”.</p>
+        term ? (
+          <EmptyState
+            icon={SearchX}
+            title={<>No clients match “{term}”.</>}
+            action={
               <Link href="/admin/clients" className="text-xs text-hostello-gold hover:underline">
                 Clear search
               </Link>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-ink-secondary">No clients yet.</p>
-              <p className="text-xs text-ink-muted">
-                Add your first client to start managing their properties.
-              </p>
-            </>
-          )}
-        </div>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="No clients yet."
+            body="Add your first client to start managing their properties."
+          />
+        )
       )}
 
       {[

@@ -315,6 +315,7 @@ h3 {
   .orb,
   .card-hero::before,
   .card-hero::after,
+  .sheen-sweep,
   .btn-gold:not(:disabled)::after {
     animation: none;
   }
@@ -707,6 +708,25 @@ h3 {
   box-shadow: inset 3px 0 0 var(--color-hostello-gold);
 }
 
+/* Lists drawn as a card with dividing lines — bookings, clients, alerts, the
+   audit log. Their rows arrive in sequence and take a gold edge under the
+   pointer, without any list having to opt in. */
+.card.divide-y > * {
+  transition: box-shadow 150ms ease, background-color 150ms ease;
+  animation: fade-in-up 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.card.divide-y > *:nth-child(2) { animation-delay: 35ms; }
+.card.divide-y > *:nth-child(3) { animation-delay: 70ms; }
+.card.divide-y > *:nth-child(4) { animation-delay: 105ms; }
+.card.divide-y > *:nth-child(5) { animation-delay: 140ms; }
+.card.divide-y > *:nth-child(6) { animation-delay: 175ms; }
+.card.divide-y > *:nth-child(n + 7) { animation-delay: 210ms; }
+
+.card.divide-y > *:hover {
+  box-shadow: inset 3px 0 0 var(--color-hostello-gold);
+}
+
 /* Inset tiles inside a card (today's counts, legend rows, empty states) */
 .tile {
   background-color: color-mix(in srgb, var(--color-surface-2) 55%, transparent);
@@ -963,6 +983,16 @@ h3 {
   }
 }
 
+/* The hero light sweep, for a banner that is not a .card-hero (the booking page). */
+.sheen-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.2) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: hero-sheen 7s 1.4s ease-in-out infinite;
+}
+
 /* A ring of colour turning slowly — today's guests on the dashboards */
 .spin-slow {
   animation: spin-turn 5s linear infinite;
@@ -1052,7 +1082,9 @@ h3 {
 
   .page-stage > * > *,
   .data-table tbody tr,
+  .card.divide-y > *,
   .card-hero::before,
+  .sheen-sweep,
   .spin-slow,
   .halo,
   .btn-primary::after,

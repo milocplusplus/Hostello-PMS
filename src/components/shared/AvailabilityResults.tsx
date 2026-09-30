@@ -1,5 +1,6 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
-import { CalendarPlus, TriangleAlert, Users } from "lucide-react";
+import { CalendarPlus, TriangleAlert, Users, SearchX } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
 import { propertyTypeLabel } from "@/lib/property-types";
@@ -57,13 +58,7 @@ export function AvailabilityResults({
       </div>
 
       {found === 0 && result.needsDetails.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-ink-secondary">
-          {result.freeOnDates === 0
-            ? "Nothing is free on those dates. Try another window, or widen the location filter."
-            : `${result.freeOnDates} ${
-                result.freeOnDates === 1 ? "unit is" : "units are"
-              } free on those dates, but none meet the guest count or budget you set.`}
-        </div>
+        <EmptyState icon={SearchX} title={<>{result.freeOnDates === 0 ? "Nothing is free on those dates. Try another window, or widen the location filter." : `${result.freeOnDates} ${ result.freeOnDates === 1 ? "unit is" : "units are" } free on those dates, but none meet the guest count or budget you set.`}</>} />
       ) : (
         <ul className="flex flex-col gap-2">
           {result.matches.map((m) => (

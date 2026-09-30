@@ -1,3 +1,4 @@
+import { Users } from "lucide-react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -6,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
 import { noticeBanner } from "@/lib/form-styles";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { ChannelForwardingGuide } from "@/components/shared/ChannelForwardingGuide";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
 
@@ -124,7 +125,7 @@ export default async function ChannelInboxSetupPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-ink-secondary">Whose emails are arriving</h2>
         {rows.length === 0 ? (
-          <p className="card p-6 text-center text-sm text-ink-secondary">No owners with units yet.</p>
+          <EmptyState icon={Users} title="No owners with units yet." />
         ) : (
           <div className="card divide-y divide-border-hairline">
             {rows.map((r) => {

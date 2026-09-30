@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, MapPin, PencilRuler, Users } from "lucide-react";
+import { CalendarDays, MapPin, PencilRuler, Users, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { propertyTypeLabel } from "@/lib/property-types";
@@ -22,7 +22,7 @@ import {
   withdrawPropertyChangeRequest,
 } from "./actions";
 import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { loadSettings } from "@/lib/settings";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 
@@ -114,9 +114,7 @@ export default async function ClientPropertiesPage({
       )}
 
       {!properties || properties.length === 0 ? (
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No properties on your account yet.
-        </div>
+        <EmptyState icon={Building2} title={<>No properties on your account yet.</>} />
       ) : (
         <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
           {properties.map((p) => {

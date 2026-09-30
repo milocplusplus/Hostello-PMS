@@ -1,4 +1,5 @@
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { EmptyState } from "@/components/shared/PageHeader";
+import { ArrowDownRight, ArrowUpRight, ChartNoAxesColumn, Building2 } from "lucide-react";
 import { formatPKR } from "@/lib/payout";
 import type { Breakdown, MonthProfit } from "@/lib/profit";
 
@@ -36,7 +37,7 @@ function Change({ now, before }: { now: number; before: number | null }) {
 
 function BreakdownList({ lines, total, empty }: { lines: Breakdown[]; total: number; empty: string }) {
   if (lines.length === 0) {
-    return <p className="rounded-lg bg-surface-2/60 py-8 text-center text-sm text-ink-secondary">{empty}</p>;
+    return <EmptyState inset icon={ChartNoAxesColumn} title={empty} />;
   }
   return (
     <ul className="flex flex-col gap-4">
@@ -114,7 +115,9 @@ export function ProfitBoard({ profit }: { profit: MonthProfit }) {
           </p>
         </div>
         {!hasUnits ? (
-          <p className="px-5 py-8 text-center text-sm text-ink-secondary">No units on your account yet.</p>
+          <div className="p-3">
+            <EmptyState inset icon={Building2} title="No units on your account yet." />
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[34rem]">

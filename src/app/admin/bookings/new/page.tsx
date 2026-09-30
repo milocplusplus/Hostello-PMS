@@ -1,3 +1,4 @@
+import { Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { createBooking } from "../actions";
@@ -5,7 +6,7 @@ import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
 import { BOOKING_SOURCES } from "@/lib/block-sources";
 import type { DealModel, OtaModel } from "@/lib/payout";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { bookingDefaults, loadSettings } from "@/lib/settings";
 
 export default async function NewBookingPage({
@@ -84,9 +85,7 @@ export default async function NewBookingPage({
       />
 
       {propertyOptions.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-ink-secondary">
-          No active properties yet. Add a client and property first.
-        </div>
+        <EmptyState icon={Building2} title={<>No active properties yet. Add a client and property first.</>} />
       ) : (
         <BookingForm
           action={createBooking}

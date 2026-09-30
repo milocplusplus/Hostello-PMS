@@ -1,6 +1,7 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Lock, ArrowLeft, CalendarSync, Building2, Users, LogIn } from "lucide-react";
+import { Plus, Lock, ArrowLeft, CalendarSync, Building2, Users, LogIn, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
@@ -83,9 +84,7 @@ export default async function CalendarPage({
           <p className="eyebrow">AVAILABILITY</p>
           <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Calendar</h1>
         </div>
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          Add a property first to start managing availability.
-        </div>
+        <EmptyState icon={CalendarDays} title={<>Add a property first to start managing availability.</>} />
       </div>
     );
   }
@@ -577,9 +576,7 @@ export default async function CalendarPage({
       {view !== "agenda" && <ChannelLegend items={legend} />}
 
       {rows.length === 0 ? (
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No properties match these filters.
-        </div>
+        <EmptyState icon={CalendarDays} title={<>No properties match these filters.</>} />
       ) : (
         <>
           {(view === "agenda" || autoAgenda) && (

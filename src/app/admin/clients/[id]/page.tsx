@@ -1,6 +1,7 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt, PowerOff, Power, Eye } from "lucide-react";
+import { Plus, Mail, Phone, Pencil, Trash2, CalendarDays, ReceiptText, KeyRound, ArrowLeft, Receipt, PowerOff, Power, Eye, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import {
@@ -356,9 +357,7 @@ export default async function ClientDetailPage({
         </div>
 
         {(!properties || properties.length === 0) && (
-          <div className="card p-8 text-center text-sm text-ink-secondary">
-            No properties yet for this client.
-          </div>
+          <EmptyState icon={Building2} title={<>No properties yet for this client.</>} />
         )}
 
         {properties && properties.length > 0 && (
@@ -433,9 +432,7 @@ export default async function ClientDetailPage({
         </div>
 
         {(!recentBookings || recentBookings.length === 0) && (
-          <div className="card p-8 text-center text-sm text-ink-secondary">
-            No bookings for this client yet.
-          </div>
+          <EmptyState icon={CalendarDays} title={<>No bookings for this client yet.</>} />
         )}
 
         {recentBookings && recentBookings.length > 0 && (

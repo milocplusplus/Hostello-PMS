@@ -1,6 +1,7 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Plus, Lock } from "lucide-react";
+import { Plus, Lock, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
@@ -64,9 +65,7 @@ export default async function ClientCalendarPage({
           <p className="eyebrow">AVAILABILITY</p>
           <h1 className="text-2xl md:text-3xl font-semibold mt-1.5">Calendar</h1>
         </div>
-        <div className="card p-8 md:p-10 text-center text-sm text-ink-secondary">
-          No active properties yet.
-        </div>
+        <EmptyState icon={CalendarDays} title={<>No active properties yet.</>} />
       </div>
     );
   }

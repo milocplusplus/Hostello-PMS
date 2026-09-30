@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -45,10 +46,7 @@ export function AuditTrail({
 }) {
   if (entries.length === 0) {
     return (
-      <div className="card p-8 flex flex-col items-center gap-2 text-center">
-        <History className="w-5 h-5 text-ink-muted" aria-hidden />
-        <p className="text-sm text-ink-secondary">{empty}</p>
-      </div>
+      <EmptyState icon={History} title={empty} />
     );
   }
 

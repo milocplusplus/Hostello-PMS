@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/shared/PageHeader";
 import { useMemo, useState } from "react";
 import { Building2, CalendarDays, Check, Lock, Plus } from "lucide-react";
 import { MANUAL_BLOCK_TYPES, blockTypeColor, blockTypeLabel } from "@/lib/block-sources";
@@ -69,7 +70,7 @@ export function BlockDatesForm({
   const tint = blockTypeColor(blockType);
 
   if (allUnits.length === 0) {
-    return <div className="card p-8 text-center text-sm text-ink-secondary">No active units yet.</div>;
+    return <EmptyState icon={Building2} title={<>No active units yet.</>} />;
   }
 
   return (

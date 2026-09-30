@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2, PiggyBank } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
 import { ExpenseMonthNav } from "@/components/shared/ExpenseList";
 import { deleteBudget, saveBudget } from "../actions";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 
 export default async function ExpenseBudgetsPage({
   searchParams,
@@ -54,9 +54,7 @@ export default async function ExpenseBudgetsPage({
       <ExpenseMonthNav basePath="/client/expenses/budgets" year={year} month0={month0} />
 
       {budgets.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-ink-secondary">
-          No budgets yet. Utilities and repairs are the usual ones to watch.
-        </div>
+        <EmptyState icon={PiggyBank} title={<>No budgets yet. Utilities and repairs are the usual ones to watch.</>} />
       ) : (
         <ul className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
           {budgets.map((b) => {
