@@ -649,6 +649,53 @@ export async function notifyPropertyChangeReviewed(
   });
 }
 
+/**
+ * An owner added photos to their unit's gallery. One notice per upload, not
+ * per photo, and admin-only: Hostello's own uploads are not announced.
+ */
+export async function notifyPropertyPhotosAdded(
+  supabase: SupabaseClient,
+  args: { clientId: string; propertyId: string; propertyName: string; count: number; batch: string }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "property_photos_added",
+    category: "system",
+    audience: "admin",
+    title: `${args.count} ${args.count === 1 ? "photo" : "photos"} added to ${args.propertyName}`,
+    body: `${who ?? "The owner"} uploaded ${args.count === 1 ? "it" : "them"}.`,
+    clientId: args.clientId,
+    propertyId: args.propertyId,
+    eventKey: `property_photos_added:${args.batch}`,
+  });
+}
+
+/** Ops or an owner removed photos from a gallery. Admin-only, one per removal. */
+export async function notifyPropertyPhotosRemoved(
+  supabase: SupabaseClient,
+  args: {
+    clientId: string;
+    propertyId: string;
+    propertyName: string;
+    count: number;
+    by: string;
+    /** Any one of the removed photos: a photo is only ever removed once. */
+    photoId: string;
+  }
+) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "property_photos_removed",
+    category: "system",
+    audience: "admin",
+    title: `${args.count} ${args.count === 1 ? "photo" : "photos"} removed from ${args.propertyName}`,
+    body: [who, `Removed by ${args.by}`].filter(Boolean).join(" · "),
+    clientId: args.clientId,
+    propertyId: args.propertyId,
+    eventKey: `property_photos_removed:${args.photoId}`,
+  });
+}
+
 export async function notifyClientTermsUpdated(
   supabase: SupabaseClient,
   args: { clientId: string; summary: string; day: string }

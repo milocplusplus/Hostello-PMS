@@ -10,6 +10,7 @@ import {
   HandCoins,
   History,
   Home,
+  Images,
   Inbox,
   Lock,
   LockOpen,
@@ -111,6 +112,10 @@ const KIND_ICON: Record<string, LucideIcon> = {
   property_change_requested: PencilRuler,
   property_change_applied: BadgeCheck,
   property_change_declined: BadgeX,
+  // A unit's gallery changed: an owner added photos, or ops / an owner removed
+  // some. Admin only.
+  property_photos_added: Images,
+  property_photos_removed: Images,
   client_terms_updated: Percent,
   // An owner's recurring bill came due (generate_due_expenses, in SQL). Owner
   // only: it is their own books, and nothing in it is Hostello's to act on.
@@ -176,6 +181,11 @@ export function notificationHref(
   // is the property's calendar, which is where a bare property_id would land.
   if (row.kind?.startsWith("property_change_")) {
     return portal === "admin" ? "/admin/property-requests" : "/client/properties";
+  }
+
+  // A gallery notice opens that unit's gallery, not its calendar.
+  if (row.kind?.startsWith("property_photos_") && portal === "admin" && row.property_id) {
+    return `/admin/photos/${row.property_id}`;
   }
 
   // A staff edit or cancel is about a booking and lands on it (below); a

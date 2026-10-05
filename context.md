@@ -343,13 +343,35 @@ Pre-launch: real data has not been entered yet.
   `CalendarRow` are exported from `CalendarBoard`.
 - `src/components/shared/{Avatar,StatusChip}.tsx` — initials avatar (guests have no
   photo) and the confirmed/tentative/cancelled chip
-- **Property photos** — `src/lib/property-photos.ts` is the only code that touches the
-  public `property-photos` bucket (`<client_id>/<property_id>-<ts>.<ext>`);
-  `properties.photo_path` is set only through `set_property_photo()` (admin, or the
-  unit's owner — owners have no UPDATE on `properties`). `unitArt()` in
-  `src/lib/unit-tint.ts` is the photo-or-colour-tile background every card, banner,
-  calendar row and stay row uses. Upload UI: `PropertyPhotoField`, on the admin
-  property edit page and the owner's Properties page.
+- **Property photos** — a gallery of up to 20 photos a unit, grouped by room
+  (`src/lib/photo-rooms.ts`, browser-safe; the list mirrors the `room` check).
+  Table `property_photos`; each photo is two files in the **private**
+  `property-gallery` bucket, `<client_id>/<property_id>/<uuid>.jpg` (full,
+  ≤4000px ≈ 2 MB) and `…-s.jpg` (screen copy, 1000px), read through 1-hour
+  signed links. **Staff (admin + ops) and the unit's owner** read, add and
+  remove — RLS, the storage policies and the `property_photos_prepare` trigger
+  (sets client / uploader, keeps files in the unit's folder, stops at 20)
+  decide, so both portals run the same code. `src/lib/property-photos.ts` is
+  the only code that touches either photo bucket. **The cover is a starred
+  gallery photo**: `set_property_cover()` (the only writer of
+  `properties.photo_path`) flags it and points the unit at a copy of its
+  screen file in the public `property-photos` bucket
+  (`<client_id>/<property_id>-<ts>.jpg`), so `unitArt()` in
+  `src/lib/unit-tint.ts` — the photo-or-colour-tile background every card,
+  banner, calendar row and stay row uses — still builds a URL and signs
+  nothing. A unit's first photo becomes its cover; deleting the starred one
+  clears it (trigger). The browser makes both files before upload
+  (`src/lib/photo-files.ts`: canvas → JPG, which also drops the camera's GPS
+  data) and sends **one photo per Server Action call** — Vercel caps a request
+  at 4.5 MB. Writes: `src/app/photos/actions.ts`, shared by both portals.
+  UI: `components/shared/PhotoGallery.tsx` (upload by room, viewer, select
+  several, Save = download / iPhone share sheet, Share = share sheet, files
+  named `<unit>-<room>-<n>.jpg`) on `/admin/photos/[propertyId]` (list at
+  `/admin/photos`, both staff roles, no deal terms on it) and
+  `/client/properties/[id]/photos`. Notices (admin only):
+  `property_photos_added` when an owner uploads (one per batch),
+  `property_photos_removed` when ops or an owner removes. Adds and removals
+  are in the audit log.
 - **Notifications** — `src/lib/notify.ts` (the only writer), `notifications.ts`
   (kind → icon, categories), `notification-feed.ts` (the only reader),
   `notification-sounds.ts` (Web Audio tones), `push.ts` (Web Push sender),
@@ -449,8 +471,8 @@ Pre-launch: real data has not been entered yet.
   — the loading boundary for every route in both portals. It is also what makes
   `<Link>` prefetch work on these dynamic routes.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
-- `supabase/migrations/` — the live DB tracks **79** migrations; the repo holds
-  38 of them, and the filenames don't all match the versions Supabase recorded.
+- `supabase/migrations/` — the live DB tracks **81** migrations; the repo holds
+  39 of them, and the filenames don't all match the versions Supabase recorded.
   The gap is the early core work (bookings, booking_properties, calendar_blocks,
   the extra `properties` columns) plus the whole ops-role and masked-view set,
   all applied straight to Supabase. **Read the live schema, not these files** —
@@ -474,6 +496,9 @@ Pre-launch: real data has not been entered yet.
   All three of the new columns are nullable, and null means "not recorded yet";
   the availability finder lists such a unit separately rather than guessing.
   `photo_path` (nullable) names the unit's cover photo — see **Property photos**.
+- `property_photos` — property_id, client_id, room, full_path, thumb_path,
+  is_cover (one per unit), uploaded_by, created_at. No UPDATE grant: a photo is
+  added or removed, and only `set_property_cover()` moves the star.
   **No bedrooms column.**
 - `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
   is_short_stay, short_stay_start, short_stay_end,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, MapPin, PencilRuler, Users, Building2 } from "lucide-react";
+import { CalendarDays, Images, MapPin, PencilRuler, Users, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { propertyTypeLabel } from "@/lib/property-types";
@@ -15,13 +15,8 @@ import {
 import { errorBanner, fieldInput, fieldLabel } from "@/lib/form-styles";
 import { SubmitButton } from "@/components/shared/Busy";
 import { ConfirmDeleteButton } from "@/components/admin/ConfirmDeleteButton";
-import {
-  clearOwnPropertyPhoto,
-  requestPropertyChange,
-  uploadOwnPropertyPhoto,
-  withdrawPropertyChangeRequest,
-} from "./actions";
-import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
+import { requestPropertyChange, withdrawPropertyChangeRequest } from "./actions";
+import { unitArt } from "@/lib/unit-tint";
 import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { loadSettings } from "@/lib/settings";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
@@ -61,7 +56,7 @@ export default async function ClientPropertiesPage({
   // listed too: an owner should see a unit that has been taken off sale.
   // The requests ride along: they depend on nothing the properties query
   // returns, so they cost no extra round trip.
-  const [{ data: properties }, { data: requests }, settings] = await Promise.all([
+  const [{ data: properties }, { data: requests }, { data: photoRows }, settings] = await Promise.all([
     supabase
       .from("properties_v")
       .select(
@@ -75,8 +70,12 @@ export default async function ClientPropertiesPage({
       .eq("client_id", clientRecord.id)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase.from("property_photos").select("property_id").eq("client_id", clientRecord.id),
     loadSettings(),
   ]);
+
+  const photoCount = new Map<string, number>();
+  for (const r of photoRows ?? []) photoCount.set(r.property_id, (photoCount.get(r.property_id) ?? 0) + 1);
 
   // The stack rate is a floor Hostello owes per night, and only under a deal
   // that has one. Showing it elsewhere would read as an asking price.
@@ -121,6 +120,7 @@ export default async function ClientPropertiesPage({
             const place = [p.location, p.city, p.province].filter(Boolean).join(", ");
             const type = propertyTypeLabel(p.type);
             const pending = openRequest.get(p.id);
+            const photos = photoCount.get(p.id) ?? 0;
             const current = {
               maxGuests: p.max_guests == null ? null : Number(p.max_guests),
               nightlyRate: p.nightly_rate == null ? null : Number(p.nightly_rate),
@@ -128,14 +128,16 @@ export default async function ClientPropertiesPage({
 
             return (
               <div key={p.id} className="px-5 py-4 flex flex-col gap-3">
-                <PropertyPhotoField
-                  name={p.name}
-                  photoPath={p.photo_path ?? null}
-                  fields={{ property_id: p.id }}
-                  uploadAction={uploadOwnPropertyPhoto}
-                  removeAction={clearOwnPropertyPhoto}
-                  className="h-36"
-                />
+                <Link
+                  href={`/client/properties/${p.id}/photos`}
+                  className="relative block h-36 overflow-hidden rounded-2xl"
+                  style={{ background: unitArt(p.name, p.photo_path) }}
+                >
+                  <span className="btn btn-primary absolute left-3 bottom-3 h-10 rounded-xl">
+                    <Images size={16} />
+                    {photos === 0 ? "Add photos" : photos === 1 ? "1 photo" : `${photos} photos`}
+                  </span>
+                </Link>
                 <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-ink-primary truncate">{p.name}</p>

@@ -129,6 +129,7 @@ const NOUN: Record<string, string> = {
   clients: "client",
   properties: "unit",
   property_change_requests: "rate request",
+  property_photos: "unit photo",
   profiles: "profile",
   app_settings: "settings",
 };
@@ -278,6 +279,8 @@ const FIELDS: Record<string, [string, Kind]> = {
   nightly_rate: ["Nightly rate", "money"],
   short_stay_rate: ["Short-stay rate", "money"],
   photo_path: ["Photo", "text"],
+  room: ["Room", "enum"],
+  full_path: ["File", "text"],
   start_date: ["From", "date"],
   end_date: ["To", "date"],
   block_type: ["Block type", "enum"],

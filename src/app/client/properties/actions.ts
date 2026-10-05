@@ -3,8 +3,6 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient } from "@/lib/auth";
-import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
 import { notifyPropertyChangeRequested } from "@/lib/notify";
 import { readRequestedChange, summariseChange } from "@/lib/property-requests";
 
@@ -101,31 +99,4 @@ export async function withdrawPropertyChangeRequest(formData: FormData) {
   revalidatePath("/client/properties");
   revalidatePath("/admin/property-requests");
   redirect("/client/properties");
-}
-
-/**
- * The owner setting their own unit's cover photo. The client id comes from the
- * session, never the form; `set_property_photo()` then refuses any unit that is
- * not theirs.
- */
-export async function uploadOwnPropertyPhoto(formData: FormData) {
-  const propertyId = formData.get("property_id") as string;
-  const file = formData.get("photo");
-  if (!(file instanceof File) || file.size === 0) redirect(backTo(propertyId, "Choose a photo."));
-
-  const client = await currentClient();
-  if (!client) redirect(backTo(propertyId, "Only a property owner can add a photo."));
-
-  const supabase = await createClient();
-  const error = await setPropertyPhoto(supabase, { clientId: client.id, propertyId, file });
-  revalidatePath("/", "layout");
-  redirect(backTo(propertyId, error ?? undefined));
-}
-
-export async function clearOwnPropertyPhoto(formData: FormData) {
-  const propertyId = formData.get("property_id") as string;
-  const supabase = await createClient();
-  const error = await removePropertyPhoto(supabase, propertyId);
-  revalidatePath("/", "layout");
-  redirect(backTo(propertyId, error ?? undefined));
 }

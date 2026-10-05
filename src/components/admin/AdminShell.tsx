@@ -14,6 +14,7 @@ import {
   Bell,
   Sun,
   Inbox,
+  Images,
   BedDouble,
   LogIn,
   Plus,
@@ -74,6 +75,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
       items: [
         { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
         { href: "/admin/availability", label: "Availability", icon: BedDouble, exact: false },
+        { href: "/admin/photos", label: "Photos", icon: Images, exact: false },
         // "Soon" until Settings has the inbox address — nothing arrives before that.
         { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: !inboxLive },
         {
@@ -130,6 +132,7 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
   "/admin/checkins": { tint: "linear-gradient(135deg, #059669, #0d9488)" },
   "/admin/notifications": { tint: "linear-gradient(135deg, #a16207, #d97706)" },
   "/admin/availability": { label: "Find dates", icon: Search, tint: "linear-gradient(135deg, #0891b2, #2563eb)" },
+  "/admin/photos": { tint: "linear-gradient(135deg, #be185d, #f59e0b)" },
   "/admin/channel-inbox": { label: "Inbox", tint: "linear-gradient(135deg, #334155, #6366f1)" },
   "/admin/stats": { tint: "linear-gradient(135deg, #7c3aed, #c026d3)" },
   "/admin/clients": { label: "Clients", tint: "linear-gradient(135deg, #1d4ed8, #6366f1)" },

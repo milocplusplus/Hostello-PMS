@@ -1,6 +1,33 @@
-# State — updated 2026-09-28
+# State — updated 2026-10-05
 
 ## Done
+- **Property photo gallery** (2026-10-05). Owner's choices: for guests,
+  channel listings, a record and marketing; admin + ops + owner add and
+  remove (anyone who can upload can delete); 20 a unit; grouped by room
+  (standard set + Dining, View, Pool / Garden, Parking), upload order; save
+  one, save several, share sheet (no zip); a ~2 MB full file plus a screen
+  copy; private storage; cover = a starred gallery photo with one small
+  public copy; on the unit's own page plus a new staff Photos page; notices to
+  admin when an owner adds and when ops / an owner removes; adds and removals
+  audited; files named unit-room-number. Migration `property_gallery`
+  **applied to the live DB** (table, private bucket, policies,
+  `set_property_cover()`, `set_property_photo()` dropped, the public cover
+  bucket's admin policies widened to staff, `audit_row()` + trigger).
+  The separate cover upload (`PropertyPhotoField`) is gone. Deleting a unit
+  now removes its photo files too.
+  **Tested:** 20 cases in one rolled-back run on the live DB before applying
+  (owner own / other's unit, forged client + cover + uploader corrected, wrong
+  folder, 21st photo, star / re-star / delete the cover, storage policies in
+  both buckets, anon, audit lines, function ACLs). On a temporary fixture
+  route (deleted): grid, viewer, select-and-save at desktop and 375px, file
+  names, and a 9.5 MB 6000×4500 image leaving the browser as a 2.6 MB JPG +
+  369 KB screen copy; a non-image is named and skipped. Lint + build.
+  **Not seen signed in** (no test login): a real upload landing in storage,
+  starring, removing, the two notices, and the share sheet on a real phone
+  (desktop Chrome has none, so only the download path ran). One unit ("831")
+  has a cover from before the gallery: its gallery page offers a one-tap
+  "Add it under <room>" to bring it in. Not built: moving a photo to another
+  room (remove and re-add), reordering, videos, zip download.
 - **Whole-app "lively" pass** (2026-09-30). Owner asked for everything to
   feel like the Coming Soon screen; chose foundation-then-batches, all four
   groups, **bold** motion. Shipped in five commits:

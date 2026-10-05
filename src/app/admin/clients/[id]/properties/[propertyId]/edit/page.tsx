@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Images } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { clearPropertyPhoto, updateProperty, uploadPropertyPhoto } from "../../../../actions";
-import { PropertyPhotoField } from "@/components/shared/PropertyPhotoField";
+import { updateProperty } from "../../../../actions";
+import { unitArt } from "@/lib/unit-tint";
 import { PropertyForm } from "@/components/admin/PropertyForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 
@@ -38,13 +40,16 @@ export default async function EditPropertyPage({
         back={{ href: `/admin/clients/${id}`, label: clientRecord.name }}
       />
 
-      <PropertyPhotoField
-        name={property.name}
-        photoPath={property.photo_path ?? null}
-        fields={{ id: property.id, client_id: id }}
-        uploadAction={uploadPropertyPhoto}
-        removeAction={clearPropertyPhoto}
-      />
+      <Link
+        href={`/admin/photos/${property.id}`}
+        className="relative block h-40 overflow-hidden rounded-2xl"
+        style={{ background: unitArt(property.name, property.photo_path) }}
+      >
+        <span className="btn btn-primary absolute left-3 bottom-3 h-10 rounded-xl">
+          <Images size={16} />
+          Photos
+        </span>
+      </Link>
 
       <PropertyForm
         action={updateProperty}

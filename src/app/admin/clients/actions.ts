@@ -17,7 +17,7 @@ import {
   type AdjustMode,
   type RateField,
 } from "@/lib/bulk-rates";
-import { removePropertyPhoto, setPropertyPhoto } from "@/lib/property-photos";
+import { galleryFilePaths, removeUnitPhotoFiles } from "@/lib/property-photos";
 import {
   notifyClientTermsUpdated,
   notifyPropertyAdded,
@@ -424,47 +424,18 @@ export async function updateProperty(formData: FormData) {
   redirect(`/admin/clients/${client_id}`);
 }
 
-// A unit's cover photo. `set_property_photo()` checks the caller and keeps the
-// file in the unit's own client folder, so a forged client id only fails.
-export async function uploadPropertyPhoto(formData: FormData) {
-  const id = formData.get("id") as string;
-  const client_id = formData.get("client_id") as string;
-  const file = formData.get("photo");
-  const back = `/admin/clients/${client_id}/properties/${id}/edit`;
-  if (!(file instanceof File) || file.size === 0) {
-    redirect(`${back}?error=${encodeURIComponent("Choose a photo.")}`);
-  }
-
-  const supabase = await createClient();
-  const error = await setPropertyPhoto(supabase, { clientId: client_id, propertyId: id, file });
-  // The photo shows on cards, calendars and dashboards in both portals.
-  revalidatePath("/", "layout");
-  redirect(error ? `${back}?error=${encodeURIComponent(error)}` : back);
-}
-
-export async function clearPropertyPhoto(formData: FormData) {
-  const id = formData.get("id") as string;
-  const client_id = formData.get("client_id") as string;
-  const back = `/admin/clients/${client_id}/properties/${id}/edit`;
-
-  const supabase = await createClient();
-  const error = await removePropertyPhoto(supabase, id);
-  revalidatePath("/", "layout");
-  redirect(error ? `${back}?error=${encodeURIComponent(error)}` : back);
-}
-
 export async function deletePropertyRecord(formData: FormData) {
   const id = formData.get("id") as string;
   const client_id = formData.get("client_id") as string;
 
   const supabase = await createClient();
 
-  // The name has to be read before the row goes.
-  const { data: property } = await supabase
-    .from("properties")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
+  // The name has to be read before the row goes — and so do its photos' paths:
+  // the rows cascade away with the unit, the files do not.
+  const [{ data: property }, gallery] = await Promise.all([
+    supabase.from("properties").select("name, photo_path").eq("id", id).maybeSingle(),
+    galleryFilePaths(supabase, id),
+  ]);
 
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
@@ -477,6 +448,8 @@ export async function deletePropertyRecord(formData: FormData) {
       : error.message;
     redirect(`/admin/clients/${client_id}?error=${encodeURIComponent(message)}`);
   }
+
+  await removeUnitPhotoFiles(supabase, { gallery, cover: property?.photo_path ?? null });
 
   if (property) {
     await notifyPropertyRemoved(supabase, {
