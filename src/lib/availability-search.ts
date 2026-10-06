@@ -52,11 +52,16 @@ export type AvailabilityMatch = {
   rate: number | null;
   /** What the whole stay comes to, when the rate is known. */
   total: number | null;
+  photoPath: string | null;
+  /** The day the next stay or block starts — the latest a guest could leave. Null: nothing ahead. */
+  freeUntil: string | null;
   missing: MissingDetail[];
 };
 
 export type AvailabilityResult = {
   nights: number;
+  /** Bookable units the search looked at, after the city / type filters. */
+  units: number;
   /** Free, and answers every requirement that was set. */
   matches: AvailabilityMatch[];
   /** Free, but missing the figure a requirement asked about. */
@@ -78,6 +83,7 @@ type PropertyRow = {
   max_guests: number | null;
   nightly_rate: number | null;
   short_stay_rate: number | null;
+  photo_path: string | null;
   clients: unknown;
 };
 
@@ -107,6 +113,7 @@ export async function findAvailable(
   const { first, last, nights } = stayNights(criteria.stay);
   const empty: AvailabilityResult = {
     nights,
+    units: 0,
     matches: [],
     needsDetails: [],
     ruledOut: 0,
@@ -119,7 +126,7 @@ export async function findAvailable(
   let query = supabase
     .from("properties_v")
     .select(
-      "id, name, client_id, location, city, province, type, max_guests, nightly_rate, short_stay_rate, clients:clients_v(name)"
+      "id, name, client_id, location, city, province, type, max_guests, nightly_rate, short_stay_rate, photo_path, clients:clients_v(name)"
     )
     .eq("bookable", true);
 
@@ -143,6 +150,14 @@ export async function findAvailable(
   const taken = new Set(
     occupied.filter((r) => r.start <= last && r.end >= first).map((r) => r.propertyId)
   );
+
+  // The first thing after the stay on each unit: how long it could be extended.
+  const nextStart = new Map<string, string>();
+  for (const r of occupied) {
+    if (r.start <= last) continue;
+    const known = nextStart.get(r.propertyId);
+    if (!known || r.start < known) nextStart.set(r.propertyId, r.start);
+  }
 
   const matches: AvailabilityMatch[] = [];
   const needsDetails: AvailabilityMatch[] = [];
@@ -192,6 +207,8 @@ export async function findAvailable(
       maxGuests: p.max_guests,
       rate,
       total,
+      photoPath: p.photo_path,
+      freeUntil: nextStart.get(p.id) ?? null,
       missing,
     };
 
@@ -202,7 +219,30 @@ export async function findAvailable(
   matches.sort(byPriceThenName);
   needsDetails.sort(byPriceThenName);
 
-  return { nights, matches, needsDetails, ruledOut, freeOnDates };
+  return { nights, units: properties.length, matches, needsDetails, ruledOut, freeOnDates };
+}
+
+/** What the finder may offer: only the cities and types a bookable unit is actually in. */
+export type FinderOptions = {
+  cities: string[];
+  types: string[];
+};
+
+/** Same scope as `findAvailable` — bookable units, and one client's when `clientId` is passed. */
+export async function listFinderOptions(
+  supabase: SupabaseClient,
+  clientId?: string
+): Promise<FinderOptions> {
+  let query = supabase.from("properties_v").select("city, type").eq("bookable", true);
+  if (clientId) query = query.eq("client_id", clientId);
+
+  const { data } = await query;
+  const rows = (data ?? []) as { city: string | null; type: string }[];
+
+  return {
+    cities: [...new Set(rows.map((r) => r.city).filter((c): c is string => !!c))].sort(),
+    types: [...new Set(rows.map((r) => r.type))],
+  };
 }
 
 /** What the finder reads out of the URL. Both portals parse through here. */

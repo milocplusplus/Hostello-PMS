@@ -8,7 +8,15 @@ import { Check, Copy } from "lucide-react";
  * clipboard is unavailable (an insecure origin, a locked-down browser) the
  * button falls back to selecting nothing and the user can still copy by hand.
  */
-export function CopyLinkButton({ value, className }: { value: string; className: string }) {
+export function CopyLinkButton({
+  value,
+  className,
+  label = "Copy",
+}: {
+  value: string;
+  className: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -26,7 +34,7 @@ export function CopyLinkButton({ value, className }: { value: string; className:
       }}
     >
       {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
-      {copied ? "Copied" : "Copy"}
+      {copied ? "Copied" : label}
     </button>
   );
 }

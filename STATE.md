@@ -1,6 +1,19 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Find dates rebuilt** (2026-10-06). Owner said the availability page was
+  of no use and the city menu listed cities with no units. Owner's choices:
+  opens on what is free tonight; each unit shows cover photo, free until,
+  price + sleeps, owner's name; grouped by client; copy a list for the guest;
+  nav item renamed "Find dates". City chips and the type menu now come from
+  the bookable units (live: Islamabad, Murree, Rawalpindi); the province menu
+  is gone (old `?province=` links still filter). No migration.
+  Checked on a temporary fixture route (deleted), desktop + 375px: picks,
+  city chip, Filters apply + badge, Pick dates, no sideways scroll, copied
+  text. Lint + build. **Not seen signed in** (no test login), so the real
+  query and real covers were not seen. Live data: only 4 of 30 units have a
+  nightly rate, so a budget filter puts the other 26 under "nobody has
+  recorded the figure".
 - **Photos page views** (2026-10-06). Owner's choices: "room type" = unit
   type (Studio, 1 BHK…), default stays the flat grid, groups show the same
   unit cards. `/admin/photos` has a three-way switch: All units / By room

@@ -53,10 +53,19 @@ Pre-launch: real data has not been entered yet.
   them; the function only fetches and parses.
 - `src/app/{admin,client}/availability/page.tsx` + `src/lib/availability-search.ts`
   + `src/components/shared/{AvailabilityFinder,AvailabilityResults}.tsx` — the
-  **availability finder**: answers an enquiry (dates, guests, budget, location,
-  type) instead of a date. `findAvailable()` builds on `listUnavailable()` on
+  **availability finder** ("Find dates" in both navs): opens on what is free
+  tonight, no form first. Date picks (Tonight / Tomorrow / Weekend = Fri→Sun /
+  Pick dates) and city chips are links; guests, unit type, budget and short
+  stay sit behind Filters. `listFinderOptions()` gives the chips and the type
+  menu **only the cities and types a bookable unit is in** — never the full
+  `pakistan-locations` list. `findAvailable()` builds on `listUnavailable()` on
   purpose, so what it offers is exactly what `findStayClash()` will accept on
-  save. Criteria live in the URL, so a result set is a shareable link.
+  save; the same ranges give each unit its `freeUntil` (the next stay's or
+  block's first day). Results are cards (cover via `unitArt`, sleeps, rate,
+  total, free until, Book), grouped by client for staff and one list for an
+  owner. "Copy list for guest" is plain text by city, with no owner names.
+  Criteria live in the URL, so a result set is a shareable link; the pages key
+  `AvailabilityFinder` on the criteria so it restarts from the URL each time.
   Both staff roles get the admin one; nothing on it is a split figure. An owner
   gets their own units — `properties_v`'s WHERE clause scopes that, not a filter.
 - `src/app/admin/clients/**` — client CRUD, and nested property CRUD under

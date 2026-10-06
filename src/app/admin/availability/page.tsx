@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { todayISO } from "@/lib/calendar";
-import { findAvailable, readCriteria, type FinderParams } from "@/lib/availability-search";
+import {
+  findAvailable,
+  listFinderOptions,
+  readCriteria,
+  type FinderParams,
+} from "@/lib/availability-search";
 import { AvailabilityFinder } from "@/components/shared/AvailabilityFinder";
 import { AvailabilityResults } from "@/components/shared/AvailabilityResults";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -24,7 +29,10 @@ export default async function AdminAvailabilityPage({
 
   const owner = canSeeSplit((await currentProfile())?.role);
   const criteria = readCriteria(await searchParams);
-  const result = await findAvailable(supabase, criteria);
+  const [result, options] = await Promise.all([
+    findAvailable(supabase, criteria),
+    listFinderOptions(supabase),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -38,7 +46,12 @@ export default async function AdminAvailabilityPage({
         }
       />
 
-      <AvailabilityFinder criteria={criteria} today={todayISO()} />
+      <AvailabilityFinder
+        key={JSON.stringify(criteria)}
+        criteria={criteria}
+        today={todayISO()}
+        options={options}
+      />
 
       <AvailabilityResults
         result={result}

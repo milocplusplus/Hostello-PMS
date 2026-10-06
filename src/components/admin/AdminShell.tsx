@@ -74,7 +74,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
       label: "Operations",
       items: [
         { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
-        { href: "/admin/availability", label: "Availability", icon: BedDouble, exact: false },
+        { href: "/admin/availability", label: "Find dates", icon: BedDouble, exact: false },
         { href: "/admin/photos", label: "Photos", icon: Images, exact: false },
         // "Soon" until Settings has the inbox address — nothing arrives before that.
         { href: "/admin/channel-inbox", label: "Channel inbox", icon: Inbox, exact: false, soon: !inboxLive },

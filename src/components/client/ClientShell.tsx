@@ -37,7 +37,7 @@ const NAV = [
   { href: "/client/checkins", label: "Check-ins", icon: LogIn, exact: false },
   { href: "/client/calendar", label: "Calendar", icon: CalendarDays, exact: false },
   { href: "/client/properties", label: "Properties", icon: Building2, exact: false },
-  { href: "/client/availability", label: "Availability", icon: BedDouble, exact: false },
+  { href: "/client/availability", label: "Find dates", icon: BedDouble, exact: false },
   { href: "/client/bookings", label: "Bookings", icon: Wallet, exact: false },
   { href: "/client/settlements", label: "Settlements", icon: HandCoins, exact: false },
   { href: "/client/expenses", label: "Expenses", icon: Receipt, exact: false },
