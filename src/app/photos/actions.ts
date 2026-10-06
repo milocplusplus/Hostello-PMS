@@ -5,7 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { currentProfile, isStaffRole } from "@/lib/auth";
 import { isPhotoRoom } from "@/lib/photo-rooms";
-import { addPropertyPhoto, removePropertyPhotos, setPropertyCover } from "@/lib/property-photos";
+import {
+  addPropertyPhoto,
+  movePropertyPhotos as moveToRoom,
+  removePropertyPhotos,
+  setPropertyCover,
+} from "@/lib/property-photos";
 import { notifyPropertyPhotosAdded, notifyPropertyPhotosRemoved } from "@/lib/notify";
 
 /**
@@ -106,6 +111,15 @@ export async function deletePropertyPhotos(propertyId: string, ids: string[]): P
   }
   revalidatePath("/", "layout");
   return { error: null };
+}
+
+/** Staff re-filing photos under another room. The UPDATE policy is what refuses an owner. */
+export async function movePropertyPhotos(propertyId: string, ids: string[], room: string): Promise<Result> {
+  if (!isPhotoRoom(room)) return { error: "Pick a room to move the photos to." };
+  const supabase = await createClient();
+  const error = await moveToRoom(supabase, { propertyId, ids, room });
+  revalidatePath("/admin/photos", "layout");
+  return { error };
 }
 
 export async function starPropertyPhoto(propertyId: string, photoId: string): Promise<Result> {

@@ -151,6 +151,22 @@ export async function setPropertyCover(
   return null;
 }
 
+/** Files photos under another room. Staff only — owners have no UPDATE policy, so theirs moves nothing. */
+export async function movePropertyPhotos(
+  supabase: SupabaseClient,
+  args: { propertyId: string; ids: string[]; room: PhotoRoom }
+): Promise<string | null> {
+  if (args.ids.length === 0) return null;
+  const { data, error } = await supabase
+    .from("property_photos")
+    .update({ room: args.room })
+    .in("id", args.ids)
+    .eq("property_id", args.propertyId)
+    .select("id");
+  if (error) return error.message;
+  return (data ?? []).length === 0 ? "Those photos could not be moved." : null;
+}
+
 /**
  * Removes photos from one unit's gallery, rows first and then their files.
  * Removing the starred one leaves the unit without a cover (a trigger clears

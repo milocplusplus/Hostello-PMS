@@ -386,7 +386,10 @@ Pre-launch: real data has not been entered yet.
   `/client/properties/[id]/photos`. Notices (admin only):
   `property_photos_added` when an owner uploads (one per batch),
   `property_photos_removed` when ops or an owner removes. Adds and removals
-  are in the audit log.
+  are in the audit log. **Staff only** may move photos to another room
+  (Select → Move, `canMove` on `PhotoGallery`, `movePropertyPhotos`): the
+  UPDATE grant is on `room` alone and the policy is `is_staff()`; a move is
+  neither audited nor announced.
 - **Notifications** — `src/lib/notify.ts` (the only writer), `notifications.ts`
   (kind → icon, categories), `notification-feed.ts` (the only reader),
   `notification-sounds.ts` (Web Audio tones), `push.ts` (Web Push sender),
@@ -486,8 +489,8 @@ Pre-launch: real data has not been entered yet.
   — the loading boundary for every route in both portals. It is also what makes
   `<Link>` prefetch work on these dynamic routes.
 - `src/lib/supabase/{server,client}.ts` — the two Supabase client factories
-- `supabase/migrations/` — the live DB tracks **81** migrations; the repo holds
-  39 of them, and the filenames don't all match the versions Supabase recorded.
+- `supabase/migrations/` — the live DB tracks **82** migrations; the repo holds
+  40 of them, and the filenames don't all match the versions Supabase recorded.
   The gap is the early core work (bookings, booking_properties, calendar_blocks,
   the extra `properties` columns) plus the whole ops-role and masked-view set,
   all applied straight to Supabase. **Read the live schema, not these files** —
@@ -512,8 +515,8 @@ Pre-launch: real data has not been entered yet.
   the availability finder lists such a unit separately rather than guessing.
   `photo_path` (nullable) names the unit's cover photo — see **Property photos**.
 - `property_photos` — property_id, client_id, room, full_path, thumb_path,
-  is_cover (one per unit), uploaded_by, created_at. No UPDATE grant: a photo is
-  added or removed, and only `set_property_cover()` moves the star.
+  is_cover (one per unit), uploaded_by, created_at. UPDATE is granted on `room` only, to staff; only
+  `set_property_cover()` moves the star.
   **No bedrooms column.**
 - `bookings` — client_id, guest_name, guest_phone, guests_count, check_in, check_out,
   is_short_stay, short_stay_start, short_stay_end,

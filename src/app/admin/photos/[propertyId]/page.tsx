@@ -32,6 +32,7 @@ export default async function UnitPhotosPage({
         unitName={property.name}
         photos={photos}
         canEdit
+        canMove
         legacyCoverUrl={photos.some((p) => p.isCover) ? null : propertyPhotoUrl(property.photo_path)}
       />
     </div>

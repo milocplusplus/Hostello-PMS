@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FolderInput,
   Images,
   Share2,
   Star,
@@ -26,6 +27,7 @@ import {
 import {
   deletePropertyPhotos,
   finishPhotoUpload,
+  movePropertyPhotos,
   starPropertyPhoto,
   uploadPropertyPhoto,
 } from "@/app/photos/actions";
@@ -52,12 +54,15 @@ export function PhotoGallery({
   unitName,
   photos,
   canEdit,
+  canMove = false,
   legacyCoverUrl,
 }: {
   propertyId: string;
   unitName: string;
   photos: GalleryPhoto[];
   canEdit: boolean;
+  /** Staff only: file the ticked photos under another room. */
+  canMove?: boolean;
   /** A cover uploaded before the gallery existed, which is in no gallery yet. */
   legacyCoverUrl?: string | null;
 }) {
@@ -69,6 +74,8 @@ export function PhotoGallery({
   const [open, setOpen] = useState<string | null>(null);
   // Files fetched for sharing whose tap went stale while they downloaded.
   const [ready, setReady] = useState<File[] | null>(null);
+  // The "move to which room?" sheet for the ticked photos.
+  const [moving, setMoving] = useState(false);
   const shareable = useSyncExternalStore(noop, canSharePhotos, () => false);
 
   const groups = useMemo(
@@ -203,6 +210,17 @@ export function PhotoGallery({
     setErrors(result.error ? [result.error] : []);
     setPicked(null);
     setOpen(null);
+  }
+
+  async function move(ids: string[], to: PhotoRoom) {
+    setMoving(false);
+    setBusy(ids.length === 1 ? "Moving the photo…" : `Moving ${ids.length} photos…`);
+    const result = await movePropertyPhotos(propertyId, ids, to).catch(() => ({
+      error: "Could not move. Try again.",
+    }));
+    setBusy(null);
+    setErrors(result.error ? [result.error] : []);
+    setPicked(null);
   }
 
   async function star(id: string) {
@@ -364,6 +382,11 @@ export function PhotoGallery({
                 <Share2 size={15} /> Share
               </button>
             )}
+            {canMove && (
+              <button type="button" className="btn btn-ghost btn-sm h-10" onClick={() => setMoving(true)}>
+                <FolderInput size={15} /> Move
+              </button>
+            )}
             {canEdit && (
               <button
                 type="button"
@@ -374,6 +397,38 @@ export function PhotoGallery({
                 <Trash2 size={15} />
               </button>
             )}
+          </div>
+        </Portal>
+      )}
+
+      {moving && picked && (
+        <Portal>
+          <div
+            className="fixed inset-0 z-[58] flex items-end md:items-center justify-center bg-black/75 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+            role="dialog"
+            aria-modal
+            aria-label="Move to a room"
+          >
+            <div className="card w-full max-w-sm p-5 flex flex-col gap-3">
+              <p className="text-sm font-semibold text-ink-primary">
+                Move {picked.size === 1 ? "this photo" : `${picked.size} photos`} to
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {PHOTO_ROOMS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    className="btn btn-ghost h-11 justify-start"
+                    onClick={() => move(pickedIds, r.value)}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="btn btn-ghost h-11" onClick={() => setMoving(false)}>
+                Cancel
+              </button>
+            </div>
           </div>
         </Portal>
       )}

@@ -1,6 +1,14 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Move photos to another room** (2026-10-06). Owner's choices: several at
+  once (Select → tick → Move → pick the room; one photo is a selection of
+  one), admin + ops only, no audit line and no notice. Migration
+  `property_photos_move` **applied to the live DB** (UPDATE on `room` only,
+  policy `is_staff()`). Tested rolled back on the live DB: owner's move
+  changes 0 rows, admin's works, unknown room / `is_cover` / a path refused,
+  no audit line. Sheet seen at 375px on a temporary fixture route (deleted).
+  Lint + build. **Not seen signed in.**
 - **Asking prices in bulk** (2026-10-06). Owner's choices: a new all-units
   Rates page; admin only; one notice per owner; narrowed by client. New
   `/admin/rates` (nav "Rates", `requireOwner` layout): nightly price and
