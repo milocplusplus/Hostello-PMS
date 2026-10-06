@@ -149,7 +149,7 @@ export async function removePaymentAccount(f: FormData) {
 
 export async function saveGuestTemplate(f: FormData) {
   const id = str(f, "id");
-  if (id !== "arrival" && id !== "balance" && id !== "checkout") fail("messages", "Unknown message.");
+  if (id !== "arrival" && id !== "balance" && id !== "checkout" && id !== "review") fail("messages", "Unknown message.");
 
   const supabase = await createClient();
   const templates = { ...(await readSettings(supabase)).guestTemplates };

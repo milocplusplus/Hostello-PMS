@@ -41,7 +41,7 @@ export type AppSettings = {
   businessEmail: string | null;
   businessAddress: string | null;
   paymentAccounts: PaymentAccount[];
-  guestTemplates: Partial<Record<"arrival" | "balance" | "checkout", string>>;
+  guestTemplates: Partial<Record<"arrival" | "balance" | "checkout" | "review", string>>;
   /** Which owner notices go out by default. Admin-only in the view; all on otherwise. */
   ownerNotices: Record<OwnerNoticeGroup, boolean>;
   /** Where channel emails are forwarded. Null until the intake is live. */

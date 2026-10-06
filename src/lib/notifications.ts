@@ -23,6 +23,7 @@ import {
   ReceiptText,
   ShieldAlert,
   Sparkles,
+  Star,
   Sun,
   Tags,
   Target,
@@ -143,6 +144,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   listing_coach_due: Laptop,
   listing_coach_price: Tags,
   listing_coach_rank: TrendingDown,
+  // An Airbnb guest leaves today (raise_review_requests, in SQL). Staff-wide.
+  review_request_due: Star,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -197,6 +200,9 @@ export function notificationHref(
   if (row.kind?.startsWith("listing_coach_")) {
     return row.property_id ? `/admin/listing-coach/${row.property_id}` : "/admin/listing-coach";
   }
+
+  // The message to send is on Today's review list, not on the unit's calendar.
+  if (row.kind === "review_request_due") return "/admin/today#reviews";
 
   // A gallery notice opens that unit's gallery, not its calendar.
   if (row.kind?.startsWith("property_photos_") && portal === "admin" && row.property_id) {

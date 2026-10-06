@@ -1,6 +1,25 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Listing Coach, part 2: review requests** (2026-10-06). Owner's choices:
+  Airbnb stays only; from bookings typed in *and* from the Airbnb calendar
+  link; listed the morning of checkout day; a list on Today plus a phone
+  alert per stay; Copy for the Airbnb chat, WhatsApp when a number is saved;
+  wording editable in Settings, short and warm; ticks Asked → Review came
+  in, plus "We reviewed guest"; admin and ops; unasked stays listed 7 days;
+  counts on the Listing Coach pages. Migration `review_requests` **applied
+  to the live DB** (table, `raise_review_requests()`, cron
+  `hostello-review-requests` hourly). **Tested** rolled back on the live DB:
+  an Airbnb booking and its calendar hold make one request, a direct booking
+  and a "not available" block make none, a stay leaving tomorrow gets its row
+  early, one alert for today's departure and none on a re-run, a booking
+  typed in later takes over its hold's row; function ACL. The API join to
+  `bookings_v` / `properties_v` checked against PostgREST. List seen at
+  desktop and 375px on a temporary fixture route (deleted), message text
+  read off the WhatsApp link. Lint + build. **Not seen signed in; no tick
+  was pressed; no real request exists** — Hostello holds no Airbnb booking
+  and no Airbnb calendar link yet, so the list stays empty until one of
+  those is entered.
 - **Listing Coach listing page, in tabs** (2026-10-06). Owner: the page was
   nice but too much text to take in. Owner's choices: only the one-listing
   page; tabs; first view = a "do this next" card, then the numbers, then a

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { reviewRequestCounts } from "@/lib/review-requests";
 import {
   COACH_TABS,
   CoachListing,
@@ -20,7 +21,7 @@ export default async function CoachListingPage({
   const { tab, error, notice } = await searchParams;
 
   const supabase = await createClient();
-  const [{ data: listing }, { data: reports }, { data: fixes }, { data: competitors }] = await Promise.all([
+  const [{ data: listing }, { data: reports }, { data: fixes }, { data: competitors }, asked] = await Promise.all([
     supabase
       .from("coach_listings")
       .select("property_id, airbnb_url, properties:properties_v(name, clients:clients_v(name))")
@@ -42,6 +43,7 @@ export default async function CoachListingPage({
       .select("id, airbnb_url, title, source")
       .eq("property_id", propertyId)
       .order("created_at"),
+    reviewRequestCounts(supabase, propertyId),
   ]);
   if (!listing) notFound();
 
@@ -56,6 +58,7 @@ export default async function CoachListingPage({
       reports={(reports ?? []) as unknown as CoachReport[]}
       fixes={(fixes ?? []) as CoachFix[]}
       competitors={(competitors ?? []) as CoachCompetitorRow[]}
+      reviewsAsked={asked.get(propertyId)}
       tab={COACH_TABS.find((t) => t === tab) ?? ("overview" satisfies CoachTab)}
       error={error}
       notice={notice}

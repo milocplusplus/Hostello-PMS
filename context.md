@@ -270,6 +270,24 @@ Pre-launch: real data has not been entered yet.
   `confirmed_on` or `reopened_on`). The 25% overpriced line is in
   `coach_save_report()` and `pricedHigh()` in `src/lib/listing-coach.ts` —
   change both. Nothing is written back to Airbnb.
+- **Review requests** (staff, "Ask for a review" on `/admin/today`) — Airbnb
+  stays only. `review_requests` holds one row per stay (unique per unit per
+  departure day), written only by `raise_review_requests()` on cron
+  `hostello-review-requests` (hourly at :25): Airbnb bookings (`source =
+  'airbnb'`, confirmed) and Airbnb calendar holds with no booking
+  (`calendar_blocks` via an `airbnb` feed, `booked`), leaving from a week ago
+  to tomorrow — tomorrow because Airbnb's calendar can drop a stay the day it
+  ends. A booking typed in later takes over its hold's row. From 07:00
+  Karachi on the departure day it raises one `review_request_due` (audience
+  `staff`) per unasked stay. `src/lib/review-requests.ts` reads: to ask (7
+  days), asked and waiting (14 days, Airbnb's window). Three ticks via
+  `tickReviewRequest` (`admin/today/actions.ts`): asked, we reviewed the
+  guest, review came in. The message is the fourth guest template (`review`
+  in `guest-messages.ts`, editable in Settings; `messagesFor` keeps it off
+  the booking pages); it is copied for the Airbnb chat, or opened in WhatsApp
+  when the booking has a number. **It must offer nothing in return and not
+  ask for stars** (Airbnb's review rules). Asked / came-in counts show on the
+  Listing Coach pages.
 - **Excel export** (admin, on `/admin/stats`) — `ExportPanel` (quick picks,
   from/to, client) calls the `exportData` Server Action
   (`app/admin/stats/actions.ts`), which reads bookings (by check-in),

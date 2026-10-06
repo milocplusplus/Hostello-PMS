@@ -11,6 +11,9 @@ import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
 import { markStayProgress } from "@/app/admin/bookings/actions";
 import { Avatar } from "@/components/shared/Avatar";
 import { EmptyState, PageHeader } from "@/components/shared/PageHeader";
+import { ReviewRequests } from "@/components/admin/ReviewRequests";
+import { loadReviewRequests } from "@/lib/review-requests";
+import { houseStyle, loadSettings } from "@/lib/settings";
 
 type Row = {
   id: string;
@@ -74,7 +77,7 @@ export default async function AdminTodayPage() {
   const fields =
     "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, advance_received, checked_in_at, checked_out_at, is_short_stay, short_stay_start, short_stay_end, expected_arrival, clients:clients_v(name), booking_properties(properties:properties_v(name))";
 
-  const [{ data: stays }, { data: pending }, { data: blocks }] = await Promise.all([
+  const [{ data: stays }, { data: pending }, { data: blocks }, reviews, settings] = await Promise.all([
     // check_out is exclusive, so a stay covering tonight has check_out > today —
     // but today's departures (check_out = today) belong on this sheet too.
     supabase
@@ -94,6 +97,8 @@ export default async function AdminTodayPage() {
       .select("id, start_date, end_date, block_type, notes, properties:properties_v(name, clients:clients_v(name))")
       .lte("start_date", today)
       .gte("end_date", today),
+    loadReviewRequests(supabase, today),
+    loadSettings(),
   ]);
 
   const rows = (stays ?? []) as unknown as Row[];
@@ -169,6 +174,8 @@ export default async function AdminTodayPage() {
         staying={staying}
         progressAction={markStayProgress}
       />
+
+      <ReviewRequests toAsk={reviews.toAsk} waiting={reviews.waiting} today={today} house={houseStyle(settings)} />
 
       <section className="card overflow-hidden flex flex-col">
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border-hairline">

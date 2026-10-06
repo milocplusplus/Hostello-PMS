@@ -3,6 +3,7 @@ import { ChevronRight, CircleCheck, ExternalLink, Sparkles, X } from "lucide-rea
 import { formatDayMonth } from "@/lib/calendar";
 import { formatPKR } from "@/lib/payout";
 import { FIX_AREAS, againstMiddle, pricedHigh, type CoachCompetitor } from "@/lib/listing-coach";
+import type { ReviewCounts } from "@/lib/review-requests";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner } from "@/lib/form-styles";
 import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { SubmitButton } from "@/components/shared/Busy";
@@ -71,6 +72,7 @@ export function CoachListing({
   reports,
   fixes,
   competitors,
+  reviewsAsked,
   tab,
   error,
   notice,
@@ -82,6 +84,8 @@ export function CoachListing({
   reports: CoachReport[];
   fixes: CoachFix[];
   competitors: CoachCompetitorRow[];
+  /** Review requests for this unit, from the Today page's ticks; absent until one is asked. */
+  reviewsAsked?: ReviewCounts;
   tab: CoachTab;
   error?: string;
   notice?: string;
@@ -201,6 +205,7 @@ export function CoachListing({
                   </p>
                   <p className="text-[11px] text-ink-secondary">
                     {latest.review_count === 1 ? "1 review" : `${latest.review_count ?? 0} reviews`}
+                    {reviewsAsked ? ` · ${reviewsAsked.asked} asked, ${reviewsAsked.received} came in` : ""}
                   </p>
                 </div>
                 <div className="tile px-4 py-3">

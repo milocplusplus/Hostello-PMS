@@ -345,7 +345,7 @@ export default async function SettingsPage({
         </form>
       </Section>
 
-      <Section id="messages" title="Guest messages" about="The WhatsApp texts on each booking. Staff can still edit a message before sending it.">
+      <Section id="messages" title="Guest messages" about="The WhatsApp texts on each booking, and the review request on Today. Staff can still edit a booking's message before sending it.">
         <div className="rounded-xl bg-surface-2 p-3">
           <p className="text-[11px] font-bold text-ink-secondary mb-1.5">Fill-ins</p>
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-ink-muted">

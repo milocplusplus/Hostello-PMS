@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { unitArt } from "@/lib/unit-tint";
 import { formatDayMonth } from "@/lib/calendar";
 import { againstMiddle, coachMoney, positionLabel } from "@/lib/listing-coach";
+import { reviewRequestCounts } from "@/lib/review-requests";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner } from "@/lib/form-styles";
 import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { SubmitButton } from "@/components/shared/Busy";
@@ -45,7 +46,7 @@ export default async function ListingCoachPage({
   const { error, notice } = await searchParams;
 
   const supabase = await createClient();
-  const [{ data: listingRows }, { data: reportRows }, { data: fixRows }, { data: unitRows }] = await Promise.all([
+  const [{ data: listingRows }, { data: reportRows }, { data: fixRows }, { data: unitRows }, asked] = await Promise.all([
     supabase
       .from("coach_listings")
       .select("property_id, watching, properties:properties_v(name, city, photo_path, clients:clients_v(name))"),
@@ -58,6 +59,7 @@ export default async function ListingCoachPage({
       .limit(200),
     supabase.from("coach_fixes").select("property_id").is("confirmed_on", null).is("done_at", null),
     supabase.from("properties_v").select("id, name, clients:clients_v(name)").eq("status", "active").order("name"),
+    reviewRequestCounts(supabase),
   ]);
 
   const listings = ((listingRows ?? []) as unknown as Listing[]).sort((a, b) =>
@@ -166,6 +168,12 @@ export default async function ListingCoachPage({
                     <span className={`text-xs flex items-center gap-1.5 ${fixes > 0 ? "text-hostello-gold" : "text-ink-muted"}`}>
                       <Wrench size={12} aria-hidden />
                       {fixes === 0 ? "No open fixes" : fixes === 1 ? "1 fix to make" : `${fixes} fixes to make`}
+                      {asked.get(l.property_id) && (
+                        <span className="text-ink-muted">
+                          {" "}
+                          · {asked.get(l.property_id)!.asked} asked for a review, {asked.get(l.property_id)!.received} came in
+                        </span>
+                      )}
                     </span>
                   </span>
                 </Link>

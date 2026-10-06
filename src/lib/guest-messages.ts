@@ -70,7 +70,7 @@ export type HouseStyle = {
   businessPhone: string | null;
 };
 
-export type GuestMessageId = "arrival" | "balance" | "checkout";
+export type GuestMessageId = "arrival" | "balance" | "checkout" | "review";
 
 export type GuestMessage = {
   id: GuestMessageId;
@@ -157,6 +157,15 @@ export const DEFAULT_TEMPLATES: Record<GuestMessageId, string> = {
     "",
     "If you need a later checkout, ask and I'll see what's possible.",
   ].join("\n"),
+  // Airbnb's review rules: nothing offered in return, and no asking for stars.
+  review: [
+    "Hello {guest}, thank you for staying at {unit}.",
+    "",
+    "We hope you had a comfortable stay. If you have a minute, a review on Airbnb would mean a lot to us, and it helps other guests find the place.",
+    "",
+    "You are welcome back any time.",
+    "{business}",
+  ].join("\n"),
 };
 
 /** A saved template when there is one, otherwise the built-in wording. */
@@ -223,13 +232,42 @@ export const GUEST_MESSAGES: GuestMessage[] = [
       ].join("\n");
     }),
   },
+  {
+    id: "review",
+    label: "Review request",
+    hint: "After an Airbnb guest leaves: thanks, and would they review the stay",
+    body: saved("review", (c) => fillTemplate(DEFAULT_TEMPLATES.review, c)),
+  },
 ];
 
 /**
- * The messages worth offering for this stay. A balance reminder for a stay
- * with nothing outstanding is a message nobody would send, so it is not there
- * to be picked by mistake.
+ * The messages worth offering on a booking's page. A balance reminder for a
+ * stay with nothing outstanding is a message nobody would send, so it is not
+ * there to be picked by mistake; the review request is offered from the Today
+ * page's list instead, for Airbnb stays, once the guest is leaving.
  */
 export function messagesFor(ctx: GuestMessageContext): GuestMessage[] {
-  return GUEST_MESSAGES.filter((m) => m.id !== "balance" || ctx.balanceDue > 0);
+  return GUEST_MESSAGES.filter((m) => m.id !== "review" && (m.id !== "balance" || ctx.balanceDue > 0));
+}
+
+/** The review request for one stay; a calendar-only stay has no guest name. */
+export function reviewMessage(stay: {
+  guestName: string | null;
+  unitName: string;
+  checkIn: string | null;
+  leavesOn: string;
+  house: HouseStyle;
+}): string {
+  const review = GUEST_MESSAGES.find((m) => m.id === "review")!;
+  return review.body({
+    guestName: stay.guestName,
+    unitNames: [stay.unitName],
+    checkIn: stay.checkIn ?? stay.leavesOn,
+    checkOut: stay.leavesOn,
+    balanceDue: 0,
+    expectedArrival: null,
+    expectedDeparture: null,
+    shortStay: null,
+    house: stay.house,
+  });
 }
