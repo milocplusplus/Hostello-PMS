@@ -46,27 +46,22 @@ export async function addCoachCompetitor(formData: FormData) {
   await requireOwner();
   const propertyId = String(formData.get("property_id") ?? "");
   const url = airbnbRoomUrl(String(formData.get("airbnb_url") ?? ""));
-  if (!url) {
-    back(propertyId, { error: "Paste the competitor's Airbnb link: the one with /rooms/ and a number in it." });
-  }
+  const here = (params: Record<string, string>): never => back(propertyId, { tab: "competitors", ...params });
+  if (!url) here({ error: "Paste the competitor's Airbnb link: the one with /rooms/ and a number in it." });
 
   const supabase = await createClient();
   const { count } = await supabase
     .from("coach_competitors")
     .select("id", { count: "exact", head: true })
     .eq("property_id", propertyId);
-  if ((count ?? 0) >= 8) back(propertyId, { error: "Eight competitors is the most a check compares. Remove one first." });
+  if ((count ?? 0) >= 8) here({ error: "Eight competitors is the most a check compares. Remove one first." });
 
   const { error } = await supabase
     .from("coach_competitors")
     .insert({ property_id: propertyId, airbnb_url: url, source: "staff" });
-  if (error) {
-    back(propertyId, {
-      error: error.code === "23505" ? "That listing is already on the list." : error.message,
-    });
-  }
+  if (error) here({ error: error.code === "23505" ? "That listing is already on the list." : error.message });
 
-  back(propertyId, { notice: "Added. Its prices appear with the next check." });
+  here({ notice: "Added. Its prices appear with the next check." });
 }
 
 export async function removeCoachCompetitor(formData: FormData) {
@@ -76,9 +71,9 @@ export async function removeCoachCompetitor(formData: FormData) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("coach_competitors").delete().eq("id", id).eq("property_id", propertyId);
-  if (error) back(propertyId, { error: error.message });
+  if (error) back(propertyId, { tab: "competitors", error: error.message });
 
-  back(propertyId);
+  back(propertyId, { tab: "competitors" });
 }
 
 /** The Done tick, and taking it back. The next audit confirms it or hands it back. */
@@ -88,6 +83,8 @@ export async function tickCoachFix(formData: FormData) {
   const propertyId = String(formData.get("property_id") ?? "");
   const id = String(formData.get("id") ?? "");
   const done = formData.get("done") === "on";
+  // Back to the tab the tick was pressed on: the overview's card, or the list.
+  const tab: Record<string, string> = formData.get("tab") === "fixes" ? { tab: "fixes" } : {};
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -96,7 +93,7 @@ export async function tickCoachFix(formData: FormData) {
     .eq("id", id)
     .eq("property_id", propertyId)
     .is("confirmed_on", null);
-  if (error) back(propertyId, { error: error.message });
+  if (error) back(propertyId, { ...tab, error: error.message });
 
-  back(propertyId);
+  back(propertyId, tab);
 }

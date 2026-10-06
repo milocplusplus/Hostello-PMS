@@ -1,6 +1,21 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Listing Coach listing page, in tabs** (2026-10-06). Owner: the page was
+  nice but too much text to take in. Owner's choices: only the one-listing
+  page; tabs; first view = a "do this next" card, then the numbers, then a
+  price chart; fixes one line each, tap for detail. The page is now
+  `components/admin/CoachListing.tsx` (the route only loads data): tabs
+  Overview / Fixes / Wording / Competitors / History (`?tab=`, History only
+  with 2+ reports). Overview: `card-hero` with the top open fix and its Done,
+  three tiles (rating, search position, weekend price in rupees), weekend
+  price bars (this listing gold, a tick at the competitors' middle price), the
+  audit summary folded away. Fixes and the description are `<details>`, no
+  client code. Explanations moved behind the header's (i). Actions return to
+  the tab they were pressed on. Seen rendered at desktop and 375px on a
+  temporary fixture route with F-105's saved report (deleted): all five tabs,
+  a fix opened, no sideways scroll, no console errors. Lint + build. **Not
+  seen signed in; the Done / Remove / Add buttons were not pressed.**
 - **Listing Coach, part 1: weekly Airbnb check** (2026-10-06). Owner wants
   better Airbnb ranking and more enquiries at no new cost. Owner's choices:
   weekly check first (review requests later); links pasted on the Listing
