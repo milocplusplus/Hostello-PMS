@@ -18,10 +18,15 @@
   bad competitor link and an over-long title dropped, medians, price flag +
   alert, 12-place fall + alert, fixes confirmed / reopened, overdue reminder
   once a day, function ACLs (postgres + service_role only). Lint + build.
-  **Test run started but paused at its first browser step**, waiting for the
-  owner to approve the browser / Supabase prompts in that session — until
-  that is done once, Thursday's run will pause the same way. **Not seen
-  rendered.** Not built: review requests at checkout (part 2).
+  **Test run passed end to end** (second attempt, 18 minutes, run from the
+  scheduled task itself): 3 reports saved with audits, 10 fixes each, 15
+  competitors, `usd_pkr` 277.10, "ready" and F-105's price alert raised.
+  The first attempt sat on its first browser step for 7 minutes with no
+  prompt on screen and was stopped; cause unknown (the owner approved
+  something in between, and this session's own browser tab was closed
+  before the retry) — **watch Thursday 8 Oct's run for the same stall.**
+  **Not seen rendered** (pane not signed in), and whether the alerts reached
+  the phone was not seen. Not built: review requests at checkout (part 2).
 - **Move photos to another room** (2026-10-06). Owner's choices: several at
   once (Select → tick → Move → pick the room; one photo is a selection of
   one), admin + ops only, no audit line and no notice. Migration
