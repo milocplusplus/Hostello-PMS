@@ -239,8 +239,13 @@ Pre-launch: real data has not been entered yet.
   form from `currentBookingForm()`; cancel is the same one-column write as
   `cancelBooking` and needs the count typed. **Rates**
   (`/admin/clients/[id]/rates`, admin): stack rate, short-stay stack rate,
-  max guests — set / ± amount / ± % (money rounded to 100);
-  `src/lib/bulk-rates.ts` `adjusted()` is the one rule for preview and save.
+  max guests, nightly price, short-stay price — set / ± amount / ± % (money
+  rounded to 100); `src/lib/bulk-rates.ts` `adjusted()` is the one rule for
+  preview and save. **`/admin/rates`** (admin, nav "Rates") is the same
+  `BulkRatesTable` + `bulkUpdateUnitRates` over every active unit of every
+  client, **asking prices only** (`ASKING_FIELDS`; the action refuses a deal
+  term posted without a `client_id`), with a client menu whose picks survive
+  switching client; one notice per affected owner.
 - **Excel export** (admin, on `/admin/stats`) — `ExportPanel` (quick picks,
   from/to, client) calls the `exportData` Server Action
   (`app/admin/stats/actions.ts`), which reads bookings (by check-in),

@@ -7,7 +7,7 @@ import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { BulkRatesTable, type RateRow } from "@/components/admin/BulkRatesTable";
 import { bulkUpdateUnitRates } from "../../actions";
 
-/** One client's units, to change a stack rate or capacity on several at once. */
+/** One client's units, to change a rate, a price or capacity on several at once. */
 export default async function ClientRatesPage({
   params,
   searchParams,
@@ -24,19 +24,22 @@ export default async function ClientRatesPage({
     supabase.from("clients").select("id, name").eq("id", id).maybeSingle(),
     supabase
       .from("properties")
-      .select("id, name, stack_rate, short_stay_stack_rate, max_guests")
+      .select("id, name, stack_rate, short_stay_stack_rate, max_guests, nightly_rate, short_stay_rate")
       .eq("client_id", id)
       .eq("status", "active")
       .order("name"),
   ]);
   if (!client) notFound();
 
+  const num = (v: unknown) => (v === null ? null : Number(v));
   const rows: RateRow[] = (units ?? []).map((u) => ({
     id: u.id,
     name: u.name,
-    stack_rate: u.stack_rate === null ? null : Number(u.stack_rate),
-    short_stay_stack_rate: u.short_stay_stack_rate === null ? null : Number(u.short_stay_stack_rate),
-    max_guests: u.max_guests === null ? null : Number(u.max_guests),
+    stack_rate: num(u.stack_rate),
+    short_stay_stack_rate: num(u.short_stay_stack_rate),
+    max_guests: num(u.max_guests),
+    nightly_rate: num(u.nightly_rate),
+    short_stay_rate: num(u.short_stay_rate),
   }));
 
   return (
@@ -48,7 +51,8 @@ export default async function ClientRatesPage({
         info={
           <p>
             Stack rates are deal terms: a booking keeps the rate it was made at, so a change here
-            only affects bookings made from now on. The owner gets one notice for the change.
+            only affects bookings made from now on. Prices are what a guest is quoted on Find
+            dates. The owner gets one notice for the change.
           </p>
         }
       />

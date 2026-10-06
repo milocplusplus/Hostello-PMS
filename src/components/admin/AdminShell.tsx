@@ -24,6 +24,7 @@ import {
   Settings,
   Home,
   Search,
+  Tags,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { StaffRole } from "@/lib/auth";
@@ -98,6 +99,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
             label: "Management",
             items: [
               { href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false },
+              { href: "/admin/rates", label: "Rates", icon: Tags, exact: false },
               {
                 href: "/admin/property-requests",
                 label: "Rate requests",
@@ -136,7 +138,8 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
   "/admin/channel-inbox": { label: "Inbox", tint: "linear-gradient(135deg, #334155, #6366f1)" },
   "/admin/stats": { tint: "linear-gradient(135deg, #7c3aed, #c026d3)" },
   "/admin/clients": { label: "Clients", tint: "linear-gradient(135deg, #1d4ed8, #6366f1)" },
-  "/admin/property-requests": { label: "Rates", tint: "linear-gradient(135deg, #be123c, #f97316)" },
+  "/admin/rates": { tint: "linear-gradient(135deg, #b45309, #c9a44c)" },
+  "/admin/property-requests": { label: "Requests", tint: "linear-gradient(135deg, #be123c, #f97316)" },
   "/admin/staff": { tint: "linear-gradient(135deg, #0f766e, #22d3ee)" },
   "/admin/audit": { label: "Audit", tint: "linear-gradient(135deg, #475569, #a855f7)" },
   "/admin/settings": { tint: "linear-gradient(135deg, #52525b, #c9a44c)" },

@@ -1,16 +1,25 @@
 /**
  * The one rule for a bulk rate change, shared by the live preview on
- * /admin/clients/[id]/rates and the Server Action that saves it — so what the
- * preview shows is what gets written.
+ * /admin/rates and /admin/clients/[id]/rates and the Server Action that saves
+ * it — so what the preview shows is what gets written.
+ *
+ * `asking` marks what a guest is quoted. Those may be changed across every
+ * client at once; the rest are one client's deal terms and stay on their page.
  */
 
 export const RATE_FIELDS = [
-  { key: "stack_rate", label: "Nightly stack rate", money: true },
-  { key: "short_stay_stack_rate", label: "Short-stay stack rate", money: true },
-  { key: "max_guests", label: "Max guests", money: false },
+  { key: "stack_rate", label: "Nightly stack rate", money: true, asking: false },
+  { key: "short_stay_stack_rate", label: "Short-stay stack rate", money: true, asking: false },
+  { key: "max_guests", label: "Max guests", money: false, asking: false },
+  { key: "nightly_rate", label: "Nightly price", money: true, asking: true },
+  { key: "short_stay_rate", label: "Short-stay price", money: true, asking: true },
 ] as const;
 
 export type RateField = (typeof RATE_FIELDS)[number]["key"];
+
+export const ASKING_FIELDS: readonly RateField[] = RATE_FIELDS.filter((f) => f.asking).map(
+  (f) => f.key
+);
 
 export const ADJUST_MODES = [
   { key: "set", label: "Set to" },

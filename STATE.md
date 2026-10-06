@@ -1,6 +1,17 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Asking prices in bulk** (2026-10-06). Owner's choices: a new all-units
+  Rates page; admin only; one notice per owner; narrowed by client. New
+  `/admin/rates` (nav "Rates", `requireOwner` layout): nightly price and
+  short-stay price across every active unit, set / ± amount / ± %, previewed
+  per row. The per-client Rates page gained the same two fields. One action
+  (`bulkUpdateUnitRates`), one table component. On a phone, More now shows
+  "Rates" (this page) and "Requests" (rate requests, was "Rates"). No
+  migration. Checked on a temporary fixture route (deleted): only the two
+  price fields offered, client menu, tick-all per client, picks kept across
+  clients, posted fields. Lint + build. **Not run for real** (no test
+  login): an actual save and the owner notices.
 - **Find dates rebuilt** (2026-10-06). Owner said the availability page was
   of no use and the city menu listed cities with no units. Owner's choices:
   opens on what is free tonight; each unit shows cover photo, free until,
