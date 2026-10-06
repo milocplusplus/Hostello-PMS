@@ -214,7 +214,9 @@ export function notificationHref(
   if (row.kind === "audit_sign_in_failed") return "/admin/audit?type=signin";
   // Sync health is about a link, and the links page is where it is fixed.
   if (row.kind?.startsWith("channel_sync_") || row.kind === "channel_export_unread") {
-    return portal === "admin" ? "/admin/calendar/feeds" : "/client/calendar";
+    if (portal !== "admin") return "/client/calendar";
+    // The links that send our dates out have their own page.
+    return row.kind === "channel_export_unread" ? "/admin/calendar/feeds/outgoing" : "/admin/calendar/feeds";
   }
   if (row.kind === "audit_deleted") return "/admin/audit";
 

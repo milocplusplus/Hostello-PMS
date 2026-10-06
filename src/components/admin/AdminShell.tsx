@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
+  CalendarSync,
   Wallet,
   HandCoins,
   BarChart3,
@@ -76,6 +77,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
       label: "Operations",
       items: [
         { href: "/admin/calendar", label: "Calendar", icon: CalendarDays, exact: false },
+        { href: "/admin/calendar/feeds", label: "Channel calendars", icon: CalendarSync, exact: false },
         { href: "/admin/availability", label: "Find dates", icon: BedDouble, exact: false },
         { href: "/admin/photos", label: "Photos", icon: Images, exact: false },
         // "Soon" until Settings has the inbox address — nothing arrives before that.
@@ -135,6 +137,7 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
   "/admin/today": { tint: "linear-gradient(135deg, #ea580c, #db2777)" },
   "/admin/checkins": { tint: "linear-gradient(135deg, #059669, #0d9488)" },
   "/admin/notifications": { tint: "linear-gradient(135deg, #a16207, #d97706)" },
+  "/admin/calendar/feeds": { label: "Channels", tint: "linear-gradient(135deg, #0f766e, #7c3aed)" },
   "/admin/availability": { label: "Find dates", icon: Search, tint: "linear-gradient(135deg, #0891b2, #2563eb)" },
   "/admin/photos": { tint: "linear-gradient(135deg, #be185d, #f59e0b)" },
   "/admin/channel-inbox": { label: "Inbox", tint: "linear-gradient(135deg, #334155, #6366f1)" },
@@ -199,13 +202,21 @@ function NavLinks({
   inboxLive: boolean;
   onNavigate?: () => void;
 }) {
+  const groups = navGroups(role, inboxLive);
+  // The deepest match wins: Channel calendars sits under Calendar's path, and
+  // the one sliding pill cannot be on both.
+  const current = groups
+    .flatMap((g) => g.items)
+    .filter((i) => isActive(pathname, i.href, i.exact))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <>
-      {navGroups(role, inboxLive).map((group) => (
+      {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
           <p className="eyebrow px-3 pt-5 pb-2">{group.label}</p>
           {group.items.map((item) => {
-            const active = isActive(pathname, item.href, item.exact);
+            const active = item.href === current;
             const Icon = item.icon;
             const badge = badges[item.href] ?? 0;
             return (

@@ -160,7 +160,14 @@ Pre-launch: real data has not been entered yet.
   (`setCalendarFeedActive`); the sync only reads active links.
   `src/lib/channel-health.ts` turns a row into a badge with the same
   thresholds. Shown on `/admin/calendar/feeds` only (badge, Pause/Resume,
-  History).
+  History). **Three pages since 2026-10-06**, nav "Channel calendars":
+  `feeds/` lists every bookable unit by client with each link's health and
+  Sync now, and "Not connected" + Connect for a unit with no Airbnb link
+  (`components/admin/ChannelConnections.tsx`); `feeds/connect/`
+  (`?property=`) is the form; `feeds/outgoing/` is the links that send our
+  dates out. A route folder cannot be called `out` here — a permission rule
+  denies that path. The sidebar highlights the deepest matching item, since
+  this page sits under Calendar's path.
 - **Channel inbox** (`/admin/channel-inbox`, admin + ops; payout mails
   admin-only) — channel emails → `ota-email` edge function (`parse.ts`) →
   `record_ota_message()` (SQL) → a card to approve. **Routing is by the

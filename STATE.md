@@ -1,6 +1,20 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Channel calendars split into three pages** (2026-10-06). Owner asked for
+  connecting a calendar to be its own page, with health and Sync now.
+  Owner's choices: a Connections page + a separate Connect page; every unit
+  listed, connected or not; grouped by client; outgoing links on their own
+  page; a menu item under Operations; rows show health, last synced + dates
+  held, Sync now / Pause / Disconnect, History; only a missing Airbnb link
+  is flagged; a summary line and Sync all. No migration. The listing-name
+  field (channel inbox only) is folded in with History. Connect errors
+  return to the form with the unit kept; outgoing-link actions return to
+  their page; `channel_export_unread` now opens it. Seen at desktop and
+  375px on a temporary fixture route (deleted): healthy, failing with its
+  error, paused, Booking.com-only and not-connected units. Lint + build.
+  **Not seen signed in; no button pressed; live data has no links yet**, so
+  the real page will show 30 units as Not connected.
 - **Listing Coach, part 2: review requests** (2026-10-06). Owner's choices:
   Airbnb stays only; from bookings typed in *and* from the Airbnb calendar
   link; listed the morning of checkout day; a list on Today plus a phone

@@ -41,6 +41,18 @@ export function exportHealth(e: { last_fetched_at: string | null; created_at: st
   return e.last_fetched_at ? { tone: "ok", label: "Being read" } : { tone: "warn", label: "Waiting for first read" };
 }
 
+/** "3m ago", "2h ago", "5d ago": how long since a sync or a channel's read. */
+export function ago(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 export const TONE_CLASS: Record<HealthTone, string> = {
   ok: "text-status-available border-status-available/40 bg-status-available/10",
   warn: "text-status-pending border-status-pending/40 bg-status-pending/10",

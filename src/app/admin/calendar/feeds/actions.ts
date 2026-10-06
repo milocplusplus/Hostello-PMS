@@ -10,6 +10,16 @@ function backTo(params: Record<string, string>) {
   return `/admin/calendar/feeds?${new URLSearchParams(params).toString()}`;
 }
 
+/** The connect form again, with the unit that was picked still picked. */
+function connectError(error: string, property: string) {
+  return `/admin/calendar/feeds/connect?${new URLSearchParams({ error, ...(property ? { property } : {}) }).toString()}`;
+}
+
+/** The outgoing links have their own page. */
+function outgoing(params: Record<string, string>) {
+  return `/admin/calendar/feeds/outgoing?${new URLSearchParams(params).toString()}`;
+}
+
 /** A clash is the thing worth reading twice, so it goes last and in words. */
 function syncNotice(result: SyncResult, prefix: string) {
   const parts = `${prefix} — ${result.added} new, ${result.updated} changed, ${result.removed} reopened.`;
@@ -59,11 +69,11 @@ export async function addCalendarFeed(formData: FormData) {
   // channel inbox. Optional: the calendar link works without it.
   const listing_ref = ((formData.get("listing_ref") as string) || "").trim() || null;
 
-  if (!property_id) redirect(backTo({ error: "Pick a property." }));
-  if (!url) redirect(backTo({ error: "Paste the calendar link." }));
+  if (!property_id) redirect(connectError("Pick a unit.", property_id));
+  if (!url) redirect(connectError("Paste the calendar link.", property_id));
 
   const urlError = validateFeedUrl(url);
-  if (urlError) redirect(backTo({ error: urlError }));
+  if (urlError) redirect(connectError(urlError, property_id));
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -75,8 +85,8 @@ export async function addCalendarFeed(formData: FormData) {
     .single();
 
   if (error) {
-    const message = error.code === "23505" ? "That link is already connected to this property." : error.message;
-    redirect(backTo({ error: message }));
+    const message = error.code === "23505" ? "That link is already connected to this unit." : error.message;
+    redirect(connectError(message, property_id));
   }
 
   // Pull it straight away: a link that is wrong should say so now, not in an
@@ -202,7 +212,7 @@ export async function removeCalendarFeed(formData: FormData) {
 export async function createCalendarExport(formData: FormData) {
   const property_id = (formData.get("property_id") as string) || "";
 
-  if (!property_id) redirect(backTo({ error: "Pick a property." }));
+  if (!property_id) redirect(outgoing({ error: "Pick a unit." }));
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -213,12 +223,12 @@ export async function createCalendarExport(formData: FormData) {
 
   if (error) {
     const message =
-      error.code === "23505" ? "That property already has a link." : error.message;
-    redirect(backTo({ error: message }));
+      error.code === "23505" ? "That unit already has a link." : error.message;
+    redirect(outgoing({ error: message }));
   }
 
-  revalidatePath("/admin/calendar/feeds");
-  redirect(backTo({ notice: "Link created. Paste it into the channel to publish these dates." }));
+  revalidatePath("/admin/calendar/feeds/outgoing");
+  redirect(outgoing({ notice: "Link created. Paste it into the channel to publish these dates." }));
 }
 
 /** Invalidates the old URL and issues a new one — for a link that leaked. */
@@ -232,11 +242,11 @@ export async function regenerateCalendarExport(formData: FormData) {
     .update({ token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""), fetch_count: 0, last_fetched_at: null })
     .eq("id", id);
 
-  if (error) redirect(backTo({ error: error.message }));
+  if (error) redirect(outgoing({ error: error.message }));
 
-  revalidatePath("/admin/calendar/feeds");
+  revalidatePath("/admin/calendar/feeds/outgoing");
   redirect(
-    backTo({
+    outgoing({
       notice: "New link issued. The old one stops working now — paste the new one into the channel.",
     })
   );
@@ -249,8 +259,8 @@ export async function removeCalendarExport(formData: FormData) {
 
   const { error } = await supabase.from("calendar_exports").delete().eq("id", id);
 
-  if (error) redirect(backTo({ error: error.message }));
+  if (error) redirect(outgoing({ error: error.message }));
 
-  revalidatePath("/admin/calendar/feeds");
-  redirect(backTo({ notice: "Link deleted. Any channel still pointed at it will stop updating." }));
+  revalidatePath("/admin/calendar/feeds/outgoing");
+  redirect(outgoing({ notice: "Link deleted. Any channel still pointed at it will stop updating." }));
 }
