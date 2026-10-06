@@ -1,6 +1,12 @@
-# State — updated 2026-10-05
+# State — updated 2026-10-06
 
 ## Done
+- **Photos page views** (2026-10-06). Owner's choices: "room type" = unit
+  type (Studio, 1 BHK…), default stays the flat grid, groups show the same
+  unit cards. `/admin/photos` has a three-way switch: All units / By room
+  type (`?view=type`, in `PROPERTY_TYPES` order, "No type set" last) / By
+  client (`?view=client`, A-Z). No new query. Lint + build; **not seen
+  signed in** (no test login).
 - **Property photo gallery** (2026-10-05). Owner's choices: for guests,
   channel listings, a record and marketing; admin + ops + owner add and
   remove (anyone who can upload can delete); 20 a unit; grouped by room

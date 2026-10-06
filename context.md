@@ -367,7 +367,8 @@ Pre-launch: real data has not been entered yet.
   UI: `components/shared/PhotoGallery.tsx` (upload by room, viewer, select
   several, Save = download / iPhone share sheet, Share = share sheet, files
   named `<unit>-<room>-<n>.jpg`) on `/admin/photos/[propertyId]` (list at
-  `/admin/photos`, both staff roles, no deal terms on it) and
+  `/admin/photos`, both staff roles, no deal terms on it; `?view=type|client`
+  groups the unit cards by unit type or by client, default is the flat A-Z grid) and
   `/client/properties/[id]/photos`. Notices (admin only):
   `property_photos_added` when an owner uploads (one per batch),
   `property_photos_removed` when ops or an owner removes. Adds and removals
