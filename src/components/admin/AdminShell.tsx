@@ -24,6 +24,7 @@ import {
   Settings,
   Home,
   Search,
+  Sparkles,
   Tags,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -100,6 +101,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
             items: [
               { href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false },
               { href: "/admin/rates", label: "Rates", icon: Tags, exact: false },
+              { href: "/admin/listing-coach", label: "Listing Coach", icon: Sparkles, exact: false },
               {
                 href: "/admin/property-requests",
                 label: "Rate requests",
@@ -139,6 +141,7 @@ const MORE_LOOK: Record<string, { label?: string; tint: string; icon?: MoreItem[
   "/admin/stats": { tint: "linear-gradient(135deg, #7c3aed, #c026d3)" },
   "/admin/clients": { label: "Clients", tint: "linear-gradient(135deg, #1d4ed8, #6366f1)" },
   "/admin/rates": { tint: "linear-gradient(135deg, #b45309, #c9a44c)" },
+  "/admin/listing-coach": { label: "Coach", tint: "linear-gradient(135deg, #6d28d9, #db2777)" },
   "/admin/property-requests": { label: "Requests", tint: "linear-gradient(135deg, #be123c, #f97316)" },
   "/admin/staff": { tint: "linear-gradient(135deg, #0f766e, #22d3ee)" },
   "/admin/audit": { label: "Audit", tint: "linear-gradient(135deg, #475569, #a855f7)" },

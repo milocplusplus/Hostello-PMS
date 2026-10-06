@@ -246,6 +246,30 @@ Pre-launch: real data has not been entered yet.
   client, **asking prices only** (`ASKING_FIELDS`; the action refuses a deal
   term posted without a `client_id`), with a client menu whose picks survive
   switching client; one notice per affected owner.
+- **Listing Coach** (`/admin/listing-coach`, admin only, nav "Listing Coach")
+  — Airbnb listings checked against competitors. **The app never fetches
+  Airbnb.** A scheduled task in the owner's Claude desktop app
+  (`hostello-listing-coach`, Thursdays ~22:00 local; its prompt lives in
+  `~/.claude/scheduled-tasks/hostello-listing-coach/SKILL.md`, not the repo)
+  reads Airbnb in a real browser and writes through three SQL functions as
+  postgres: `coach_work()` (what is unchecked since `coach_due_at()`, the
+  dates to price, open fixes), `coach_save_report(jsonb)` (re-shapes
+  everything: clips lengths, keeps only `airbnb.com/rooms/<n>` links, works
+  out the medians, `price_flag` and `position_change` itself, raises
+  `listing_coach_price` / `listing_coach_rank`) and `coach_finish_run()`
+  (`listing_coach_ready`). Cron `hostello-coach-due` (10:00 Karachi,
+  `coach_check_due()`) raises `listing_coach_due` once a day while a watched
+  listing is unchecked since the due moment — "open your laptop". The task
+  only runs while that laptop has the Claude app open; a missed run fires on
+  next launch. Tables: `coach_listings` (unit + pasted link + `watching`),
+  `coach_competitors` (first check picks 5, source `ai`; the admin's list
+  wins after that), `coach_reports` (one per listing per day; weekend and
+  weekday totals for two nights in **USD as Airbnb shows them**, `usd_pkr`
+  the day's rate; the monthly audit adds `summary`, `title_options`,
+  `suggested_description`), `coach_fixes` (Done tick → the next audit sets
+  `confirmed_on` or `reopened_on`). The 25% overpriced line is in
+  `coach_save_report()` and `pricedHigh()` in `src/lib/listing-coach.ts` —
+  change both. Nothing is written back to Airbnb.
 - **Excel export** (admin, on `/admin/stats`) — `ExportPanel` (quick picks,
   from/to, client) calls the `exportData` Server Action
   (`app/admin/stats/actions.ts`), which reads bookings (by check-in),

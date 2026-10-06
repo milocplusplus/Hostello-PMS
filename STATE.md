@@ -1,6 +1,27 @@
 # State — updated 2026-10-06
 
 ## Done
+- **Listing Coach, part 1: weekly Airbnb check** (2026-10-06). Owner wants
+  better Airbnb ranking and more enquiries at no new cost. Owner's choices:
+  weekly check first (review requests later); links pasted on the Listing
+  Coach page, a watch switch per unit; weekly, full audit monthly; Thursday
+  10 PM; AI picks 5 competitors, used at once, owner swaps; prices for the
+  coming weekend + a weekday, rupees with the dollar figure; flag at 25%
+  above the competitors' middle price; admin only; alerts for report ready,
+  open your laptop (daily while overdue), price flag, search drop of 5+;
+  Done tick per fix, next audit confirms or reopens; three title options +
+  one description; search = city, size, coming weekend. Runs as a scheduled
+  task in the owner's Claude app (no API key, no scraping service) — see
+  context.md. Migration `listing_coach` **applied to the live DB** (4 tables,
+  5 functions, cron `hostello-coach-due`). 302, 301 and F-105 added, watch
+  on. **Tested** rolled back on the live DB: work list and dates, save with a
+  bad competitor link and an over-long title dropped, medians, price flag +
+  alert, 12-place fall + alert, fixes confirmed / reopened, overdue reminder
+  once a day, function ACLs (postgres + service_role only). Lint + build.
+  **Test run started but paused at its first browser step**, waiting for the
+  owner to approve the browser / Supabase prompts in that session — until
+  that is done once, Thursday's run will pause the same way. **Not seen
+  rendered.** Not built: review requests at checkout (part 2).
 - **Move photos to another room** (2026-10-06). Owner's choices: several at
   once (Select → tick → Move → pick the room; one photo is a selection of
   one), admin + ops only, no audit line and no notice. Migration

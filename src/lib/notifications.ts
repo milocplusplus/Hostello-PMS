@@ -12,6 +12,7 @@ import {
   Home,
   Images,
   Inbox,
+  Laptop,
   Lock,
   LockOpen,
   LogIn,
@@ -21,8 +22,11 @@ import {
   Receipt,
   ReceiptText,
   ShieldAlert,
+  Sparkles,
   Sun,
+  Tags,
   Target,
+  TrendingDown,
   TrendingUp,
   TriangleAlert,
   Wallet,
@@ -133,6 +137,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   audit_staff_cancelled: CalendarX2,
   audit_deleted: History,
   audit_sign_in_failed: ShieldAlert,
+  // The Listing Coach (coach_save_report / coach_finish_run / coach_check_due,
+  // in SQL). Admin only. `due` means the laptop has not run this week's check.
+  listing_coach_ready: Sparkles,
+  listing_coach_due: Laptop,
+  listing_coach_price: Tags,
+  listing_coach_rank: TrendingDown,
 };
 
 export function notificationIcon(kind: string): LucideIcon {
@@ -181,6 +191,11 @@ export function notificationHref(
   // is the property's calendar, which is where a bare property_id would land.
   if (row.kind?.startsWith("property_change_")) {
     return portal === "admin" ? "/admin/property-requests" : "/client/properties";
+  }
+
+  // A coach notice about one listing opens that listing; the others, the list.
+  if (row.kind?.startsWith("listing_coach_")) {
+    return row.property_id ? `/admin/listing-coach/${row.property_id}` : "/admin/listing-coach";
   }
 
   // A gallery notice opens that unit's gallery, not its calendar.
