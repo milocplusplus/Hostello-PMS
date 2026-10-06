@@ -65,7 +65,7 @@ const MORE: MoreItem[] = [
 
 function Logo({ clientName }: { clientName: string }) {
   return (
-    <div className="flex items-center gap-3 min-w-0">
+    <Link href="/client" aria-label="Hostello, go to the dashboard" className="flex items-center gap-3 min-w-0">
       <span className="relative flex items-center justify-center w-9 h-9 rounded-xl shrink-0 border border-border-hairline gradient-brand-subtle">
         <HostelloMark size={22} />
       </span>
@@ -75,7 +75,7 @@ function Logo({ clientName }: { clientName: string }) {
           {clientName.toUpperCase()}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 

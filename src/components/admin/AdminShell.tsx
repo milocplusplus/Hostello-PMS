@@ -169,7 +169,7 @@ function moreItems(role: StaffRole, badges: Badges, inboxLive: boolean): MoreIte
 
 function Logo() {
   return (
-    <div className="flex items-center gap-3">
+    <Link href="/admin" aria-label="Hostello PMS, go to the dashboard" className="flex items-center gap-3 w-fit">
       {/* The mark sits on its own lit tile, so the wordmark has something to
           anchor to instead of floating on the sidebar. */}
       <span className="relative flex items-center justify-center w-9 h-9 rounded-xl shrink-0 border border-border-hairline gradient-brand-subtle">
@@ -179,7 +179,7 @@ function Logo() {
         <span className="display text-sm font-semibold tracking-[0.14em]">HOSTELLO</span>
         <span className="text-[10px] text-hostello-purple-light tracking-[0.3em] mt-1">PMS</span>
       </div>
-    </div>
+    </Link>
   );
 }
 
