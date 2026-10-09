@@ -156,11 +156,14 @@ export function PaymentTiles({
   sale,
   advance,
   balance,
+  receivedBy,
   note,
 }: {
   sale: string;
   advance: string;
   balance: string;
+  /** Who the guest's money goes to — see `describeCollectors`. */
+  receivedBy?: string;
   /** How the total was built, when it was not typed as one. */
   note?: string | null;
 }) {
@@ -179,6 +182,11 @@ export function PaymentTiles({
           </div>
         ))}
       </div>
+      {receivedBy && (
+        <p className="text-xs text-ink-secondary">
+          Money received by <span className="font-bold text-ink-primary">{receivedBy}</span>
+        </p>
+      )}
       {note && <p className="text-[11px] text-ink-muted">{note}</p>}
     </div>
   );

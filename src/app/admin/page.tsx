@@ -109,7 +109,7 @@ export default async function AdminDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, share_received, created_at, clients:clients_v(name), booking_properties(property_id, properties:properties_v(name, photo_path))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, advance_received, hostello_share, due_to_hostello, share_received, created_at, clients:clients_v(name), booking_properties(property_id, properties:properties_v(name, photo_path))";
 
   const [
     profile,
@@ -182,7 +182,7 @@ export default async function AdminDashboard({
   const grossThisMonth = monthStays.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const grossLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const awaiting = monthStays.reduce(
-    (s, b) => s + (b.share_received ? 0 : Number(b.hostello_share ?? 0)),
+    (s, b) => s + (b.share_received ? 0 : Number(b.due_to_hostello ?? 0)),
     0
   );
 
@@ -284,7 +284,10 @@ export default async function AdminDashboard({
                 <span className="text-[13px] font-bold text-white/85">Revenue · {monthName}</span>
                 <InfoSheet title="Revenue" className="bg-white/20 text-white">
                   <p>What guests paid for confirmed stays checking in this month, across every client.</p>
-                  <p>Share awaiting is Hostello&apos;s part of those stays that has not reached you yet.</p>
+                  <p>
+                    Share awaiting is Hostello&apos;s part of those stays that an owner still has to send
+                    — stays whose money the owner received.
+                  </p>
                 </InfoSheet>
               </div>
               <p className="num flex items-baseline gap-2">

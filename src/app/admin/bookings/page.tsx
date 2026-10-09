@@ -106,7 +106,7 @@ export default async function BookingsPage({
     ? supabase
         .from("bookings_v")
         .select(
-          "guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, booking_properties(property_id, properties:properties_v(name))"
+          "guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, due_to_client, settled, settled_date, booking_properties(property_id, properties:properties_v(name))"
         )
         .eq("client_id", client)
         .eq("status", "confirmed")

@@ -55,7 +55,7 @@ export default async function ClientBookingsPage({
       .select(
         // client_payout / settled / settled_date and the property ids are for
         // the statement exports only — the table below shows none of them.
-        "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, settled, settled_date, guests_count, expected_arrival, booking_properties(property_id, properties(name, photo_path))"
+        "id, guest_name, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, client_payout, due_to_client, settled, settled_date, guests_count, expected_arrival, booking_properties(property_id, properties(name, photo_path))"
       )
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")

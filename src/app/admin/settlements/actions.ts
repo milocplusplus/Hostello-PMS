@@ -156,7 +156,7 @@ export async function markShareReceived(formData: FormData) {
   const supabase = await createClient();
   const { data: booking } = await supabase
     .from("bookings_v")
-    .select("id, client_id, hostello_share, booking_properties(properties(name))")
+    .select("id, client_id, due_to_hostello, booking_properties(properties(name))")
     .eq("id", id)
     .single();
 
@@ -175,7 +175,7 @@ export async function markShareReceived(formData: FormData) {
     await notifyShareReceived(supabase, {
       clientId: booking.client_id,
       bookingId: id,
-      share: Number(booking.hostello_share ?? 0),
+      share: Number(booking.due_to_hostello ?? 0),
       unitNames:
         (booking.booking_properties as unknown as { properties: { name: string } | null }[])
           ?.map((bp) => bp.properties?.name ?? "")

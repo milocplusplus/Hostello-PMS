@@ -4,7 +4,7 @@ import { LogIn, LogOut, BedDouble, Wallet, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { hhmm, rowShortStay, departureDate } from "@/lib/short-stay";
 import { currentClient, currentUser } from "@/lib/auth";
-import { formatPKR, PASS_THROUGH_SOURCES } from "@/lib/payout";
+import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
 import { markClientStayProgress } from "@/app/client/bookings/actions";
@@ -60,12 +60,12 @@ export default async function ClientTodayPage() {
       .order("check_in"),
     supabase
       .from("bookings_v")
-      .select("client_payout")
+      // Only money Hostello is holding — not what the owner received themselves.
+      .select("due_to_client")
       .eq("client_id", clientRecord.id)
       .neq("status", "cancelled")
       .eq("settled", false)
-      // A stay the owner sourced themselves is not money Hostello is holding.
-      .not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`),
+      .gt("due_to_client", 0),
     supabase
       .from("calendar_blocks")
       .select("id, start_date, end_date, block_type, notes, properties!inner(name, client_id)")
@@ -101,7 +101,7 @@ export default async function ClientTodayPage() {
     .filter((b) => departureDate(b.check_in, b.check_out, b.is_short_stay) === today)
     .map(toStay);
   const staying = rows.filter((b) => b.check_in < today && b.check_out > today).map(toStay);
-  const awaiting = (unsettled ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
+  const awaiting = (unsettled ?? []).reduce((s, b) => s + Number(b.due_to_client ?? 0), 0);
 
   const blocked = (blocks ?? []) as unknown as {
     id: string;

@@ -1,6 +1,31 @@
 # State — updated 2026-10-09
 
 ## Done
+- **Money received by** (2026-10-09). Owner reported Airbnb bookings showing
+  as money Hostello owes the client, when Airbnb pays the owner; and that
+  Booking.com guests often pay the owner on site. Cause: settlement assumed
+  Hostello collected every Airbnb / Booking.com / direct stay. Owner's
+  choices: Hostello / Owner; Airbnb and Booking.com start on Owner (direct on
+  Hostello), changeable per booking; advance and balance can go to different
+  sides; a stay Hostello collected no longer lists Hostello's own share as
+  owed by the owner; owners can set it in their portal too; locked once the
+  stay is settled. Each stay is netted to one figure (`due_to_client` or
+  `due_to_hostello`, from `calculatePayout`) and every owed / awaiting figure
+  reads those: Money page both tabs, both dashboards, owner Today, Clients
+  list and client page, the weekly reminder, statement CSV ("Paid to you
+  directly"), Excel export. Shown on the booking form (chips + a "Paid to"
+  line + who pays whom under the split) and on both booking pages. Migration
+  `money_received_by` **applied to the live DB**: 4 columns, `bookings_v`,
+  the 5 settlement functions, `is_pass_through_source()` dropped; existing
+  stays backfilled without audit lines — the 3 Airbnb stays (Rs 19,756) now
+  owe nothing either way. **Tested:** 17 payout cases in Node; on the live DB
+  rolled back — a payout to an Airbnb-only owner clears nothing, a
+  part-collected stay takes exactly its 3,000 and closes, `owed_to_hostello`
+  picks up an owner-received stay; the form on a temporary fixture route
+  (deleted) at desktop and 375px: Airbnb switches to Owner, a part-paid stay
+  offers the advance choice, edit reopens as saved, posted fields. Lint +
+  build. **Not seen signed in; no booking was saved through the form and the
+  lock was not triggered** (no test login).
 - **Sign out ends this device only** (2026-10-09). Owner reported the phone
   being signed out by the laptop. Auth logs showed sign-in leaves other
   sessions alone (admin had two live at once); it was `logout()` calling

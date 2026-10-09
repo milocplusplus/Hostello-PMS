@@ -151,7 +151,7 @@ export default async function ClientSettlementsPage({
           empty={
             tab === "to-hostello"
               ? "Nothing owed. Every confirmed booking's share is either received or was kept by Hostello out of money it already held."
-              : "Nothing owed to you. Bookings you sourced yourself are not here — you collected that money, so Hostello has nothing to send."
+              : "Nothing owed to you. Stays whose money you received yourself — an Airbnb payout, a guest paying you directly — are not here, because Hostello has nothing to send."
           }
         />
       </section>

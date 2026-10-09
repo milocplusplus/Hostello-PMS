@@ -5,7 +5,7 @@ import { updateBooking } from "../../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
 import { listUnavailable } from "@/lib/availability";
 import { hhmm, rowShortStay } from "@/lib/short-stay";
-import type { DealModel, OtaModel } from "@/lib/payout";
+import type { Collector, DealModel, OtaModel } from "@/lib/payout";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { loadSettings } from "@/lib/settings";
 
@@ -25,7 +25,7 @@ export default async function EditBookingPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, notes, booking_properties(property_id)"
+      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -114,6 +114,8 @@ export default async function EditBookingPage({
           salePrice: Number(booking.sale_price ?? 0),
           nightlyPrice: booking.nightly_price == null ? null : Number(booking.nightly_price),
           advance: Number(booking.advance_received ?? 0),
+          advanceReceivedBy: booking.advance_received_by as Collector,
+          balanceReceivedBy: booking.balance_received_by as Collector,
           source: booking.source,
           status: booking.status as "confirmed" | "tentative",
           notes: booking.notes,

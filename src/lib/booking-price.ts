@@ -1,4 +1,47 @@
-import { nightsBetween } from "./payout";
+import { defaultCollector, isCollector, nightsBetween, type Collector } from "./payout";
+
+/**
+ * Who received the advance and who receives the balance. A form that does not
+ * say (a caller that never showed the choice) keeps what the booking had, or
+ * for a new one starts on its channel's default.
+ */
+export function readCollectors(
+  formData: FormData,
+  source: string,
+  existing?: { advance_received_by: string | null; balance_received_by: string | null } | null
+): { advanceReceivedBy: Collector; balanceReceivedBy: Collector } {
+  const pick = (field: "advance_received_by" | "balance_received_by"): Collector => {
+    const posted = formData.get(field);
+    if (isCollector(posted)) return posted;
+    const kept = existing?.[field];
+    return isCollector(kept) ? kept : defaultCollector(source);
+  };
+  return {
+    advanceReceivedBy: pick("advance_received_by"),
+    balanceReceivedBy: pick("balance_received_by"),
+  };
+}
+
+/**
+ * A stay a confirmed payment has already closed keeps who received its money:
+ * changing it would flip a settled balance to the other side.
+ */
+export function collectorsLocked(
+  existing: {
+    advance_received_by: string | null;
+    balance_received_by: string | null;
+    settled: boolean | null;
+    share_received: boolean | null;
+  },
+  next: { advanceReceivedBy: Collector; balanceReceivedBy: Collector }
+): string | null {
+  const changed =
+    existing.advance_received_by !== next.advanceReceivedBy ||
+    existing.balance_received_by !== next.balanceReceivedBy;
+  return changed && (existing.settled || existing.share_received)
+    ? "This stay's money is already settled. Undo the payment on the Money page before changing who received it."
+    : null;
+}
 
 /**
  * How a stay was priced, and what it comes to.

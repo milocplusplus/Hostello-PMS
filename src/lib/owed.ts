@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PASS_THROUGH_SOURCES } from "./payout";
 import { receiptExtension, validateReceipt } from "./receipts";
 
 /**
@@ -10,14 +9,16 @@ import { receiptExtension, validateReceipt } from "./receipts";
  * this module does is add up the amounts nobody has confirmed receiving yet,
  * and subtract what has been paid against them. Never re-derive a split here.
  *
- * A booking carries two independent settlements running in opposite
- * directions, and each is closed by whoever actually received the money:
+ * Which way a stay's money has to move depends on who took it from the
+ * guest, so `payout.ts` nets every booking to one amount in one direction, and
+ * each is closed by whoever actually receives the money:
  *
- *   to_hostello — `hostello_share`, closed by `share_received`. The owner
- *                 collected the guest's money and sends Hostello its cut; an
- *                 admin confirms it landed.
- *   to_client   — `client_payout`, closed by `settled`. Hostello collected and
- *                 sends the owner theirs; the *owner* confirms it landed.
+ *   to_hostello — `due_to_hostello`, closed by `share_received`. The owner
+ *                 holds more of the sale than is theirs and sends Hostello its
+ *                 cut; an admin confirms it landed.
+ *   to_client   — `due_to_client`, closed by `settled`. Hostello holds more
+ *                 than its share and sends the owner the rest; the *owner*
+ *                 confirms it landed.
  *
  * Both directions run through the same functions here — one settlement engine,
  * two column sets — so a rule fixed on one side cannot drift on the other.
@@ -33,7 +34,7 @@ type DirectionSpec = {
   /** Whoever reviews a payment leaves their reason here. */
   noteColumn: "admin_note" | "client_note";
   /** The booking column holding what is owed. */
-  amountColumn: "hostello_share" | "client_payout";
+  amountColumn: "due_to_hostello" | "due_to_client";
   /** The booking flag that closes it. */
   closedColumn: "share_received" | "settled";
   /** Columns only this direction's table carries. */
@@ -46,7 +47,7 @@ export const SETTLEMENT: Record<SettlementDirection, DirectionSpec> = {
     allocations: "client_payout_allocations",
     bucket: "payout-receipts",
     noteColumn: "admin_note",
-    amountColumn: "hostello_share",
+    amountColumn: "due_to_hostello",
     closedColumn: "share_received",
     extraColumns: [],
   },
@@ -57,7 +58,7 @@ export const SETTLEMENT: Record<SettlementDirection, DirectionSpec> = {
     // their own folder, which must not be true of Hostello's proof of payment.
     bucket: "hostello-payout-receipts",
     noteColumn: "client_note",
-    amountColumn: "client_payout",
+    amountColumn: "due_to_client",
     closedColumn: "settled",
     // Set when Hostello recorded the money as received for a client who has no
     // portal login and so cannot confirm it themselves.
@@ -142,8 +143,8 @@ type BookingRow = {
   check_in: string;
   check_out: string;
   source: string;
-  hostello_share?: number | null;
-  client_payout?: number | null;
+  due_to_hostello?: number | null;
+  due_to_client?: number | null;
   booking_properties: { properties: { name: string } | null }[] | null;
 };
 
@@ -152,10 +153,9 @@ type BookingRow = {
  * stay has no share to owe (`payout.ts` zeroes it), and a cancelled one never
  * happened.
  *
- * `to_client` additionally drops the pass-through sources. Hostello owes a
- * payout only on stays it sold and collected for; on an owner-sourced booking,
- * a walk-in or a referral the owner already holds the guest's money, so there
- * is nothing to send. `payout.ts` owns that list.
+ * A stay whose money the owner received (an Airbnb payout, cash at the door)
+ * has nothing due to the client, so it never appears under `to_client`; one
+ * Hostello collected in full has nothing due to Hostello. `payout.ts` decides.
  */
 export async function loadOwed(
   supabase: SupabaseClient,
@@ -172,7 +172,7 @@ export async function loadOwed(
     .eq("client_id", clientId)
     .eq("status", "pending");
 
-  let bookingQuery = supabase
+  const bookingQuery = supabase
     .from("bookings_v")
     .select(
       `id, guest_name, check_in, check_out, source, ${spec.amountColumn}, booking_properties(properties(name))`
@@ -182,10 +182,6 @@ export async function loadOwed(
     .eq(spec.closedColumn, false)
     .gt(spec.amountColumn, 0)
     .order("check_in");
-
-  if (direction === "to_client") {
-    bookingQuery = bookingQuery.not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`);
-  }
 
   const [{ data: bookings }, { data: allocations }, { data: pendingRows }] = await Promise.all([
     bookingQuery,
@@ -243,16 +239,12 @@ export async function loadOwedByClient(
 ): Promise<ClientBalance[]> {
   const spec = SETTLEMENT[direction];
 
-  let bookingQuery = supabase
+  const bookingQuery = supabase
     .from("bookings_v")
     .select(`id, client_id, ${spec.amountColumn}`)
     .eq("status", "confirmed")
     .eq(spec.closedColumn, false)
     .gt(spec.amountColumn, 0);
-
-  if (direction === "to_client") {
-    bookingQuery = bookingQuery.not("source", "in", `(${PASS_THROUGH_SOURCES.join(",")})`);
-  }
 
   const [{ data: bookings }, { data: allocations }, { data: clients }] = await Promise.all([
     bookingQuery,

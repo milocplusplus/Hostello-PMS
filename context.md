@@ -491,7 +491,12 @@ Pre-launch: real data has not been entered yet.
   "Get the app" hands Android this file and everyone else an instruction.
 - `src/lib/payout.ts` — `calculatePayout`, `nightsBetween`, `usesStackRate`,
   `isOtaSource`, `isPassThroughSource`, `DEAL_MODELS`, `formatPKR`. **The only
-  correct revenue math.** Currency is PKR.
+  correct revenue math.** Currency is PKR. It also decides **who owes whom**:
+  `Collector` (`hostello` | `owner`), `defaultCollector(source)` (Hostello
+  direct → Hostello, every other channel → Owner), `describeCollectors()`, and
+  `calculatePayout`'s `dueToClient` / `dueToHostello` (see **Owed to Client**).
+  `src/lib/booking-price.ts` holds the form side: `readCollectors()` and
+  `collectorsLocked()`.
 - `src/lib/statement-report.ts` + `src/lib/pdf.ts` +
   `src/components/shared/StatementPdf.tsx` — the **monthly report PDF**, beside
   the CSV on `/client/bookings`. Page one is the month drawn — four tiles, a
@@ -571,13 +576,14 @@ Pre-launch: real data has not been entered yet.
   is_short_stay, short_stay_start, short_stay_end,
   source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),
   status enum(`confirmed|tentative|cancelled`), sale_price, advance_received,
+  advance_received_by, balance_received_by, due_to_client, due_to_hostello,
   deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot,
   stack_rate_snapshot, net_sale, hostello_share, client_payout, settled,
   settled_date, share_received, share_received_date, notes, entered_by, timestamps.
   **Two settlements, not one**: `share_received` = Hostello has its `hostello_share`,
   `settled` = the owner has their `client_payout`. They run in opposite directions
-  and are independent. `share_received` feeds "Owed to Hostello", `settled`
-  feeds "Owed to Client". **Neither is set from a booking screen** — each is
+  and are independent. `share_received` closes `due_to_hostello` ("Owed to
+  Hostello"), `settled` closes `due_to_client` ("Owed to Client"). **Neither is set from a booking screen** — each is
   closed only by a confirmed payment allocated across it.
 - `client_payouts` — client_id, amount, method(`online|cash`), reference,
   receipt_path, status(`pending|received|rejected`), admin_note, submitted_by,
@@ -681,12 +687,24 @@ Pre-launch: real data has not been entered yet.
    could otherwise never be settled at all: it refuses the moment
    `clients.owner_user_id` is non-null, and stamps `confirmed_offline` so the
    record never claims the owner confirmed anything. `ClientBalance.hasLogin`
-   is what puts the button on screen. The balance counts only bookings Hostello
-   sold and collected for: `loadOwed("to_client")` drops `PASS_THROUGH_SOURCES`,
-   because on an owner-sourced stay the owner already holds the guest's money —
-   and `allocate_hostello_payout` repeats that filter in SQL via
-   `is_pass_through_source()`, or a payout would settle a booking the balance
-   never counted.
+   is what puts the button on screen.
+2d. **Who received the money** (2026-10-09) — settlement follows the money, not
+   the channel. Each booking records `advance_received_by` and
+   `balance_received_by` (`hostello` | `owner`; an Airbnb payout or cash at
+   the property is the owner's), set on `BookingForm` in both portals: one
+   "Money received by" choice, plus an "Advance received by" choice only while
+   the stay is part-paid. `calculatePayout` nets the stay to **one figure in
+   one direction**: Hostello's held part of the net, less its share →
+   `due_to_client` if positive, `due_to_hostello` if negative. All of it held
+   by Hostello = `client_payout`; none of it = `hostello_share`. **Every
+   "owed" / "awaiting" figure and all five settlement SQL functions read those
+   two columns and nothing else** — never `client_payout` / `hostello_share`,
+   which stay what each side *earns* (Stats, Profit, statements). All four
+   booking write paths write them; a caller that posts no choice (quick tools,
+   bulk status, channel inbox) keeps the booking's own, and a new booking with
+   none starts on `defaultCollector(source)`. Once `settled` or
+   `share_received` is true the choice is locked (`collectorsLocked`) until
+   the payment is undone.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
    off gross first; `hostello_share` depends on deal_model (0 for fixed/tentative).
@@ -848,9 +866,12 @@ Pre-launch: real data has not been entered yet.
   to `authenticated, service_role`. Existing functions look clean after a
   `create or replace` only because that keeps the ACL they already had — check
   `proacl` after adding one, not just `has_function_privilege('anon', ...)`.
-- **`is_pass_through_source()` is a second copy of `PASS_THROUGH_SOURCES`**
-  (src/lib/payout.ts), in SQL, because `allocate_hostello_payout` cannot import
-  the app's TypeScript. Change one, change the other.
+- **`due_to_client` / `due_to_hostello` are only as fresh as the last booking
+  write.** They are computed by `calculatePayout` and stored; SQL never
+  re-derives them. Anything that changes a booking's price, advance, status,
+  source or who received the money must go through one of the four write paths
+  (or `editBookingInline`), not a bare UPDATE. `is_pass_through_source()` is
+  gone — the netted amounts replaced its only use.
 - **`ical_export_document()` is a second copy of `listUnavailable()`'s rules**
   (src/lib/availability.ts), in SQL, because a Deno edge function cannot import
   the app's TypeScript. Cancelled frees its nights, a ticked-out short stay

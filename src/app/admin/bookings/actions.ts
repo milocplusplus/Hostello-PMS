@@ -32,7 +32,7 @@ import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
 import { requireStaff } from "@/lib/auth";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
-import { readBookingPrice } from "@/lib/booking-price";
+import { collectorsLocked, readBookingPrice, readCollectors } from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
 import { readFx } from "@/lib/fx";
 
@@ -167,6 +167,8 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   });
   if (clash) return { error: clash };
 
+  const collectors = readCollectors(formData, source);
+
   const payout = calculatePayout({
     salePrice: sale_price,
     checkIn: check_in,
@@ -179,6 +181,8 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     stackRate: stackRateTotal,
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
+    advanceReceived: advance_received,
+    ...collectors,
   });
 
   // The id is minted here rather than read back: an ops session can write a
@@ -218,6 +222,10 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
+      advance_received_by: collectors.advanceReceivedBy,
+      balance_received_by: collectors.balanceReceivedBy,
+      due_to_client: payout.dueToClient,
+      due_to_hostello: payout.dueToHostello,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,
@@ -393,7 +401,7 @@ async function applyBookingUpdate(
   const { data: existing } = await reader.client
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -402,6 +410,10 @@ async function applyBookingUpdate(
   if (existing.status === "cancelled") {
     return { error: "This booking is cancelled. Create a new one instead of editing it." };
   }
+
+  const collectors = readCollectors(formData, source, existing);
+  const locked = collectorsLocked(existing, collectors);
+  if (locked) return { error: locked };
 
   const clash = await findStayClash(supabase, {
     propertyIds: property_ids,
@@ -438,6 +450,8 @@ async function applyBookingUpdate(
     stackRate: stackRateTotal,
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
+    advanceReceived: advance_received,
+    ...collectors,
   });
 
   const updatedAt = new Date().toISOString();
@@ -474,6 +488,10 @@ async function applyBookingUpdate(
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
+      advance_received_by: collectors.advanceReceivedBy,
+      balance_received_by: collectors.balanceReceivedBy,
+      due_to_client: payout.dueToClient,
+      due_to_hostello: payout.dueToHostello,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,

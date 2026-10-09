@@ -79,7 +79,7 @@ export default async function ClientDetailPage({
       supabase
         .from("bookings_v")
         .select(
-          "id, guest_name, check_in, check_out, source, status, hostello_share, client_payout, share_received, booking_properties(properties(name))"
+          "id, guest_name, check_in, check_out, source, status, hostello_share, due_to_hostello, share_received, booking_properties(properties(name))"
         )
         .eq("client_id", id)
         .neq("status", "cancelled")
@@ -88,7 +88,7 @@ export default async function ClientDetailPage({
       // Only open stays — a bounded set, so the "awaiting" figure is a real total.
       supabase
         .from("bookings_v")
-        .select("hostello_share, share_received")
+        .select("due_to_hostello, share_received")
         .eq("client_id", id)
         .neq("status", "cancelled")
         .gte("check_out", today),
@@ -98,7 +98,7 @@ export default async function ClientDetailPage({
 
   const awaiting = (openBookings ?? [])
     .filter((b) => !b.share_received)
-    .reduce((sum, b) => sum + Number(b.hostello_share ?? 0), 0);
+    .reduce((sum, b) => sum + Number(b.due_to_hostello ?? 0), 0);
 
   const deactivated = Boolean(clientRecord.deactivated_at);
   const settings = await loadSettings();
@@ -461,11 +461,12 @@ export default async function ClientDetailPage({
                   <span className="text-xs shrink-0 w-16 text-right">
                     {b.status === "tentative" ? (
                       <span className="text-status-pending">Tentative</span>
-                    ) : b.share_received ? (
-                      <span className="text-financial">Received</span>
-                    ) : (
+                    ) : !b.share_received && Number(b.due_to_hostello ?? 0) > 0 ? (
                       <span className="text-ink-muted">Awaiting</span>
-                    )}
+                    ) : Number(b.hostello_share ?? 0) > 0 ? (
+                      // Paid over by the owner, or kept out of money Hostello collected.
+                      <span className="text-financial">Received</span>
+                    ) : null}
                   </span>
                 </Link>
               );

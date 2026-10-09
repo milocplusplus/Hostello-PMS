@@ -4,7 +4,7 @@ import { StickyNote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser, portalUserId } from "@/lib/auth";
 import { propertyTypeLabel } from "@/lib/property-types";
-import { formatPKR, nightsBetween } from "@/lib/payout";
+import { describeCollectors, formatPKR, nightsBetween } from "@/lib/payout";
 import { formatNightly } from "@/lib/booking-price";
 import { formatShortStayWindow, hhmm, rowShortStay } from "@/lib/short-stay";
 import { todayISO } from "@/lib/calendar";
@@ -48,7 +48,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type, photo_path))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type, photo_path))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -134,6 +134,7 @@ export default async function ClientBookingDetailPage({
           sale={formatPKR(gross)}
           advance={formatPKR(booking.advance_received)}
           balance={formatPKR(balanceDue)}
+          receivedBy={describeCollectors(booking)}
           note={
             booking.nightly_price != null && !shortStay
               ? formatNightly(Number(booking.nightly_price), nights, formatPKR)

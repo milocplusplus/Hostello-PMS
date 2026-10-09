@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireOwner } from "@/lib/auth";
-import { nightsBetween } from "@/lib/payout";
+import { describeCollectors, nightsBetween } from "@/lib/payout";
 import { sourceLabel } from "@/lib/block-sources";
 import { methodLabel } from "@/lib/owed";
 import type { Cell, Sheet } from "@/lib/xlsx";
@@ -66,7 +66,7 @@ export async function exportData(req: ExportRequest): Promise<Result> {
         supabase
           .from("bookings_v")
           .select(
-            "id, client_id, guest_name, guests_count, check_in, check_out, is_short_stay, source, status, sale_price, nightly_price, advance_received, net_sale, hostello_share, client_payout, share_received, share_received_date, settled, settled_date, notes, created_at, booking_properties(property_id)"
+            "id, client_id, guest_name, guests_count, check_in, check_out, is_short_stay, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, net_sale, hostello_share, client_payout, due_to_hostello, due_to_client, share_received, share_received_date, settled, settled_date, notes, created_at, booking_properties(property_id)"
           )
           .match(clientFilter)
           .gte("check_in", req.from)
@@ -113,8 +113,8 @@ export async function exportData(req: ExportRequest): Promise<Result> {
         name: "Bookings",
         rows: [
           ["Check-in", "Check-out", "Nights", "Client", "Units", "Guest", "Guests", "Short stay", "Channel", "Status",
-           "Sale price", "Per-night price", "Advance", "Net sale", "Hostello share", "Owner payout",
-           "Share received", "Share received on", "Owner paid", "Owner paid on", "Notes", "Entered"],
+           "Sale price", "Per-night price", "Advance", "Money received by", "Net sale", "Hostello share", "Owner payout",
+           "Owner owes Hostello", "Hostello owes owner", "Share received", "Share received on", "Owner paid", "Owner paid on", "Notes", "Entered"],
           ...bookings.map((b): Cell[] => [
             day(b.check_in), day(b.check_out),
             b.is_short_stay ? 0 : nightsBetween(b.check_in as string, b.check_out as string),
@@ -122,8 +122,9 @@ export async function exportData(req: ExportRequest): Promise<Result> {
             ((b.booking_properties as { property_id: string }[]) ?? []).map((l) => unitName.get(l.property_id) ?? "").join(", "),
             (b.guest_name as string) ?? "", num(b.guests_count), Boolean(b.is_short_stay),
             sourceLabel(b.source as string) ?? (b.source as string), b.status as string,
-            num(b.sale_price), num(b.nightly_price), num(b.advance_received), num(b.net_sale),
-            num(b.hostello_share), num(b.client_payout),
+            num(b.sale_price), num(b.nightly_price), num(b.advance_received),
+            describeCollectors(b as Parameters<typeof describeCollectors>[0]), num(b.net_sale),
+            num(b.hostello_share), num(b.client_payout), num(b.due_to_hostello), num(b.due_to_client),
             Boolean(b.share_received), day(b.share_received_date), Boolean(b.settled), day(b.settled_date),
             (b.notes as string) ?? "", day(b.created_at),
           ]),

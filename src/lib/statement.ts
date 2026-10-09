@@ -33,6 +33,8 @@ export type StatementRow = {
   status: string;
   sale_price: number | null;
   client_payout: number | null;
+  /** What Hostello has to send for this stay; zero when the owner took the money. */
+  due_to_client: number | null;
   settled: boolean;
   settled_date: string | null;
   booking_properties: unknown;
@@ -108,7 +110,8 @@ function line(row: StatementRow, month: StatementMonth): (string | number | null
     row.status.charAt(0).toUpperCase() + row.status.slice(1),
     Number(row.sale_price ?? 0),
     Number(row.client_payout ?? 0),
-    row.settled ? "Yes" : "No",
+    // Nothing to settle when the guest's money went to the owner in the first place.
+    row.settled ? "Yes" : Number(row.due_to_client ?? 0) > 0 ? "No" : "Paid to you directly",
     row.settled_date ?? "",
   ];
 }

@@ -15,11 +15,14 @@ import {
 import { FormGlow, FormStep } from "@/components/shared/FormStep";
 import {
   calculatePayout,
+  COLLECTORS,
+  defaultCollector,
   formatPKR,
   isOtaSource,
   isPassThroughSource,
   nightsBetween,
   usesStackRate,
+  type Collector,
   type DealModel,
   type OtaModel,
 } from "@/lib/payout";
@@ -71,6 +74,9 @@ export type BookingFormValues = {
   /** Set only when the stay was priced per night rather than as a total. */
   nightlyPrice: number | null;
   advance: number;
+  /** Who took the advance, and who takes the rest of the price. */
+  advanceReceivedBy: Collector;
+  balanceReceivedBy: Collector;
   source: string;
   status: "confirmed" | "tentative";
   notes: string | null;
@@ -153,6 +159,21 @@ export function BookingForm({
   const [guestName, setGuestName] = useState(values?.guestName ?? "");
   const [guestsCount, setGuestsCount] = useState(values?.guestsCount != null ? String(values.guestsCount) : "");
   const [source, setSource] = useState(values?.source ?? initialSource ?? "hostello");
+  const [advance, setAdvance] = useState(String(values?.advance ?? 0));
+  // Null follows the channel: a new booking starts where its source usually
+  // pays, until someone says otherwise. A stay paid in full up front has no
+  // balance, so whoever took the advance is who received the money.
+  const [collector, setCollector] = useState<Collector | null>(
+    values
+      ? values.advance > 0 && values.advance >= values.salePrice
+        ? values.advanceReceivedBy
+        : values.balanceReceivedBy
+      : null
+  );
+  // Null means the advance went the same way as the rest.
+  const [advanceCollector, setAdvanceCollector] = useState<Collector | null>(
+    values && values.advanceReceivedBy !== values.balanceReceivedBy ? values.advanceReceivedBy : null
+  );
   // An edit reopens with everything visible — those fields already have values,
   // and hiding them behind a toggle reads as if the booking has none.
   const [showMore, setShowMore] = useState(Boolean(values));
@@ -216,6 +237,13 @@ export function BookingForm({
     ? (Number(nightlyPrice) || 0) * nightsForPricing
     : Number(salePrice) || 0;
 
+  const receivedBy = collector ?? defaultCollector(source);
+  const advanceAmount = Number(advance) || 0;
+  // Only a part-paid stay can have its two halves go different ways.
+  const splitPayment = advanceAmount > 0 && advanceAmount < grossPrice;
+  const advanceBy = splitPayment ? (advanceCollector ?? receivedBy) : receivedBy;
+  const collectorLabel = (c: Collector) => COLLECTORS.find((o) => o.value === c)?.label ?? c;
+
   const preview = useMemo(() => {
     if (!checkIn || !checkOut || !client) return null;
     if (perNight ? !nightlyPrice : !salePrice) return null;
@@ -231,6 +259,9 @@ export function BookingForm({
       stackRate: stackRateTotal,
       source,
       status,
+      advanceReceived: advanceAmount,
+      advanceReceivedBy: advanceBy,
+      balanceReceivedBy: receivedBy,
     });
   }, [
     checkIn,
@@ -243,6 +274,9 @@ export function BookingForm({
     stackRateTotal,
     source,
     status,
+    advanceAmount,
+    advanceBy,
+    receivedBy,
   ]);
 
   const stackBased = client
@@ -285,6 +319,10 @@ export function BookingForm({
             that was closed, and the server fell back to confirmed. */}
         <input type="hidden" name="status" value={status} />
         <input type="hidden" name="source" value={source} />
+        <input type="hidden" name="advance_received_by" value={advanceBy} />
+        <input type="hidden" name="balance_received_by" value={receivedBy} />
+        {/* The box lives in "More details"; closed, what was typed there still posts. */}
+        {!showMore && <input type="hidden" name="advance_received" value={advance} />}
 
         <div className="stagger flex flex-col gap-4 min-w-0">
           <FormStep n={1} icon={Building2} title="Where are they staying?" done={steps.where}>
@@ -613,6 +651,19 @@ export function BookingForm({
                 })}
               </div>
             </div>
+
+            <div className="flex flex-col gap-2">
+              <p className={fieldLabel}>
+                {splitPayment
+                  ? `Balance (${formatPKR(grossPrice - advanceAmount)}) received by`
+                  : "Money received by"}
+              </p>
+              <CollectorChips label="Money received by" value={receivedBy} onChange={setCollector} />
+              <p className="text-[11px] text-ink-muted">
+                Who the guest&rsquo;s money goes to — an Airbnb payout, or cash paid at the property, is
+                the owner&rsquo;s.
+              </p>
+            </div>
           </FormStep>
 
           <section className="card p-5 flex flex-col gap-4">
@@ -662,12 +713,24 @@ export function BookingForm({
                       type="number"
                       min="0"
                       step="1"
-                      defaultValue={values?.advance ?? 0}
+                      value={advance}
+                      onChange={(e) => setAdvance(e.target.value)}
                       readOnly={lockPrices}
                       className={fieldInput}
                     />
                   </div>
                 </div>
+
+                {splitPayment && (
+                  <div className="flex flex-col gap-2">
+                    <p className={fieldLabel}>Advance ({formatPKR(advanceAmount)}) received by</p>
+                    <CollectorChips
+                      label="Advance received by"
+                      value={advanceBy}
+                      onChange={setAdvanceCollector}
+                    />
+                  </div>
+                )}
 
                 {allowReceipt && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -783,6 +846,14 @@ export function BookingForm({
                   {sourceLabel(source)}
                 </dd>
               </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="opacity-70">Paid to</dt>
+                <dd className="font-semibold text-right">
+                  {advanceBy === receivedBy
+                    ? collectorLabel(receivedBy)
+                    : `Advance ${collectorLabel(advanceBy)} · balance ${collectorLabel(receivedBy)}`}
+                </dd>
+              </div>
               <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-white/15">
                 <dt className="opacity-70">Price</dt>
                 <dd className={`num ${steps.price ? "text-xl font-extrabold" : "opacity-60"}`}>
@@ -836,6 +907,14 @@ export function BookingForm({
                   Rs {preview.clientPayout.toLocaleString("en-PK")}
                 </span>
               </p>
+              {(preview.dueToClient > 0 || preview.dueToHostello > 0) && (
+                <p className="flex justify-between gap-3 text-ink-secondary border-t border-border-hairline pt-2">
+                  <span>{preview.dueToClient > 0 ? "Hostello to pay the owner" : "Owner to pay Hostello"}</span>
+                  <span className="text-hostello-gold-bright font-semibold num">
+                    {formatPKR(preview.dueToClient || preview.dueToHostello)}
+                  </span>
+                </p>
+              )}
               {isPassThroughSource(source) && (
                 <p className="text-[11px] text-ink-muted">
                   {sourceLabel(source)} — Hostello earns nothing on this booking.
@@ -887,6 +966,40 @@ export function BookingForm({
           </SubmitButton>
         </aside>
       </form>
+    </div>
+  );
+}
+
+function CollectorChips({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: Collector;
+  onChange: (value: Collector) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+      {COLLECTORS.map((c) => {
+        const on = value === c.value;
+        return (
+          <button
+            key={c.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(c.value)}
+            className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
+              on
+                ? "border-hostello-gold bg-hostello-gold/10 text-ink-primary font-semibold"
+                : "border-border-hairline text-ink-secondary hover:border-border-strong hover:text-ink-primary"
+            }`}
+          >
+            {c.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

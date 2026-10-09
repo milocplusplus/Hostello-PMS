@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/shared/PageHeader";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
-import { formatPKR, isPassThroughSource } from "@/lib/payout";
+import { formatPKR } from "@/lib/payout";
 import {
   getMonthGrid,
   formatMonthLabel,
@@ -90,7 +90,7 @@ export default async function ClientDashboard({
   const prevEnd = prevDays[prevDays.length - 1];
 
   const bookingFields =
-    "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, settled, booking_properties(property_id, properties(name, photo_path))";
+    "id, guest_name, check_in, check_out, source, status, sale_price, client_payout, due_to_client, settled, booking_properties(property_id, properties(name, photo_path))";
 
   const [
     { data: properties },
@@ -160,18 +160,11 @@ export default async function ClientDashboard({
   const grossThisMonth = monthStays.reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
   const payoutThisMonth = monthStays.reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
   const payoutLastMonth = (prevBookings ?? []).reduce((s, b) => s + Number(b.client_payout ?? 0), 0);
-  // Only what Hostello actually has to send: on a booking the owner sourced
-  // themselves they already hold the guest's money, so it is not awaited.
+  // Only what Hostello actually has to send: money the owner received
+  // themselves (an Airbnb payout, cash at the door) is not awaited.
   const awaiting = (
-    monthStays as unknown as {
-      source: string;
-      client_payout: number | null;
-      settled: boolean;
-    }[]
-  ).reduce(
-    (s, b) => s + (b.settled || isPassThroughSource(b.source) ? 0 : Number(b.client_payout ?? 0)),
-    0
-  );
+    monthStays as unknown as { due_to_client: number | null; settled: boolean }[]
+  ).reduce((s, b) => s + (b.settled ? 0 : Number(b.due_to_client ?? 0)), 0);
 
   // Cumulative daily series: each booking lands on its check-in day, so the last
   // point equals the month total on the KPI card.

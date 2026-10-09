@@ -40,6 +40,45 @@ export function isPassThroughSource(source: string): boolean {
 }
 
 /**
+ * Who took the guest's money. Settlement follows the money, not the channel:
+ * an Airbnb payout lands in the owner's account, a Booking.com guest often pays
+ * the owner at the property, and one stay can split — advance to one side, the
+ * balance to the other.
+ */
+export type Collector = "hostello" | "owner";
+
+export const COLLECTORS: { value: Collector; label: string }[] = [
+  { value: "hostello", label: "Hostello" },
+  { value: "owner", label: "Owner" },
+];
+
+export function isCollector(value: unknown): value is Collector {
+  return value === "hostello" || value === "owner";
+}
+
+/** Where a new booking starts: only a stay Hostello sold directly is paid to Hostello. */
+export function defaultCollector(source: string): Collector {
+  return source === "hostello" ? "hostello" : "owner";
+}
+
+/** "Owner", or "Advance Hostello · balance Owner" when a part-paid stay splits. */
+export function describeCollectors(booking: {
+  sale_price: number | string | null;
+  advance_received: number | string | null;
+  advance_received_by: string | null;
+  balance_received_by: string | null;
+}): string {
+  const label = (c: string | null) => COLLECTORS.find((o) => o.value === c)?.label ?? "Owner";
+  const sale = Number(booking.sale_price ?? 0);
+  const advance = Number(booking.advance_received ?? 0);
+  if (advance > 0 && advance >= sale) return label(booking.advance_received_by);
+  if (advance <= 0 || booking.advance_received_by === booking.balance_received_by) {
+    return label(booking.balance_received_by);
+  }
+  return `Advance ${label(booking.advance_received_by)} · balance ${label(booking.balance_received_by)}`;
+}
+
+/**
  * Does this booking's share come out of the stack rate? The same branch
  * `calculatePayout` takes below, exported so a form can warn that the rate it
  * is about to divide by is zero rather than silently handing Hostello the lot.
@@ -77,6 +116,9 @@ export type PayoutInput = {
   otaSharePercent: number; // used when otaModel is 'percent'
   source: string; // self-sourced / walk-in / referral / other earn Hostello nothing
   status: "confirmed" | "tentative" | "cancelled";
+  advanceReceived: number;
+  advanceReceivedBy: Collector;
+  balanceReceivedBy: Collector; // whoever takes the rest of the sale price
 };
 
 export type PayoutResult = {
@@ -84,6 +126,13 @@ export type PayoutResult = {
   netSale: number;
   hostelloShare: number;
   clientPayout: number;
+  /**
+   * What still has to move between the two once the guest has paid, netted to
+   * one figure per stay — at most one of these is above zero. Settlement
+   * (`owed.ts` and its SQL) reads these and nothing else.
+   */
+  dueToClient: number;
+  dueToHostello: number;
 };
 
 /**
@@ -131,7 +180,25 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
   hostelloShare = Math.round(hostelloShare * 100) / 100;
   const clientPayout = Math.round((netSale - hostelloShare) * 100) / 100;
 
-  return { nights, netSale, hostelloShare, clientPayout };
+  // Hostello keeps its share out of whatever part of the sale it collected and
+  // owes the owner the rest of that part's net; if it collected less than its
+  // share, the owner owes the difference. All of it collected by Hostello is
+  // the client payout; none of it is Hostello's share.
+  const advance = Math.min(Math.max(0, input.advanceReceived), input.salePrice);
+  const heldByHostello =
+    (input.advanceReceivedBy === "hostello" ? advance : 0) +
+    (input.balanceReceivedBy === "hostello" ? input.salePrice - advance : 0);
+  const heldNet = input.salePrice > 0 ? (heldByHostello / input.salePrice) * netSale : 0;
+  const position = Math.round((heldNet - hostelloShare) * 100) / 100;
+
+  return {
+    nights,
+    netSale,
+    hostelloShare,
+    clientPayout,
+    dueToClient: Math.max(0, position),
+    dueToHostello: Math.max(0, -position),
+  };
 }
 
 export function formatPKR(n: number | null | undefined): string {
