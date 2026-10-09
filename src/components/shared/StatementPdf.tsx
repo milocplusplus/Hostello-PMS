@@ -7,7 +7,7 @@ import { formatPKR } from "@/lib/payout";
 import { formatDayMonth } from "@/lib/calendar";
 import { formatShortStayWindow, rowShortStay, departureDate } from "@/lib/short-stay";
 import { sourceLabel } from "@/lib/block-sources";
-import { canvasToJpeg, pagesToPdfBlob, type PdfPage } from "@/lib/pdf";
+import { canvasToJpeg, pagesToPdfBlob, sharePdf, type PdfPage } from "@/lib/pdf";
 import type { StatementReport, ReportRow } from "@/lib/statement-report";
 
 /**
@@ -23,10 +23,10 @@ import type { StatementReport, ReportRow } from "@/lib/statement-report";
  * Airbnb's pink is.
  */
 
-const W = 1240;
-const H = 1754;
-const M = 80; // margin
-const CW = W - M * 2; // content width
+export const W = 1240;
+export const H = 1754;
+export const M = 80; // margin
+export const CW = W - M * 2; // content width
 
 /**
  * "1 unit", not "1 units". A statement for an owner with a single property said
@@ -46,7 +46,7 @@ function resolve(value: string): string {
   return (m ? cssVar(m[1]) : value) || "#8b5cf6";
 }
 
-function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   c.beginPath();
   c.moveTo(x + r, y);
   c.arcTo(x + w, y, x + w, y + h, r);
@@ -57,14 +57,14 @@ function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: num
 }
 
 /** Truncates to fit, with an ellipsis, so nothing ever spills its column. */
-function clip(c: CanvasRenderingContext2D, text: string, max: number): string {
+export function clip(c: CanvasRenderingContext2D, text: string, max: number): string {
   if (c.measureText(text).width <= max) return text;
   let s = text;
   while (s.length > 1 && c.measureText(s + "…").width > max) s = s.slice(0, -1);
   return s + "…";
 }
 
-type Theme = {
+export type Theme = {
   font: string;
   bg: string;
   card: string;
@@ -82,7 +82,7 @@ type Theme = {
   line: string;
 };
 
-function readTheme(): Theme {
+export function readTheme(): Theme {
   const font = getComputedStyle(document.body).fontFamily ||
     "ui-sans-serif, system-ui, sans-serif";
   return {
@@ -121,7 +121,7 @@ function dots(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   c.restore();
 }
 
-function page(t: Theme): { canvas: HTMLCanvasElement; c: CanvasRenderingContext2D } {
+export function page(t: Theme): { canvas: HTMLCanvasElement; c: CanvasRenderingContext2D } {
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -132,7 +132,18 @@ function page(t: Theme): { canvas: HTMLCanvasElement; c: CanvasRenderingContext2
   return { canvas, c };
 }
 
-function masthead(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, compact: boolean) {
+/** What the masthead and footer say; the drawing is the same for every report. */
+export type PdfHead = {
+  brand: string;
+  kicker: string;
+  title: string;
+  sub: string;
+  /** The faint line at the foot of every page. */
+  note: string;
+  contact: string | null;
+};
+
+export function masthead(c: CanvasRenderingContext2D, t: Theme, r: PdfHead, compact: boolean) {
   const h = compact ? 150 : 300;
 
   const g = c.createLinearGradient(0, 0, W, h);
@@ -168,29 +179,29 @@ function masthead(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, com
   c.fillStyle = t.ink;
   c.font = `500 ${compact ? 22 : 26}px ${t.font}`;
   c.letterSpacing = "6px";
-  c.fillText((r.business?.name ?? "Hostello").toUpperCase(), M, compact ? 62 : 86);
+  c.fillText(r.brand.toUpperCase(), M, compact ? 62 : 86);
   c.letterSpacing = "0px";
 
   if (compact) {
     c.fillStyle = t.dim;
     c.font = `400 20px ${t.font}`;
-    c.fillText(`${r.clientName} · ${r.monthLabel}`, M, 104);
+    c.fillText(clip(c, `${r.title} · ${r.sub}`, CW), M, 104);
     return h;
   }
 
   c.fillStyle = t.gold;
   c.font = `500 15px ${t.font}`;
   c.letterSpacing = "3px";
-  c.fillText("OWNER STATEMENT", M, 124);
+  c.fillText(r.kicker, M, 124);
   c.letterSpacing = "0px";
 
   c.fillStyle = t.ink;
   c.font = `500 52px ${t.font}`;
-  c.fillText(clip(c, r.clientName, CW - 60), M, 190);
+  c.fillText(clip(c, r.title, CW - 60), M, 190);
 
   c.fillStyle = t.dim;
   c.font = `400 26px ${t.font}`;
-  c.fillText(r.monthLabel, M, 232);
+  c.fillText(clip(c, r.sub, CW - 60), M, 232);
 
   c.fillStyle = t.muted;
   c.font = `400 17px ${t.font}`;
@@ -203,26 +214,26 @@ function masthead(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, com
   return h;
 }
 
-function footer(c: CanvasRenderingContext2D, t: Theme, r: StatementReport, n: number, of: number) {
+export function footer(c: CanvasRenderingContext2D, t: Theme, r: PdfHead, n: number, of: number) {
   c.fillStyle = t.line;
   c.fillRect(M, H - 96, CW, 1);
   c.fillStyle = t.muted;
   c.font = `400 16px ${t.font}`;
-  c.fillText(`${r.clientName} · ${r.monthLabel}`, M, H - 62);
+  c.fillText(clip(c, `${r.title} · ${r.sub}`, CW - 160), M, H - 62);
   c.textAlign = "right";
   c.fillText(`Page ${n} of ${of}`, W - M, H - 62);
   c.textAlign = "left";
   c.font = `400 14px ${t.font}`;
   c.fillStyle = "rgba(255,255,255,0.22)";
-  c.fillText("Figures are your share. Hostello's commission is not shown.", M, H - 36);
-  if (r.business?.line) {
+  c.fillText(r.note, M, H - 36);
+  if (r.contact) {
     c.textAlign = "right";
-    c.fillText(clip(c, r.business.line, CW / 2), W - M, H - 36);
+    c.fillText(clip(c, r.contact, CW - 40 - c.measureText(r.note).width), W - M, H - 36);
     c.textAlign = "left";
   }
 }
 
-function tile(
+export function tile(
   c: CanvasRenderingContext2D,
   t: Theme,
   x: number,
@@ -552,7 +563,7 @@ const COLS = [275, 220, 155, 185, 115, 130];
 const HEADS = ["Dates", "Unit", "Guest", "Source", "Sale", "Payout"];
 /** Right-aligned columns, by index. */
 const RIGHT = 4;
-const PAD = 18;
+export const PAD = 18;
 
 function tableHeader(c: CanvasRenderingContext2D, t: Theme, y: number) {
   c.fillStyle = t.raised;
@@ -625,7 +636,7 @@ function signedPKR(n: number) {
 }
 
 /** A table whose columns from `rightFrom` on are right-aligned figures. */
-function gridHeader(
+export function gridHeader(
   c: CanvasRenderingContext2D,
   t: Theme,
   y: number,
@@ -651,7 +662,7 @@ function gridHeader(
   return y + 46;
 }
 
-function gridRow(
+export function gridRow(
   c: CanvasRenderingContext2D,
   t: Theme,
   y: number,
@@ -847,6 +858,14 @@ export async function renderStatementPages(
 ): Promise<PdfPage[]> {
   await document.fonts.ready;
   const t = readTheme();
+  const head: PdfHead = {
+    brand: r.business?.name ?? "Hostello",
+    kicker: "OWNER STATEMENT",
+    title: r.clientName,
+    sub: r.monthLabel,
+    note: "Figures are your share. Hostello's commission is not shown.",
+    contact: r.business?.line ?? null,
+  };
   const canvases: HTMLCanvasElement[] = [];
 
   const ROWS_FIRST = 0;
@@ -864,7 +883,7 @@ export async function renderStatementPages(
   // ── Page one: the month at a glance ───────────────────────────────────────
   {
     const { canvas, c } = page(t);
-    masthead(c, t, r, false);
+    masthead(c, t, head, false);
 
     const tw = (CW - 60) / 4;
     const tiles: [string, string, string, string][] = [
@@ -902,7 +921,7 @@ export async function renderStatementPages(
       1290
     );
 
-    footer(c, t, r, 1, pageCount);
+    footer(c, t, head, 1, pageCount);
     canvases.push(canvas);
   }
 
@@ -913,7 +932,7 @@ export async function renderStatementPages(
 
   chunks.forEach((chunk, ci) => {
     const { canvas, c } = page(t);
-    const top = masthead(c, t, r, true);
+    const top = masthead(c, t, head, true);
 
     c.fillStyle = t.ink;
     c.font = `500 26px ${t.font}`;
@@ -953,20 +972,20 @@ export async function renderStatementPages(
       c.textAlign = "left";
     }
 
-    footer(c, t, r, ci + 2, pageCount);
+    footer(c, t, head, ci + 2, pageCount);
     canvases.push(canvas);
   });
 
   if (r.profit?.recorded) {
     const { canvas, c } = page(t);
-    profitSummaryPage(c, t, r, masthead(c, t, r, true));
-    footer(c, t, r, canvases.length + 1, pageCount);
+    profitSummaryPage(c, t, r, masthead(c, t, head, true));
+    footer(c, t, head, canvases.length + 1, pageCount);
     canvases.push(canvas);
 
     itemChunks.forEach((items, i) => {
       const { canvas, c } = page(t);
-      expenseItemsPage(c, t, r, masthead(c, t, r, true), items, i === itemChunks.length - 1);
-      footer(c, t, r, canvases.length + 1, pageCount);
+      expenseItemsPage(c, t, r, masthead(c, t, head, true), items, i === itemChunks.length - 1);
+      footer(c, t, head, canvases.length + 1, pageCount);
       canvases.push(canvas);
     });
   }
@@ -1005,20 +1024,7 @@ export function StatementPdf({
     setError(null);
     try {
       const blob = pagesToPdfBlob(await renderStatementPages({ ...report, business }, { soldOnly }));
-      const file = new File([blob], filename, { type: "application/pdf" });
-
-      // Same call PayoutReceipt makes: a phone hands it to WhatsApp or the OS
-      // share sheet, everything else falls back to a download.
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Hostello statement" });
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      await sharePdf(blob, filename, "Hostello statement");
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return; // a cancelled share
       setError("Could not build the PDF. Try again.");

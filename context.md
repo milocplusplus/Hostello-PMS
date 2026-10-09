@@ -276,7 +276,14 @@ Pre-launch: real data has not been entered yet.
   `suggested_description`), `coach_fixes` (Done tick → the next audit sets
   `confirmed_on` or `reopened_on`). The 25% overpriced line is in
   `coach_save_report()` and `pricedHigh()` in `src/lib/listing-coach.ts` —
-  change both. Nothing is written back to Airbnb.
+  change both. Nothing is written back to Airbnb. **Report PDF**: the
+  "Report" button on a listing's page (`components/admin/CoachReportPdf.tsx`)
+  draws that listing's saved findings — numbers, price bars, open fixes,
+  suggested wording, competitors, past checks — for the admin or the unit's
+  owner. It reads nothing new. It shares the statement's canvas pieces
+  (`masthead` / `footer` take a `PdfHead`, plus `tile`, `gridRow`… exported
+  from `StatementPdf.tsx`) and `sharePdf()` in `pdf.ts`; unlike the statement
+  it is prose, so pages are filled by a cursor (`need()`), not fixed slots.
 - **Review requests** (staff, "Ask for a review" on `/admin/today`) — Airbnb
   stays only. `review_requests` holds one row per stay (unique per unit per
   departure day), written only by `raise_review_requests()` on cron

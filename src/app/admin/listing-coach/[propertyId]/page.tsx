@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reviewRequestCounts } from "@/lib/review-requests";
+import { businessContact, loadSettings } from "@/lib/settings";
 import {
   COACH_TABS,
   CoachListing,
@@ -59,6 +60,7 @@ export default async function CoachListingPage({
       fixes={(fixes ?? []) as CoachFix[]}
       competitors={(competitors ?? []) as CoachCompetitorRow[]}
       reviewsAsked={asked.get(propertyId)}
+      business={businessContact(await loadSettings())}
       tab={COACH_TABS.find((t) => t === tab) ?? ("overview" satisfies CoachTab)}
       error={error}
       notice={notice}

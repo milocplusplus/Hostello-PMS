@@ -1,6 +1,22 @@
-# State — updated 2026-10-09
+# State — updated 2026-10-10
 
 ## Done
+- **Listing Coach report PDF** (2026-10-10). Owner asked for a report of
+  findings and suggestions. Owner's choices: read by both the admin and the
+  unit's owner; one listing per report; a PDF (download / share sheet, like
+  the statement); holding the numbers, fixes to make, suggested wording,
+  competitors and past checks. A "Report" button beside "Airbnb" on a
+  listing's page, shown once the listing has a report. Built from the saved
+  check only — no new Airbnb check. The summary is dated when it comes from
+  an audit older than the latest check. No migration. The statement PDF's
+  masthead / footer now take plain labels so both documents share one look.
+  **Tested** on a temporary fixture route (deleted) with F-105's real saved
+  reports and fixes: 4 pages, every section, a reopened / ticked / confirmed
+  fix; a listing with one un-audited check and no fixes (2 pages, "Nothing
+  to fix"); the monthly statement redrawn after the shared change. Lint +
+  build. **Not seen signed in; the button itself was not pressed**, so the
+  download / phone share sheet was not exercised for this report (it is the
+  statement's own code, moved to `sharePdf`).
 - **Hostello earns is editable** (2026-10-09). Owner asked to set what
   Hostello earns when adding a booking. Owner's choices: admin only; typed in
   rupees; a typed amount also applies on channels where Hostello normally

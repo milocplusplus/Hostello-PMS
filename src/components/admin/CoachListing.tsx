@@ -4,10 +4,12 @@ import { formatDayMonth } from "@/lib/calendar";
 import { formatPKR } from "@/lib/payout";
 import { FIX_AREAS, againstMiddle, pricedHigh, type CoachCompetitor } from "@/lib/listing-coach";
 import type { ReviewCounts } from "@/lib/review-requests";
+import type { BusinessContact } from "@/lib/settings-shared";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner } from "@/lib/form-styles";
 import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
 import { SubmitButton } from "@/components/shared/Busy";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import { CoachReportPdf } from "@/components/admin/CoachReportPdf";
 import { addCoachCompetitor, removeCoachCompetitor, tickCoachFix } from "@/app/admin/listing-coach/actions";
 
 export type CoachReport = {
@@ -73,6 +75,7 @@ export function CoachListing({
   fixes,
   competitors,
   reviewsAsked,
+  business,
   tab,
   error,
   notice,
@@ -86,6 +89,8 @@ export function CoachListing({
   competitors: CoachCompetitorRow[];
   /** Review requests for this unit, from the Today page's ticks; absent until one is asked. */
   reviewsAsked?: ReviewCounts;
+  /** From Settings: the name and contact line on the report PDF. */
+  business?: BusinessContact;
   tab: CoachTab;
   error?: string;
   notice?: string;
@@ -124,10 +129,23 @@ export function CoachListing({
           </>
         }
         actions={
-          <a href={airbnbUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
-            <ExternalLink size={13} aria-hidden />
-            Airbnb
-          </a>
+          <>
+            {latest && (
+              <CoachReportPdf
+                data={{ unitName, reports, fixes, business }}
+                filename={`listing-report-${
+                  unitName
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-|-$/g, "") || "listing"
+                }-${latest.run_on}.pdf`}
+              />
+            )}
+            <a href={airbnbUrl} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+              <ExternalLink size={13} aria-hidden />
+              Airbnb
+            </a>
+          </>
         }
       />
       {notice && <p className={noticeBanner}>{notice}</p>}

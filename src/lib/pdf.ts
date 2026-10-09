@@ -117,3 +117,22 @@ export async function canvasToJpeg(canvas: HTMLCanvasElement, quality = 0.92): P
   if (!blob) throw new Error("The browser could not encode the page.");
   return new Uint8Array(await blob.arrayBuffer());
 }
+
+/**
+ * Hands a finished PDF to the person: a phone passes it to WhatsApp or the OS
+ * share sheet, everything else downloads it. A cancelled share rejects with
+ * `AbortError`, which the caller treats as nothing having gone wrong.
+ */
+export async function sharePdf(blob: Blob, filename: string, title: string): Promise<void> {
+  const file = new File([blob], filename, { type: "application/pdf" });
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title });
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
