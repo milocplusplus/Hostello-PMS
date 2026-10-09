@@ -32,7 +32,12 @@ import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
 import { requireStaff } from "@/lib/auth";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
-import { collectorsLocked, readBookingPrice, readCollectors } from "@/lib/booking-price";
+import {
+  collectorsLocked,
+  readBookingPrice,
+  readCollectors,
+  readShareOverride,
+} from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
 import { readFx } from "@/lib/fx";
 
@@ -45,7 +50,7 @@ type SaveResult = { error: string } | { clientId: string; bookingId: string; che
 async function saveBooking(formData: FormData): Promise<SaveResult> {
   // The booking is written with the service-role key, which RLS does not apply
   // to, so staff has to be established here rather than by the write refusing.
-  await requireStaff();
+  const profile = await requireStaff();
 
   const client_id = formData.get("client_id") as string;
   const property_ids = formData.getAll("property_ids") as string[];
@@ -168,6 +173,14 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   if (clash) return { error: clash };
 
   const collectors = readCollectors(formData, source);
+  const typedShare = readShareOverride(formData, {
+    mayType: profile.role === "admin",
+    salePrice: sale_price,
+    checkIn: check_in,
+    checkOut: check_out,
+  });
+  if (!typedShare.ok) return { error: typedShare.error };
+  const shareOverride = typedShare.override;
 
   const payout = calculatePayout({
     salePrice: sale_price,
@@ -183,7 +196,13 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
     ...collectors,
+    hostelloShareOverride: shareOverride,
   });
+
+  // The maths caps a typed earning at the net; say so rather than save less than was typed.
+  if (shareOverride != null && shareOverride > payout.netSale) {
+    return { error: `Hostello cannot earn more than the net sale (Rs ${payout.netSale.toLocaleString("en-PK")}).` };
+  }
 
   // The id is minted here rather than read back: an ops session can write a
   // booking but cannot SELECT the table, so `.select()` on the insert would
@@ -226,6 +245,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       balance_received_by: collectors.balanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
+      hostello_share_override: shareOverride,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,
@@ -336,7 +356,7 @@ async function applyBookingUpdate(
 ): Promise<{ error: string } | { clientId: string }> {
   // Same reason as `saveBooking`: the split is rewritten with the service-role
   // key, so RLS is not the thing keeping a client out of this endpoint.
-  await requireStaff();
+  const profile = await requireStaff();
 
   const supabase = await createClient();
 
@@ -401,7 +421,7 @@ async function applyBookingUpdate(
   const { data: existing } = await reader.client
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, hostello_share_override, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -414,6 +434,16 @@ async function applyBookingUpdate(
   const collectors = readCollectors(formData, source, existing);
   const locked = collectorsLocked(existing, collectors);
   if (locked) return { error: locked };
+
+  const typedShare = readShareOverride(formData, {
+    mayType: profile.role === "admin",
+    salePrice: sale_price,
+    checkIn: check_in,
+    checkOut: check_out,
+    existing,
+  });
+  if (!typedShare.ok) return { error: typedShare.error };
+  const shareOverride = typedShare.override;
 
   const clash = await findStayClash(supabase, {
     propertyIds: property_ids,
@@ -452,7 +482,13 @@ async function applyBookingUpdate(
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
     ...collectors,
+    hostelloShareOverride: shareOverride,
   });
+
+  // The maths caps a typed earning at the net; say so rather than save less than was typed.
+  if (shareOverride != null && shareOverride > payout.netSale) {
+    return { error: `Hostello cannot earn more than the net sale (Rs ${payout.netSale.toLocaleString("en-PK")}).` };
+  }
 
   const updatedAt = new Date().toISOString();
 
@@ -492,6 +528,7 @@ async function applyBookingUpdate(
       balance_received_by: collectors.balanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
+      hostello_share_override: shareOverride,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,

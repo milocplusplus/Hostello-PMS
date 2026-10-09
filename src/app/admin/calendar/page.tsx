@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, Lock, ArrowLeft, CalendarSync, Building2, Users, LogIn, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { blockTypeColor, blockTypeLabel, sourceColor } from "@/lib/block-sources";
 import { propertyTypeLabel } from "@/lib/property-types";
 import { formatPKR, type DealModel, type OtaModel } from "@/lib/payout";
@@ -595,6 +595,7 @@ export default async function CalendarPage({
                 bookingClients={bookingClients}
                 createAction={createBookingInline}
                 unavailable={unavailable}
+                canSetShare={canSeeSplit((await currentProfile())?.role)}
                 bookingDefaults={bookingDefaults(await loadSettings())}
               />
             </div>

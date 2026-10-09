@@ -98,6 +98,7 @@ export default async function NewBookingPage({
           fromBlockId={block}
           unavailable={unavailable}
           showPayoutPreview={showMoney}
+          canSetShare={showMoney}
           defaults={bookingDefaults(await loadSettings())}
           error={error}
         />

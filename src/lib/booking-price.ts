@@ -23,6 +23,54 @@ export function readCollectors(
 }
 
 /**
+ * What Hostello earns, when the admin typed it instead of taking the deal's
+ * figure. The typed amount belongs to the price and dates it was typed
+ * against: an edit that changes either goes back to the deal unless it brings
+ * a new amount with it.
+ *
+ * The admin's form always posts `hostello_share_typed` — empty meaning "use
+ * the deal". A form without the field (the owner's, a quick tool, an ops
+ * session) types nothing and only inherits.
+ */
+export function readShareOverride(
+  formData: FormData,
+  args: {
+    mayType: boolean;
+    salePrice: number;
+    checkIn: string;
+    checkOut: string;
+    existing?: {
+      hostello_share_override: number | string | null;
+      sale_price: number | string | null;
+      check_in: string;
+      check_out: string;
+    } | null;
+  }
+): { ok: true; override: number | null } | { ok: false; error: string } {
+  const posted = args.mayType ? formData.get("hostello_share_typed") : null;
+
+  if (typeof posted === "string") {
+    if (posted.trim() === "") return { ok: true, override: null };
+    const amount = Number(posted);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { ok: false, error: "Enter what Hostello earns as an amount in rupees." };
+    }
+    if (amount > args.salePrice) {
+      return { ok: false, error: "Hostello cannot earn more than the booking's price." };
+    }
+    return { ok: true, override: amount };
+  }
+
+  const kept = args.existing?.hostello_share_override;
+  const unchanged =
+    args.existing != null &&
+    Number(args.existing.sale_price ?? 0) === args.salePrice &&
+    args.existing.check_in === args.checkIn &&
+    args.existing.check_out === args.checkOut;
+  return { ok: true, override: kept != null && unchanged ? Number(kept) : null };
+}
+
+/**
  * A stay a confirmed payment has already closed keeps who received its money:
  * changing it would flip a settled balance to the other side.
  */

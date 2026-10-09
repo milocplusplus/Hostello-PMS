@@ -22,7 +22,12 @@ import { describeBookingChanges } from "@/lib/booking-changes";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
 import { bookingWriter } from "@/lib/payout-inputs";
-import { collectorsLocked, readBookingPrice, readCollectors } from "@/lib/booking-price";
+import {
+  collectorsLocked,
+  readBookingPrice,
+  readCollectors,
+  readShareOverride,
+} from "@/lib/booking-price";
 
 type SaveResult = { error: string } | { bookingId: string; checkIn: string };
 
@@ -110,6 +115,8 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
   if (clash) return { error: clash };
 
   const collectors = readCollectors(formData, source);
+  // What Hostello earns is the admin's to type, never the owner's.
+  const shareOverride = null;
 
   const payout = calculatePayout({
     salePrice: sale_price,
@@ -125,6 +132,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
     ...collectors,
+    hostelloShareOverride: shareOverride,
   });
 
   // The split is written with the server's own credentials — see
@@ -163,6 +171,7 @@ async function saveClientBooking(formData: FormData): Promise<SaveResult> {
       balance_received_by: collectors.balanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
+      hostello_share_override: shareOverride,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,
@@ -292,7 +301,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
   const { data: existing } = await supabase
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, hostello_share_override, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -305,6 +314,17 @@ export async function updateClientBooking(id: string, formData: FormData) {
   const collectors = readCollectors(formData, source, existing);
   const locked = collectorsLocked(existing, collectors);
   if (locked) back(locked);
+
+  // The owner types nothing here: an amount the admin set stays while the
+  // price and dates it was set against do.
+  const typedShare = readShareOverride(formData, {
+    mayType: false,
+    salePrice: sale_price,
+    checkIn: check_in,
+    checkOut: check_out,
+    existing,
+  });
+  const shareOverride = typedShare.ok ? typedShare.override : null;
 
   const { data: properties } = await supabase
     .from("properties")
@@ -342,6 +362,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
     ...collectors,
+    hostelloShareOverride: shareOverride,
   });
 
   const updatedAt = new Date().toISOString();
@@ -374,6 +395,7 @@ export async function updateClientBooking(id: string, formData: FormData) {
       balance_received_by: collectors.balanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
+      hostello_share_override: shareOverride,
       guests_count: details.guestsCount,
       expected_arrival: details.expectedArrival,
       expected_departure: details.expectedDeparture,

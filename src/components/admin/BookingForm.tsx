@@ -25,6 +25,7 @@ import {
   type Collector,
   type DealModel,
   type OtaModel,
+  type PayoutInput,
 } from "@/lib/payout";
 import { BOOKING_SOURCES, sourceColor, sourceLabel } from "@/lib/block-sources";
 import { formatDayMonth } from "@/lib/calendar";
@@ -77,6 +78,8 @@ export type BookingFormValues = {
   /** Who took the advance, and who takes the rest of the price. */
   advanceReceivedBy: Collector;
   balanceReceivedBy: Collector;
+  /** What Hostello earns when the admin typed it; null = the deal's figure. */
+  hostelloShareOverride: number | null;
   source: string;
   status: "confirmed" | "tentative";
   notes: string | null;
@@ -102,6 +105,7 @@ export function BookingForm({
   submitLabel = "Save booking",
   allowReceipt = true,
   showPayoutPreview = true,
+  canSetShare = false,
   defaults,
   lockPrices = false,
   error,
@@ -125,6 +129,8 @@ export function BookingForm({
   allowReceipt?: boolean;
   /** The live split. Off for ops, who fill the same form without seeing it. */
   showPayoutPreview?: boolean;
+  /** The admin may type what Hostello earns on this booking over the deal's figure. */
+  canSetShare?: boolean;
   /** Business settings for a new booking: status, standard times, short-stay hours. */
   defaults?: BookingDefaults;
   /** Ops with price edits switched off: the figures show but cannot be changed. */
@@ -168,6 +174,14 @@ export function BookingForm({
       ? values.advance > 0 && values.advance >= values.salePrice
         ? values.advanceReceivedBy
         : values.balanceReceivedBy
+      : null
+  );
+  const [typedShare, setTypedShare] = useState<{ amount: string; against: string } | null>(
+    values?.hostelloShareOverride != null
+      ? {
+          amount: String(values.hostelloShareOverride),
+          against: `${values.salePrice}|${initialDate ?? ""}|${initialCheckOut ?? ""}`,
+        }
       : null
   );
   // Null means the advance went the same way as the rest.
@@ -244,10 +258,10 @@ export function BookingForm({
   const advanceBy = splitPayment ? (advanceCollector ?? receivedBy) : receivedBy;
   const collectorLabel = (c: Collector) => COLLECTORS.find((o) => o.value === c)?.label ?? c;
 
-  const preview = useMemo(() => {
+  const payoutInput = useMemo((): PayoutInput | null => {
     if (!checkIn || !checkOut || !client) return null;
     if (perNight ? !nightlyPrice : !salePrice) return null;
-    return calculatePayout({
+    return {
       salePrice: grossPrice,
       checkIn,
       checkOut,
@@ -262,7 +276,8 @@ export function BookingForm({
       advanceReceived: advanceAmount,
       advanceReceivedBy: advanceBy,
       balanceReceivedBy: receivedBy,
-    });
+      hostelloShareOverride: null,
+    };
   }, [
     checkIn,
     checkOut,
@@ -278,6 +293,19 @@ export function BookingForm({
     advanceBy,
     receivedBy,
   ]);
+
+  // A typed earning belongs to the price and dates it was typed against — the
+  // rule the server applies on save — so changing either shows the deal's
+  // figure again.
+  const stayKey = `${grossPrice}|${checkIn}|${checkOut}`;
+  const typedNow = typedShare && typedShare.against === stayKey ? typedShare.amount : null;
+  const shareOverride =
+    typedNow != null && typedNow.trim() !== "" && Number(typedNow) >= 0 ? Number(typedNow) : null;
+  const dealPreview = payoutInput ? calculatePayout(payoutInput) : null;
+  const preview =
+    payoutInput && shareOverride != null
+      ? calculatePayout({ ...payoutInput, hostelloShareOverride: shareOverride })
+      : dealPreview;
 
   const stackBased = client
     ? usesStackRate({ dealModel: client.deal_model, otaModel: client.ota_model, source })
@@ -321,6 +349,8 @@ export function BookingForm({
         <input type="hidden" name="source" value={source} />
         <input type="hidden" name="advance_received_by" value={advanceBy} />
         <input type="hidden" name="balance_received_by" value={receivedBy} />
+        {/* Always posted by the admin's form: empty tells the server to use the deal. */}
+        {canSetShare && <input type="hidden" name="hostello_share_typed" value={typedNow ?? ""} />}
         {/* The box lives in "More details"; closed, what was typed there still posts. */}
         {!showMore && <input type="hidden" name="advance_received" value={advance} />}
 
@@ -895,12 +925,50 @@ export function BookingForm({
                 </span>
                 <span className="text-ink-primary num">Rs {preview.netSale.toLocaleString("en-PK")}</span>
               </p>
-              <p className="flex justify-between gap-3 text-ink-secondary">
-                <span>Hostello earns</span>
-                <span className="text-financial font-semibold num">
-                  Rs {preview.hostelloShare.toLocaleString("en-PK")}
-                </span>
-              </p>
+              {canSetShare ? (
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="hostello_share_box"
+                    className="flex items-center justify-between gap-3 text-ink-secondary"
+                  >
+                    <span>Hostello earns</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs text-ink-muted">Rs</span>
+                      <input
+                        id="hostello_share_box"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={typedNow ?? String(preview.hostelloShare)}
+                        onChange={(e) => setTypedShare({ amount: e.target.value, against: stayKey })}
+                        className="w-28 rounded-xl border border-border-strong bg-surface-2 px-2.5 py-1.5 text-right text-financial font-semibold num outline-none focus:border-hostello-gold"
+                      />
+                    </span>
+                  </label>
+                  {typedNow != null && dealPreview && (
+                    <p className="flex justify-between gap-3 text-[11px] text-ink-muted">
+                      <span>
+                        Typed by you · the deal gives {formatPKR(dealPreview.hostelloShare)}
+                        {status === "tentative" ? " · counts once confirmed" : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setTypedShare(null)}
+                        className="shrink-0 font-semibold text-hostello-purple-light"
+                      >
+                        Use deal amount
+                      </button>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="flex justify-between gap-3 text-ink-secondary">
+                  <span>Hostello earns</span>
+                  <span className="text-financial font-semibold num">
+                    Rs {preview.hostelloShare.toLocaleString("en-PK")}
+                  </span>
+                </p>
+              )}
               <p className="flex justify-between gap-3 text-ink-secondary">
                 <span>Client payout</span>
                 <span className="text-ink-primary font-semibold num">
@@ -915,7 +983,7 @@ export function BookingForm({
                   </span>
                 </p>
               )}
-              {isPassThroughSource(source) && (
+              {isPassThroughSource(source) && shareOverride == null && (
                 <p className="text-[11px] text-ink-muted">
                   {sourceLabel(source)} — Hostello earns nothing on this booking.
                 </p>

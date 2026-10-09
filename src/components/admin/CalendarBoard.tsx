@@ -64,6 +64,7 @@ export function CalendarBoard({
   createAction,
   unavailable = [],
   allowReceipt = true,
+  canSetShare = false,
   bookingDefaults,
 }: {
   days: string[];
@@ -76,6 +77,8 @@ export function CalendarBoard({
   /** Taken nights beyond this window, so the quick-add picker can grey them out. */
   unavailable?: UnavailableRange[];
   allowReceipt?: boolean;
+  /** The admin's calendar: the quick-add form lets them type what Hostello earns. */
+  canSetShare?: boolean;
   bookingDefaults?: BookingFormProps["defaults"];
 }) {
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
@@ -213,6 +216,7 @@ export function CalendarBoard({
           createAction={createAction}
           unavailable={unavailable}
           allowReceipt={allowReceipt}
+          canSetShare={canSetShare}
           defaults={bookingDefaults}
           onClose={() => setDraft(null)}
         />
@@ -232,6 +236,7 @@ function QuickAddBooking({
   createAction,
   unavailable,
   allowReceipt,
+  canSetShare,
   defaults,
   onClose,
 }: {
@@ -241,6 +246,7 @@ function QuickAddBooking({
   createAction: InlineCreate;
   unavailable: UnavailableRange[];
   allowReceipt: boolean;
+  canSetShare: boolean;
   defaults?: BookingFormProps["defaults"];
   onClose: () => void;
 }) {
@@ -306,6 +312,7 @@ function QuickAddBooking({
           initialCheckOut={checkOut}
           unavailable={unavailable}
           allowReceipt={allowReceipt}
+          canSetShare={canSetShare}
           defaults={defaults}
           error={error}
         />

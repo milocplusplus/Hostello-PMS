@@ -577,7 +577,7 @@ Pre-launch: real data has not been entered yet.
   source enum(`airbnb|booking_com|hostello|client|offline|reference|other`),
   status enum(`confirmed|tentative|cancelled`), sale_price, advance_received,
   advance_received_by, balance_received_by, due_to_client, due_to_hostello,
-  deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot,
+  hostello_share_override, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot,
   stack_rate_snapshot, net_sale, hostello_share, client_payout, settled,
   settled_date, share_received, share_received_date, notes, entered_by, timestamps.
   **Two settlements, not one**: `share_received` = Hostello has its `hostello_share`,
@@ -705,6 +705,18 @@ Pre-launch: real data has not been entered yet.
    none starts on `defaultCollector(source)`. Once `settled` or
    `share_received` is true the choice is locked (`collectorsLocked`) until
    the payment is undone.
+2e. **Hostello earns, typed by hand** (2026-10-09) — the admin (only) may
+   overwrite "Hostello earns" in the form's split card (`canSetShare`, on the
+   new / edit pages and the admin calendar's quick-add). Stored as
+   `bookings.hostello_share_override` (null = the deal's figure);
+   `calculatePayout` uses it on any channel, pass-through included, capped at
+   the net, and still zero while tentative. **It belongs to the price and
+   dates it was typed against**: `readShareOverride()` in `booking-price.ts`
+   keeps it through an edit that leaves both alone (the owner's edit, a unit
+   move, a status change) and drops it when either changes — date tool,
+   re-conversion, any price edit — unless the admin's form posts a new amount.
+   The admin's form always posts `hostello_share_typed` (empty = use the deal);
+   any other caller posts nothing and only inherits.
 3. **Revenue** — no ledger table. Computed live from
    `bookings.sale_price / net_sale / hostello_share / client_payout`. Deduction comes
    off gross first; `hostello_share` depends on deal_model (0 for fixed/tentative).

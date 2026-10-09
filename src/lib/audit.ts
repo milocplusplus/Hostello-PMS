@@ -249,6 +249,7 @@ const FIELDS: Record<string, [string, Kind]> = {
   due_to_hostello: ["Due to Hostello", "money"],
   net_sale: ["Net sale", "money"],
   hostello_share: ["Hostello share", "money"],
+  hostello_share_override: ["Hostello share typed by hand", "money"],
   client_payout: ["Owner payout", "money"],
   settled: ["Owner paid", "bool"],
   settled_date: ["Owner paid on", "date"],

@@ -119,6 +119,8 @@ export type PayoutInput = {
   advanceReceived: number;
   advanceReceivedBy: Collector;
   balanceReceivedBy: Collector; // whoever takes the rest of the sale price
+  /** An amount the admin typed for this one booking, in place of the deal's. */
+  hostelloShareOverride: number | null;
 };
 
 export type PayoutResult = {
@@ -149,7 +151,12 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
 
   let hostelloShare = 0;
 
-  if (!earnsNothing && isOtaSource(input.source)) {
+  if (input.hostelloShareOverride != null) {
+    // Typed by the admin, so it stands on any channel — but a tentative stay
+    // still earns nothing, and nobody earns more than the net.
+    hostelloShare =
+      input.status === "tentative" ? 0 : Math.min(Math.max(0, input.hostelloShareOverride), netSale);
+  } else if (!earnsNothing && isOtaSource(input.source)) {
     switch (input.otaModel) {
       case "percent":
         hostelloShare = (netSale * input.otaSharePercent) / 100;

@@ -1,6 +1,22 @@
 # State — updated 2026-10-09
 
 ## Done
+- **Hostello earns is editable** (2026-10-09). Owner asked to set what
+  Hostello earns when adding a booking. Owner's choices: admin only; typed in
+  rupees; a typed amount also applies on channels where Hostello normally
+  earns nothing; when the price or dates change later it is worked out from
+  the deal again. The "Hostello earns" line in the form's split card is a box
+  for the admin (new, edit, calendar quick-add): it shows the deal's figure,
+  typing over it marks it "Typed by you" with "Use deal amount" to go back.
+  Ops and owners see no box; an owner sees the saved figure. Migration
+  `hostello_share_override` **applied to the live DB** (one nullable column,
+  `bookings_v`). **Tested:** 17 cases in Node (maths on each channel,
+  tentative, the cap; what is kept or dropped on each kind of edit); the form
+  on a temporary fixture route (deleted) at desktop and 375px — typing 2,000
+  over 4,200 moves the payout and who-pays-whom, changing the price shows the
+  deal's figure again, edit reopens with the typed amount, owner variant has
+  no box. Lint + build. **Not seen signed in; no booking saved with a typed
+  amount** (no test login).
 - **Money received by** (2026-10-09). Owner reported Airbnb bookings showing
   as money Hostello owes the client, when Airbnb pays the owner; and that
   Booking.com guests often pay the owner on site. Cause: settlement assumed
