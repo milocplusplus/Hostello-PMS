@@ -85,6 +85,8 @@ export async function login(formData: FormData) {
 export async function logout() {
   await endViewAs();
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // "local" ends this device only. The default is "global", which signed the
+  // same person out of their phone when they signed out on the laptop.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/login");
 }

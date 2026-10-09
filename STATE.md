@@ -1,6 +1,13 @@
-# State — updated 2026-10-06
+# State — updated 2026-10-09
 
 ## Done
+- **Sign out ends this device only** (2026-10-09). Owner reported the phone
+  being signed out by the laptop. Auth logs showed sign-in leaves other
+  sessions alone (admin had two live at once); it was `logout()` calling
+  `signOut()` with its default `global` scope, so signing out — or switching
+  account — on one device ended them all. Now `scope: "local"`. "Sign out
+  everywhere" is still `end_user_sessions()` on the device lists. Lint.
+  **Not seen signed in** on two devices.
 - **Channel calendars split into three pages** (2026-10-06). Owner asked for
   connecting a calendar to be its own page, with health and Sync now.
   Owner's choices: a Connections page + a separate Connect page; every unit
