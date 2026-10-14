@@ -19,6 +19,8 @@ import { BookingQuickTools } from "@/components/shared/BookingQuickTools";
 import { GuestMessages } from "@/components/shared/GuestMessages";
 import { waPhone } from "@/lib/guest-messages";
 import { houseStyle, loadSettings } from "@/lib/settings";
+import { listBalancePayments } from "@/lib/balance-payments";
+import { BalancePaymentList, PaymentError, RecordPaymentForm } from "@/components/shared/BalancePayments";
 import {
   cancelClientBooking,
   markClientStayProgress,
@@ -26,6 +28,8 @@ import {
   moveClientBookingUnits,
   uploadClientGuestIds,
   deleteClientGuestId,
+  recordOwnerBalancePayment,
+  withdrawOwnerBalancePayment,
 } from "../actions";
 
 export default async function ClientBookingDetailPage({
@@ -33,10 +37,10 @@ export default async function ClientBookingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ id_error?: string; tool_error?: string }>;
+  searchParams: Promise<{ id_error?: string; tool_error?: string; pay_error?: string }>;
 }) {
   const { id } = await params;
-  const { id_error, tool_error } = await searchParams;
+  const { id_error, tool_error, pay_error } = await searchParams;
 
   const supabase = await createClient();
   const user = await currentUser();
@@ -48,7 +52,7 @@ export default async function ClientBookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type, photo_path))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_paid_hostello, balance_paid_owner, balance_pending, balance_due, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, client_id, booking_properties(properties(id, name, city, type, photo_path))"
     )
     .eq("id", id)
     .eq("client_id", clientRecord.id)
@@ -58,7 +62,7 @@ export default async function ClientBookingDetailPage({
 
   // Their own active units — `properties_v`'s WHERE clause is what scopes this,
   // not a filter, so a booking can only ever move within their own portfolio.
-  const [receipts, guestIds, { data: clientUnits }] = await Promise.all([
+  const [receipts, guestIds, { data: clientUnits }, payments] = await Promise.all([
     listReceipts(supabase, booking.id),
     listGuestIds(supabase, booking.id),
     supabase
@@ -67,6 +71,7 @@ export default async function ClientBookingDetailPage({
       .eq("client_id", clientRecord.id)
       .eq("status", "active")
       .order("name"),
+    listBalancePayments(supabase, booking.id),
   ]);
 
   const units =((booking.booking_properties as unknown as {
@@ -81,8 +86,10 @@ export default async function ClientBookingDetailPage({
   const nights = nightsBetween(booking.check_in, booking.check_out);
   const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
-  const advance = Number(booking.advance_received ?? 0);
-  const balanceDue = Math.max(0, gross - advance);
+  // What the guest still owes; entries waiting for the admin are not in it yet.
+  const balanceDue = Number(booking.balance_due ?? 0);
+  const waiting = Number(booking.balance_pending ?? 0);
+  const back = `/client/bookings/${booking.id}`;
   // Null when nothing dialable is stored, which is what hides the WhatsApp link.
   const guestWa = waPhone(booking.guest_phone);
   // Arrival / departure times, when known. A short stay's hours are its dates.
@@ -132,7 +139,7 @@ export default async function ClientBookingDetailPage({
         </div>
         <PaymentTiles
           sale={formatPKR(gross)}
-          advance={formatPKR(booking.advance_received)}
+          paid={formatPKR(gross - balanceDue)}
           balance={formatPKR(balanceDue)}
           receivedBy={describeCollectors(booking)}
           note={
@@ -141,6 +148,31 @@ export default async function ClientBookingDetailPage({
               : null
           }
         />
+        <BalancePaymentList
+          payments={payments}
+          back={back}
+          viewerId={user.id}
+          ownerView
+          withdrawAction={withdrawOwnerBalancePayment}
+        />
+        {waiting > 0 && (
+          <p className="text-[11px] text-status-pending">
+            {formatPKR(waiting)} recorded and waiting for Hostello to approve — not counted yet.
+          </p>
+        )}
+        {booking.status !== "cancelled" && (
+          <RecordPaymentForm
+            bookingId={booking.id}
+            left={balanceDue - waiting}
+            back={back}
+            action={recordOwnerBalancePayment}
+            ownerView
+            open={Boolean(pay_error)}
+            label="Guest paid? Record it"
+            note="Hostello approves it before it counts toward what either side owes."
+          />
+        )}
+        <PaymentError error={pay_error} />
       </section>
 
       {/* A cancelled stay has no arrival to explain and no balance to chase. */}

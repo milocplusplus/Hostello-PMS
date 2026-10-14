@@ -61,21 +61,34 @@ export function defaultCollector(source: string): Collector {
   return source === "hostello" ? "hostello" : "owner";
 }
 
-/** "Owner", or "Advance Hostello · balance Owner" when a part-paid stay splits. */
+/**
+ * Stays whose guest pays the channel up front: saved as paid in full, the
+ * whole price being the advance, so there is no balance left to record.
+ */
+const PREPAID_SOURCES = ["airbnb"];
+
+export function isPrepaidSource(source: string): boolean {
+  return PREPAID_SOURCES.includes(source);
+}
+
+/** Who has the guest's money so far: "Owner", "Hostello & owner", or "Nothing yet". */
 export function describeCollectors(booking: {
-  sale_price: number | string | null;
   advance_received: number | string | null;
   advance_received_by: string | null;
-  balance_received_by: string | null;
+  balance_paid_hostello?: number | string | null;
+  balance_paid_owner?: number | string | null;
 }): string {
-  const label = (c: string | null) => COLLECTORS.find((o) => o.value === c)?.label ?? "Owner";
-  const sale = Number(booking.sale_price ?? 0);
   const advance = Number(booking.advance_received ?? 0);
-  if (advance > 0 && advance >= sale) return label(booking.advance_received_by);
-  if (advance <= 0 || booking.advance_received_by === booking.balance_received_by) {
-    return label(booking.balance_received_by);
-  }
-  return `Advance ${label(booking.advance_received_by)} · balance ${label(booking.balance_received_by)}`;
+  const hostello =
+    (advance > 0 && booking.advance_received_by === "hostello") ||
+    Number(booking.balance_paid_hostello ?? 0) > 0;
+  const owner =
+    (advance > 0 && booking.advance_received_by !== "hostello") ||
+    Number(booking.balance_paid_owner ?? 0) > 0;
+  if (hostello && owner) return "Hostello & owner";
+  if (hostello) return "Hostello";
+  if (owner) return "Owner";
+  return "Nothing yet";
 }
 
 /**
@@ -118,7 +131,8 @@ export type PayoutInput = {
   status: "confirmed" | "tentative" | "cancelled";
   advanceReceived: number;
   advanceReceivedBy: Collector;
-  balanceReceivedBy: Collector; // whoever takes the rest of the sale price
+  /** Balance payments confirmed so far, by who received them. Nothing else counts. */
+  balancePaid: { hostello: number; owner: number };
   /** An amount the admin typed for this one booking, in place of the deal's. */
   hostelloShareOverride: number | null;
 };
@@ -187,16 +201,22 @@ export function calculatePayout(input: PayoutInput): PayoutResult {
   hostelloShare = Math.round(hostelloShare * 100) / 100;
   const clientPayout = Math.round((netSale - hostelloShare) * 100) / 100;
 
-  // Hostello keeps its share out of whatever part of the sale it collected and
-  // owes the owner the rest of that part's net; if it collected less than its
-  // share, the owner owes the difference. All of it collected by Hostello is
-  // the client payout; none of it is Hostello's share.
-  const advance = Math.min(Math.max(0, input.advanceReceived), input.salePrice);
-  const heldByHostello =
-    (input.advanceReceivedBy === "hostello" ? advance : 0) +
-    (input.balanceReceivedBy === "hostello" ? input.salePrice - advance : 0);
-  const heldNet = input.salePrice > 0 ? (heldByHostello / input.salePrice) * netSale : 0;
-  const position = Math.round((heldNet - hostelloShare) * 100) / 100;
+  // Only money already received counts: the advance, plus each balance payment
+  // an admin confirmed. Hostello keeps its share out of what it holds and owes
+  // the owner the rest; if it holds less than its share, the owner owes the
+  // difference. Hostello claims no more of its share than the guest has paid
+  // so far, so a balance nobody has received yet moves nothing either way.
+  // Once the guest has paid in full: all of it held by Hostello is the client
+  // payout; none of it is Hostello's share.
+  const sale = Math.max(0, input.salePrice);
+  const advance = Math.min(Math.max(0, input.advanceReceived), sale);
+  const paidHostello = Math.max(0, input.balancePaid.hostello);
+  const paidOwner = Math.max(0, input.balancePaid.owner);
+  const heldByHostello = Math.min(sale, (input.advanceReceivedBy === "hostello" ? advance : 0) + paidHostello);
+  const received = Math.min(sale, advance + paidHostello + paidOwner);
+  const netOf = (amount: number) => (sale > 0 ? (amount / sale) * netSale : 0);
+  const claimed = Math.min(hostelloShare, netOf(received));
+  const position = Math.round((netOf(heldByHostello) - claimed) * 100) / 100;
 
   return {
     nights,

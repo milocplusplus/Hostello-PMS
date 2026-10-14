@@ -1,24 +1,41 @@
-import { defaultCollector, isCollector, nightsBetween, type Collector } from "./payout";
+import { defaultCollector, isCollector, isPrepaidSource, nightsBetween, type Collector } from "./payout";
 
 /**
- * Who received the advance and who receives the balance. A form that does not
- * say (a caller that never showed the choice) keeps what the booking had, or
- * for a new one starts on its channel's default.
+ * What the guest paid up front and who took it. A form that does not say who
+ * (a caller that never showed the choice) keeps what the booking had, or for a
+ * new one starts on its channel's default. An Airbnb guest pays Airbnb up
+ * front, so the whole price is the advance whatever was typed.
  */
-export function readCollectors(
+export function readAdvance(
   formData: FormData,
-  source: string,
-  existing?: { advance_received_by: string | null; balance_received_by: string | null } | null
-): { advanceReceivedBy: Collector; balanceReceivedBy: Collector } {
-  const pick = (field: "advance_received_by" | "balance_received_by"): Collector => {
-    const posted = formData.get(field);
-    if (isCollector(posted)) return posted;
-    const kept = existing?.[field];
-    return isCollector(kept) ? kept : defaultCollector(source);
-  };
+  args: {
+    source: string;
+    salePrice: number;
+    existing?: { advance_received_by: string | null } | null;
+  }
+): { advanceReceived: number; advanceReceivedBy: Collector } {
+  const posted = formData.get("advance_received_by");
+  const kept = args.existing?.advance_received_by;
+  const advanceReceivedBy = isCollector(posted)
+    ? posted
+    : isCollector(kept)
+      ? kept
+      : defaultCollector(args.source);
+  const typed = Number(formData.get("advance_received")) || 0;
   return {
-    advanceReceivedBy: pick("advance_received_by"),
-    balanceReceivedBy: pick("balance_received_by"),
+    advanceReceived: isPrepaidSource(args.source) ? args.salePrice : Math.max(0, typed),
+    advanceReceivedBy,
+  };
+}
+
+/** The balance payments a confirmed record says the guest has made, as `calculatePayout` takes them. */
+export function balancePaidOf(row?: {
+  balance_paid_hostello?: number | string | null;
+  balance_paid_owner?: number | string | null;
+} | null): { hostello: number; owner: number } {
+  return {
+    hostello: Number(row?.balance_paid_hostello ?? 0),
+    owner: Number(row?.balance_paid_owner ?? 0),
   };
 }
 
@@ -71,21 +88,18 @@ export function readShareOverride(
 }
 
 /**
- * A stay a confirmed payment has already closed keeps who received its money:
+ * A stay a confirmed payment has already closed keeps who received its advance:
  * changing it would flip a settled balance to the other side.
  */
 export function collectorsLocked(
   existing: {
     advance_received_by: string | null;
-    balance_received_by: string | null;
     settled: boolean | null;
     share_received: boolean | null;
   },
-  next: { advanceReceivedBy: Collector; balanceReceivedBy: Collector }
+  next: { advanceReceivedBy: Collector }
 ): string | null {
-  const changed =
-    existing.advance_received_by !== next.advanceReceivedBy ||
-    existing.balance_received_by !== next.balanceReceivedBy;
+  const changed = existing.advance_received_by !== next.advanceReceivedBy;
   return changed && (existing.settled || existing.share_received)
     ? "This stay's money is already settled. Undo the payment on the Money page before changing who received it."
     : null;

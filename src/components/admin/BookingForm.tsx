@@ -20,6 +20,7 @@ import {
   formatPKR,
   isOtaSource,
   isPassThroughSource,
+  isPrepaidSource,
   nightsBetween,
   usesStackRate,
   type Collector,
@@ -75,9 +76,10 @@ export type BookingFormValues = {
   /** Set only when the stay was priced per night rather than as a total. */
   nightlyPrice: number | null;
   advance: number;
-  /** Who took the advance, and who takes the rest of the price. */
+  /** Who took the advance. The rest is recorded payment by payment as it arrives. */
   advanceReceivedBy: Collector;
-  balanceReceivedBy: Collector;
+  /** Balance payments already confirmed, so the split preview matches what is saved. */
+  balancePaid: { hostello: number; owner: number };
   /** What Hostello earns when the admin typed it; null = the deal's figure. */
   hostelloShareOverride: number | null;
   source: string;
@@ -167,15 +169,8 @@ export function BookingForm({
   const [source, setSource] = useState(values?.source ?? initialSource ?? "hostello");
   const [advance, setAdvance] = useState(String(values?.advance ?? 0));
   // Null follows the channel: a new booking starts where its source usually
-  // pays, until someone says otherwise. A stay paid in full up front has no
-  // balance, so whoever took the advance is who received the money.
-  const [collector, setCollector] = useState<Collector | null>(
-    values
-      ? values.advance > 0 && values.advance >= values.salePrice
-        ? values.advanceReceivedBy
-        : values.balanceReceivedBy
-      : null
-  );
+  // pays, until someone says otherwise.
+  const [collector, setCollector] = useState<Collector | null>(values ? values.advanceReceivedBy : null);
   const [typedShare, setTypedShare] = useState<{ amount: string; against: string } | null>(
     values?.hostelloShareOverride != null
       ? {
@@ -183,10 +178,6 @@ export function BookingForm({
           against: `${values.salePrice}|${initialDate ?? ""}|${initialCheckOut ?? ""}`,
         }
       : null
-  );
-  // Null means the advance went the same way as the rest.
-  const [advanceCollector, setAdvanceCollector] = useState<Collector | null>(
-    values && values.advanceReceivedBy !== values.balanceReceivedBy ? values.advanceReceivedBy : null
   );
   // An edit reopens with everything visible — those fields already have values,
   // and hiding them behind a toggle reads as if the booking has none.
@@ -251,11 +242,11 @@ export function BookingForm({
     ? (Number(nightlyPrice) || 0) * nightsForPricing
     : Number(salePrice) || 0;
 
-  const receivedBy = collector ?? defaultCollector(source);
-  const advanceAmount = Number(advance) || 0;
-  // Only a part-paid stay can have its two halves go different ways.
-  const splitPayment = advanceAmount > 0 && advanceAmount < grossPrice;
-  const advanceBy = splitPayment ? (advanceCollector ?? receivedBy) : receivedBy;
+  const advanceBy = collector ?? defaultCollector(source);
+  // An Airbnb guest pays Airbnb up front: the whole price is the advance. The
+  // server applies the same rule (`readAdvance`) whatever the box says.
+  const prepaid = isPrepaidSource(source);
+  const advanceAmount = prepaid ? grossPrice : Number(advance) || 0;
   const collectorLabel = (c: Collector) => COLLECTORS.find((o) => o.value === c)?.label ?? c;
 
   const payoutInput = useMemo((): PayoutInput | null => {
@@ -275,7 +266,7 @@ export function BookingForm({
       status,
       advanceReceived: advanceAmount,
       advanceReceivedBy: advanceBy,
-      balanceReceivedBy: receivedBy,
+      balancePaid: values?.balancePaid ?? { hostello: 0, owner: 0 },
       hostelloShareOverride: null,
     };
   }, [
@@ -291,7 +282,7 @@ export function BookingForm({
     status,
     advanceAmount,
     advanceBy,
-    receivedBy,
+    values?.balancePaid,
   ]);
 
   // A typed earning belongs to the price and dates it was typed against — the
@@ -348,11 +339,10 @@ export function BookingForm({
         <input type="hidden" name="status" value={status} />
         <input type="hidden" name="source" value={source} />
         <input type="hidden" name="advance_received_by" value={advanceBy} />
-        <input type="hidden" name="balance_received_by" value={receivedBy} />
         {/* Always posted by the admin's form: empty tells the server to use the deal. */}
         {canSetShare && <input type="hidden" name="hostello_share_typed" value={typedNow ?? ""} />}
         {/* The box lives in "More details"; closed, what was typed there still posts. */}
-        {!showMore && <input type="hidden" name="advance_received" value={advance} />}
+        {!showMore && <input type="hidden" name="advance_received" value={prepaid ? String(advanceAmount) : advance} />}
 
         <div className="stagger flex flex-col gap-4 min-w-0">
           <FormStep n={1} icon={Building2} title="Where are they staying?" done={steps.where}>
@@ -682,18 +672,21 @@ export function BookingForm({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <p className={fieldLabel}>
-                {splitPayment
-                  ? `Balance (${formatPKR(grossPrice - advanceAmount)}) received by`
-                  : "Money received by"}
-              </p>
-              <CollectorChips label="Money received by" value={receivedBy} onChange={setCollector} />
-              <p className="text-[11px] text-ink-muted">
-                Who the guest&rsquo;s money goes to — an Airbnb payout, or cash paid at the property, is
-                the owner&rsquo;s.
-              </p>
-            </div>
+            {advanceAmount > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className={fieldLabel}>
+                  {prepaid
+                    ? `Paid in full on Airbnb (${formatPKR(advanceAmount)}) — received by`
+                    : `Advance (${formatPKR(advanceAmount)}) received by`}
+                </p>
+                <CollectorChips label="Advance received by" value={advanceBy} onChange={setCollector} />
+                <p className="text-[11px] text-ink-muted">
+                  {prepaid
+                    ? "The Airbnb payout is usually the owner’s."
+                    : "Who has the advance in hand. The rest counts once someone records the guest paying it."}
+                </p>
+              </div>
+            )}
           </FormStep>
 
           <section className="card p-5 flex flex-col gap-4">
@@ -743,24 +736,18 @@ export function BookingForm({
                       type="number"
                       min="0"
                       step="1"
-                      value={advance}
+                      value={prepaid ? String(advanceAmount) : advance}
                       onChange={(e) => setAdvance(e.target.value)}
-                      readOnly={lockPrices}
+                      readOnly={lockPrices || prepaid}
                       className={fieldInput}
                     />
+                    <p className="text-[11px] text-ink-muted">
+                      {prepaid
+                        ? "Airbnb guests pay up front, so the whole price is paid."
+                        : "Anything paid later is recorded on the booking as it comes in."}
+                    </p>
                   </div>
                 </div>
-
-                {splitPayment && (
-                  <div className="flex flex-col gap-2">
-                    <p className={fieldLabel}>Advance ({formatPKR(advanceAmount)}) received by</p>
-                    <CollectorChips
-                      label="Advance received by"
-                      value={advanceBy}
-                      onChange={setAdvanceCollector}
-                    />
-                  </div>
-                )}
 
                 {allowReceipt && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -877,11 +864,9 @@ export function BookingForm({
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="opacity-70">Paid to</dt>
+                <dt className="opacity-70">Paid so far</dt>
                 <dd className="font-semibold text-right">
-                  {advanceBy === receivedBy
-                    ? collectorLabel(receivedBy)
-                    : `Advance ${collectorLabel(advanceBy)} · balance ${collectorLabel(receivedBy)}`}
+                  {advanceAmount > 0 ? `${formatPKR(advanceAmount)} · ${collectorLabel(advanceBy)}` : "Nothing yet"}
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-white/15">
@@ -977,7 +962,9 @@ export function BookingForm({
               </p>
               {(preview.dueToClient > 0 || preview.dueToHostello > 0) && (
                 <p className="flex justify-between gap-3 text-ink-secondary border-t border-border-hairline pt-2">
-                  <span>{preview.dueToClient > 0 ? "Hostello to pay the owner" : "Owner to pay Hostello"}</span>
+                  <span>
+                    {preview.dueToClient > 0 ? "Hostello pays the owner now" : "Owner pays Hostello now"}
+                  </span>
                   <span className="text-hostello-gold-bright font-semibold num">
                     {formatPKR(preview.dueToClient || preview.dueToHostello)}
                   </span>

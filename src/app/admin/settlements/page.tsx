@@ -1,8 +1,17 @@
 import { EmptyState } from "@/components/shared/PageHeader";
 import Link from "next/link";
-import { ArrowLeft, ChevronRight, CircleCheck, Clock, Send } from "lucide-react";
+import { ArrowLeft, ChevronRight, CircleCheck, Clock, HandCoins, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatPKR } from "@/lib/payout";
+import { formatDayMonth } from "@/lib/calendar";
+import { currentUser } from "@/lib/auth";
+import { listPendingBalancePayments } from "@/lib/balance-payments";
+import { BalancePaymentList, PaymentError, RecordPaymentForm } from "@/components/shared/BalancePayments";
+import {
+  recordBalancePayment,
+  reviewBalancePayment,
+  withdrawBalancePayment,
+} from "@/app/admin/bookings/actions";
 import {
   listPayments,
   loadOwed,
@@ -38,18 +47,39 @@ import {
 export default async function AdminSettlementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; client?: string; error?: string }>;
+  searchParams: Promise<{ tab?: string; client?: string; error?: string; pay_error?: string; pay_for?: string }>;
 }) {
-  const { tab: rawTab, client: clientParam, error } = await searchParams;
+  const { tab: rawTab, client: clientParam, error, pay_error, pay_for } = await searchParams;
   const tab = isSettlementTab(rawTab) ? rawTab : "to-hostello";
   const direction: SettlementDirection = tab === "to-hostello" ? "to_hostello" : "to_client";
 
   const supabase = await createClient();
-  const [toHostello, toClient, entries] = await Promise.all([
+  const [toHostello, toClient, entries, guestPending, { data: toCollect }, user] = await Promise.all([
     loadOwedByClient(supabase, "to_hostello"),
     loadOwedByClient(supabase, "to_client"),
     listPayments(supabase, direction, null),
+    listPendingBalancePayments(supabase),
+    // Guests who have not paid in full. Until they do, that money is in nobody's
+    // hands, so none of it is in the balances below.
+    supabase
+      .from("bookings_v")
+      .select("id, guest_name, check_in, check_out, balance_due, balance_pending, clients:clients_v(name)")
+      .eq("status", "confirmed")
+      .gt("balance_due", 0)
+      .order("check_in"),
+    currentUser(),
   ]);
+  const collect = (toCollect ?? []) as unknown as {
+    id: string;
+    guest_name: string | null;
+    check_in: string;
+    check_out: string;
+    balance_due: number;
+    balance_pending: number;
+    clients: { name: string } | null;
+  }[];
+  const collectTotal = collect.reduce((sum, b) => sum + Number(b.balance_due), 0);
+  const back = `/admin/settlements?tab=${tab}${clientParam ? `&client=${clientParam}` : ""}`;
 
   const balances = direction === "to_hostello" ? toHostello : toClient;
   // Owners with no portal login can never confirm a payout themselves, so
@@ -90,6 +120,104 @@ export default async function AdminSettlementsPage({
           <p>A confirmed payment clears the oldest bookings first.</p>
         </InfoSheet>
       </div>
+
+      {guestPending.length > 0 && (
+        <section className="card overflow-hidden pulse-gold">
+          <div className="px-4 md:px-5 py-3.5 border-b border-white/5 flex items-center justify-between gap-3">
+            <h2 className="text-lg">Guest payments to approve</h2>
+            <InfoSheet title="Guest payments to approve" className="bg-white/8 text-ink-secondary">
+              <p>
+                Ops or an owner says a guest paid. It counts toward what each side owes once you
+                approve it.
+              </p>
+            </InfoSheet>
+          </div>
+          <ul className="px-4 md:px-5 divide-y divide-[var(--color-border-hairline)]">
+            {guestPending.map((p) => (
+              <li key={p.id} className="pt-3">
+                <Link
+                  href={`/admin/bookings/${p.bookingId}`}
+                  className="text-sm text-ink-primary hover:text-hostello-gold transition-colors"
+                >
+                  {p.guestName ?? "Guest"}
+                </Link>
+                <span className="text-xs text-ink-muted">
+                  {" "}
+                  · {p.clientName ?? "—"}
+                  {p.checkIn ? ` · ${formatDayMonth(p.checkIn)}` : ""}
+                </span>
+                <BalancePaymentList
+                  payments={[p]}
+                  back={back}
+                  viewerId={user?.id ?? null}
+                  isAdmin
+                  reviewAction={reviewBalancePayment}
+                  withdrawAction={withdrawBalancePayment}
+                />
+                {pay_for === p.bookingId && <PaymentError error={pay_error} />}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <details id="collect" className="card overflow-hidden" open={Boolean(pay_for)}>
+        <summary className="px-4 md:px-5 py-3.5 flex items-center justify-between gap-3 cursor-pointer list-none">
+          <span className="flex items-center gap-2.5">
+            <HandCoins size={16} className="text-status-pending" />
+            <span className="text-lg">Still to collect from guests</span>
+          </span>
+          <span className="text-sm num text-status-pending font-semibold">
+            {collect.length === 0 ? "Nothing" : `${formatPKR(collectTotal)} · ${collect.length}`}
+          </span>
+        </summary>
+        {collect.length === 0 ? (
+          <div className="p-3 border-t border-white/5">
+            <EmptyState inset icon={CircleCheck} title="Every confirmed guest has paid in full." />
+          </div>
+        ) : (
+          <ul className="border-t border-white/5 divide-y divide-[var(--color-border-hairline)]">
+            {collect.map((b) => {
+              const waiting = Number(b.balance_pending ?? 0);
+              return (
+                <li key={b.id} className="px-4 md:px-5 py-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/admin/bookings/${b.id}`}
+                        className="text-sm text-ink-primary hover:text-hostello-gold transition-colors truncate block"
+                      >
+                        {b.guest_name ?? "Guest"}
+                      </Link>
+                      <p className="text-xs text-ink-secondary truncate mt-0.5">
+                        {b.clients?.name ?? "—"} · {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
+                      </p>
+                    </div>
+                    <span className="text-xs text-status-pending shrink-0 text-right num">
+                      {formatPKR(Number(b.balance_due))}
+                      {waiting > 0 && (
+                        <span className="block text-[11px] text-ink-muted">
+                          {formatPKR(waiting)} awaiting approval
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <RecordPaymentForm
+                    bookingId={b.id}
+                    left={Number(b.balance_due) - waiting}
+                    back={back}
+                    action={recordBalancePayment}
+                    label="Record payment"
+                    open={pay_for === b.id}
+                    note="It counts as soon as you save it."
+                  />
+                  {pay_for === b.id && <PaymentError error={pay_error} />}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </details>
 
       <SettlementTabs
         portal="admin"

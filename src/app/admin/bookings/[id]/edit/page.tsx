@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { balancePaidOf } from "@/lib/booking-price";
 import { canSeeSplit, currentProfile } from "@/lib/auth";
 import { updateBooking } from "../../actions";
 import { BookingForm } from "@/components/admin/BookingForm";
@@ -25,7 +26,7 @@ export default async function EditBookingPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, hostello_share_override, notes, booking_properties(property_id)"
+      "id, client_id, guest_name, guest_phone, guests_count, expected_arrival, expected_departure, check_in, check_out, is_short_stay, short_stay_start, short_stay_end, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_paid_hostello, balance_paid_owner, hostello_share_override, notes, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -115,7 +116,7 @@ export default async function EditBookingPage({
           nightlyPrice: booking.nightly_price == null ? null : Number(booking.nightly_price),
           advance: Number(booking.advance_received ?? 0),
           advanceReceivedBy: booking.advance_received_by as Collector,
-          balanceReceivedBy: booking.balance_received_by as Collector,
+          balancePaid: balancePaidOf(booking),
           hostelloShareOverride:
             booking.hostello_share_override == null ? null : Number(booking.hostello_share_override),
           source: booking.source,

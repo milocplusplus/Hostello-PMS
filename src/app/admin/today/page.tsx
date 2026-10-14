@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { CircleCheck, LogIn, LogOut, BedDouble, Clock, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { hhmm, rowShortStay, departureDate } from "@/lib/short-stay";
-import { currentUser } from "@/lib/auth";
+import { canSeeSplit, currentProfile, currentUser } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { todayISO, formatFullDate, formatDayMonth } from "@/lib/calendar";
 import { TodayBoard, type TodayStay } from "@/components/shared/TodayBoard";
-import { markStayProgress } from "@/app/admin/bookings/actions";
+import { markStayProgress, recordBalancePayment } from "@/app/admin/bookings/actions";
+import { PaymentError, RecordPaymentForm } from "@/components/shared/BalancePayments";
 import { Avatar } from "@/components/shared/Avatar";
 import { EmptyState, PageHeader } from "@/components/shared/PageHeader";
 import { ReviewRequests } from "@/components/admin/ReviewRequests";
@@ -68,10 +69,16 @@ function toStay(b: Row): TodayStay {
   };
 }
 
-export default async function AdminTodayPage() {
+export default async function AdminTodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pay_error?: string; pay_for?: string }>;
+}) {
+  const { pay_error, pay_for } = await searchParams;
   const supabase = await createClient();
-  const user = await currentUser();
+  const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
   if (!user) redirect("/login");
+  const isAdmin = canSeeSplit(profile?.role);
 
   const today = todayISO();
   const fields =
@@ -89,8 +96,9 @@ export default async function AdminTodayPage() {
       .order("check_in"),
     supabase
       .from("bookings_v")
-      .select("id, guest_name, check_in, check_out, sale_price, advance_received, clients:clients_v(name)")
+      .select("id, guest_name, check_in, check_out, balance_due, balance_pending, clients:clients_v(name)")
       .eq("status", "confirmed")
+      .gt("balance_due", 0)
       .order("check_in"),
     supabase
       .from("calendar_blocks")
@@ -111,17 +119,18 @@ export default async function AdminTodayPage() {
     .map(toStay);
   const inHouse = arrivals.length + staying.length;
 
-  // Same definition as the dashboard's "Payments pending" tile — token not yet
-  // covering the sale price on a confirmed booking.
+  // Same definition as the dashboard's "Balance due" tile: a confirmed stay the
+  // guest has not finished paying for. Today's arrivals first — that is who is
+  // about to hand money over at the door.
   const outstanding = ((pending ?? []) as unknown as {
     id: string;
     guest_name: string | null;
     check_in: string;
     check_out: string;
-    sale_price: number | null;
-    advance_received: number | null;
+    balance_due: number | null;
+    balance_pending: number | null;
     clients: unknown;
-  }[]).filter((b) => Number(b.advance_received ?? 0) < Number(b.sale_price ?? 0));
+  }[]).sort((a, b) => Number(b.check_in === today) - Number(a.check_in === today));
 
   const blocked = (blocks ?? []) as unknown as {
     id: string;
@@ -185,40 +194,58 @@ export default async function AdminTodayPage() {
           >
             <Clock size={14} style={{ color: "var(--color-status-pending)" }} />
           </span>
-          <h2 className="text-sm font-medium flex-1">Payments pending</h2>
-          <Link
-            href="/admin/settlements?tab=to-hostello"
-            className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
-          >
-            Settlements →
-          </Link>
+          <h2 className="text-sm font-medium flex-1">Guest balances</h2>
+          {isAdmin && (
+            <Link
+              href="/admin/settlements#collect"
+              className="text-xs text-ink-muted hover:text-ink-primary transition-colors"
+            >
+              Money →
+            </Link>
+          )}
         </div>
         {outstanding.length === 0 ? (
           <div className="p-3">
-            <EmptyState inset icon={CircleCheck} title="Every confirmed booking has its token in." />
+            <EmptyState inset icon={CircleCheck} title="Every confirmed guest has paid in full." />
           </div>
         ) : (
           <ul className="divide-y divide-[var(--color-border-hairline)]">
             {outstanding.slice(0, 8).map((b) => {
-              const due = Number(b.sale_price ?? 0) - Number(b.advance_received ?? 0);
+              const due = Number(b.balance_due ?? 0);
+              const waiting = Number(b.balance_pending ?? 0);
               return (
-                <li key={b.id} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar name={b.guest_name} size={30} />
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/admin/bookings/${b.id}`}
-                      className="text-sm text-ink-primary hover:text-hostello-gold transition-colors truncate block"
-                    >
-                      {b.guest_name ?? "Guest"}
-                    </Link>
-                    <p className="text-xs text-ink-secondary truncate mt-0.5">
-                      {(b.clients as { name: string } | null)?.name ?? "—"} ·{" "}
-                      {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
-                    </p>
+                <li key={b.id} className="flex flex-col gap-2 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={b.guest_name} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/admin/bookings/${b.id}`}
+                        className="text-sm text-ink-primary hover:text-hostello-gold transition-colors truncate block"
+                      >
+                        {b.guest_name ?? "Guest"}
+                      </Link>
+                      <p className="text-xs text-ink-secondary truncate mt-0.5">
+                        {(b.clients as { name: string } | null)?.name ?? "—"} ·{" "}
+                        {formatDayMonth(b.check_in)} – {formatDayMonth(b.check_out)}
+                      </p>
+                    </div>
+                    <span className="text-xs text-status-pending shrink-0 text-right">
+                      {formatPKR(due)} to pay
+                      {waiting > 0 && (
+                        <span className="block text-[11px] text-ink-muted">{formatPKR(waiting)} awaiting approval</span>
+                      )}
+                    </span>
                   </div>
-                  <span className="text-xs text-status-pending shrink-0">
-                    {formatPKR(due)} due
-                  </span>
+                  <RecordPaymentForm
+                    bookingId={b.id}
+                    left={due - waiting}
+                    back="/admin/today"
+                    action={recordBalancePayment}
+                    label="Record payment"
+                    open={pay_for === b.id}
+                    note={isAdmin ? "It counts as soon as you save it." : "It counts once the admin approves it."}
+                  />
+                  {pay_for === b.id && <PaymentError error={pay_error} />}
                 </li>
               );
             })}

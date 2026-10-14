@@ -357,6 +357,69 @@ export async function notifyPayoutRejected(
   });
 }
 
+// ── Guest balance payments ──────────────────────────────────────────────────
+
+type BalancePaymentEvent = {
+  clientId: string;
+  bookingId: string;
+  paymentId: string;
+  amount: number;
+  receivedBy: string;
+  guestName: string | null;
+};
+
+/** Ops or the owner says the guest paid; it counts once an admin approves it. */
+export async function notifyBalancePaymentFiled(supabase: SupabaseClient, args: BalancePaymentEvent) {
+  const who = await clientName(supabase, args.clientId);
+  await emit(supabase, {
+    kind: "balance_payment_filed",
+    category: "payment",
+    audience: "admin",
+    title: "Guest payment to approve",
+    body: [who, args.guestName ?? "Guest", `${formatPKR(args.amount)} to ${args.receivedBy === "hostello" ? "Hostello" : "the owner"}`]
+      .filter(Boolean)
+      .join(" · "),
+    clientId: args.clientId,
+    bookingId: args.bookingId,
+    eventKey: `balance_payment_filed:${args.paymentId}`,
+  });
+}
+
+/** A guest payment now counts. The owner sees what it does to their stay. */
+export async function notifyBalancePaymentRecorded(supabase: SupabaseClient, args: BalancePaymentEvent) {
+  await emit(supabase, {
+    kind: "balance_payment_recorded",
+    category: "payment",
+    audience: "client",
+    title: "Guest payment recorded",
+    body: `${formatPKR(args.amount)} from ${args.guestName ?? "the guest"}, received by ${
+      args.receivedBy === "hostello" ? "Hostello" : "you"
+    }.`,
+    clientId: args.clientId,
+    bookingId: args.bookingId,
+    eventKey: `balance_payment_recorded:${args.paymentId}`,
+  });
+}
+
+/** Only sent when the owner filed it: an ops entry turned down is not their news. */
+export async function notifyBalancePaymentRejected(
+  supabase: SupabaseClient,
+  args: BalancePaymentEvent & { reason: string | null }
+) {
+  await emit(supabase, {
+    kind: "balance_payment_rejected",
+    category: "payment",
+    audience: "client",
+    title: "Guest payment not approved",
+    body: `${formatPKR(args.amount)} from ${args.guestName ?? "the guest"} was not approved${
+      args.reason ? ` · ${args.reason}` : ""
+    }. The balance is unchanged.`,
+    clientId: args.clientId,
+    bookingId: args.bookingId,
+    eventKey: `balance_payment_rejected:${args.paymentId}`,
+  });
+}
+
 /**
  * Hostello kept its share out of money it already held, so nothing was owed and
  * nothing was paid. The owner still sees the booking close.

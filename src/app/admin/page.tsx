@@ -152,7 +152,7 @@ export default async function AdminDashboard({
       .select("property_id, start_date, end_date, block_type")
       .lte("start_date", monthEnd)
       .gte("end_date", monthStart),
-    supabase.from("bookings_v").select("sale_price, advance_received").eq("status", "confirmed"),
+    supabase.from("bookings_v").select("balance_due").eq("status", "confirmed").gt("balance_due", 0),
     supabase
       .from("bookings_v")
       .select("*", { count: "exact", head: true })
@@ -252,9 +252,8 @@ export default async function AdminDashboard({
 
   // ── Activity + today ───────────────────────────────────────────────────────
   const activity = ((activityRows ?? []) as unknown as BookingRow[]).map(toActivity);
-  const pendingPayments = (confirmedBookings ?? []).filter(
-    (b) => Number(b.advance_received ?? 0) < Number(b.sale_price ?? 0)
-  ).length;
+  // Confirmed stays the guest has not finished paying for.
+  const pendingPayments = (confirmedBookings ?? []).length;
 
   // Ops gets the same day, minus the earnings: no revenue headline, no share
   // awaiting settlement, no route into client deal terms.

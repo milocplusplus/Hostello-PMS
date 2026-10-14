@@ -73,6 +73,10 @@ const KIND_ICON: Record<string, LucideIcon> = {
   payout_confirmed: BadgeCheck,
   payout_rejected: BadgeX,
   share_received: Wallet,
+  // The guest's balance: ops or the owner files it, an admin approves it.
+  balance_payment_filed: HandCoins,
+  balance_payment_recorded: BadgeCheck,
+  balance_payment_rejected: BadgeX,
   // Hostello → owner: Hostello sends it, the owner rules on it.
   payout_sent: Wallet,
   payout_receipt_confirmed: BadgeCheck,

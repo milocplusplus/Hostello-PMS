@@ -20,6 +20,8 @@ import { GuestMessages } from "@/components/shared/GuestMessages";
 import { waPhone } from "@/lib/guest-messages";
 import { houseStyle, loadSettings, staffMay } from "@/lib/settings";
 import { loadAudit } from "@/lib/audit";
+import { listBalancePayments } from "@/lib/balance-payments";
+import { BalancePaymentList, PaymentError, RecordPaymentForm } from "@/components/shared/BalancePayments";
 import { AuditTrail } from "@/components/admin/AuditTrail";
 import {
   markStayProgress,
@@ -30,6 +32,9 @@ import {
   deleteBookingReceipt,
   uploadGuestIds,
   deleteGuestId,
+  recordBalancePayment,
+  reviewBalancePayment,
+  withdrawBalancePayment,
 } from "../actions";
 
 export default async function BookingDetailPage({
@@ -37,10 +42,10 @@ export default async function BookingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ receipt_error?: string; id_error?: string; tool_error?: string }>;
+  searchParams: Promise<{ receipt_error?: string; id_error?: string; tool_error?: string; pay_error?: string }>;
 }) {
   const { id } = await params;
-  const { receipt_error, id_error, tool_error } = await searchParams;
+  const { receipt_error, id_error, tool_error, pay_error } = await searchParams;
 
   const supabase = await createClient();
   const [user, profile] = await Promise.all([currentUser(), currentProfile()]);
@@ -51,7 +56,7 @@ export default async function BookingDetailPage({
   const { data: booking } = await supabase
     .from("bookings_v")
     .select(
-      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_received_by, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, original_currency, original_amount, fx_rate, fx_rate_on, fx_provisional, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type, photo_path))"
+      "id, guest_name, guest_phone, guests_count, check_in, check_out, source, status, sale_price, nightly_price, advance_received, advance_received_by, balance_paid_hostello, balance_paid_owner, balance_pending, balance_due, is_short_stay, short_stay_start, short_stay_end, expected_arrival, expected_departure, checked_in_at, checked_out_at, notes, created_at, client_id, original_currency, original_amount, fx_rate, fx_rate_on, fx_provisional, clients:clients_v(name), booking_properties(properties:properties_v(id, name, city, type, photo_path))"
     )
     .eq("id", id)
     .maybeSingle();
@@ -60,7 +65,7 @@ export default async function BookingDetailPage({
 
   // Every unit this booking could move to. Scoped to its own client, because
   // `updateBooking` refuses a mix and there is no point offering the refusal.
-  const [receipts, guestIds, { data: clientUnits }, history] = await Promise.all([
+  const [receipts, guestIds, { data: clientUnits }, history, payments] = await Promise.all([
     listReceipts(supabase, booking.id),
     listGuestIds(supabase, booking.id),
     supabase
@@ -71,6 +76,7 @@ export default async function BookingDetailPage({
       .order("name"),
     // The audit log is the admin's alone; RLS would hand ops an empty list anyway.
     showMoney ? loadAudit(supabase, { booking: booking.id }, 50) : null,
+    listBalancePayments(supabase, booking.id),
   ]);
 
   const client = booking.clients as unknown as { name: string } | null;
@@ -86,8 +92,11 @@ export default async function BookingDetailPage({
   const nights = nightsBetween(booking.check_in, booking.check_out);
   const shortStay = rowShortStay(booking);
   const gross = Number(booking.sale_price ?? 0);
-  const advance = Number(booking.advance_received ?? 0);
-  const balanceDue = Math.max(0, gross - advance);
+  // What the guest still owes: the price, less the advance and every payment
+  // that counts. Entries still waiting for the admin are not in it yet.
+  const balanceDue = Number(booking.balance_due ?? 0);
+  const waiting = Number(booking.balance_pending ?? 0);
+  const back = `/admin/bookings/${booking.id}`;
   // Null when nothing dialable is stored, which is what hides the WhatsApp link.
   const guestWa = waPhone(booking.guest_phone);
   // Arrival / departure times, when known. A short stay's hours are its dates.
@@ -144,7 +153,7 @@ export default async function BookingDetailPage({
         </div>
         <PaymentTiles
           sale={formatPKR(gross)}
-          advance={formatPKR(booking.advance_received)}
+          paid={formatPKR(gross - balanceDue)}
           balance={formatPKR(balanceDue)}
           receivedBy={describeCollectors(booking)}
           note={
@@ -153,6 +162,34 @@ export default async function BookingDetailPage({
               : null
           }
         />
+        <BalancePaymentList
+          payments={payments}
+          back={back}
+          viewerId={user.id}
+          isAdmin={showMoney}
+          reviewAction={showMoney ? reviewBalancePayment : undefined}
+          withdrawAction={withdrawBalancePayment}
+        />
+        {waiting > 0 && (
+          <p className="text-[11px] text-status-pending">
+            {formatPKR(waiting)} recorded and waiting for approval — not counted yet.
+          </p>
+        )}
+        {booking.status !== "cancelled" && (
+          <RecordPaymentForm
+            bookingId={booking.id}
+            left={balanceDue - waiting}
+            back={back}
+            action={recordBalancePayment}
+            open={Boolean(pay_error)}
+            note={
+              showMoney
+                ? "It counts as soon as you save it."
+                : "It counts once the admin approves it."
+            }
+          />
+        )}
+        <PaymentError error={pay_error} />
         {/* A price the channel quoted in another currency: what it was, and
             the rate it was turned into rupees at (src/lib/fx.ts). */}
         {booking.original_currency && booking.original_amount != null && (

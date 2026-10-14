@@ -25,17 +25,28 @@ import {
   notifyPaymentReceived,
   notifyStayProgress,
   notifyBulkSummary,
+  notifyBalancePaymentFiled,
+  notifyBalancePaymentRecorded,
+  notifyBalancePaymentRejected,
 } from "@/lib/notify";
 import { deliverAuditAlerts } from "@/lib/push";
 import { findStayClash } from "@/lib/availability";
 import { bookingWriter, payoutReader } from "@/lib/payout-inputs";
-import { requireStaff } from "@/lib/auth";
+import { currentUser, requireStaff } from "@/lib/auth";
+import {
+  loadBalancePayment,
+  loadStayMoney,
+  paymentReturn,
+  readBalancePayment,
+  refreshDues,
+} from "@/lib/balance-payments";
 import { hhmm, readShortStay, rowShortStay, shortStayCheckOut } from "@/lib/short-stay";
 import { readBookingDetails } from "@/lib/booking-details";
 import {
+  balancePaidOf,
   collectorsLocked,
+  readAdvance,
   readBookingPrice,
-  readCollectors,
   readShareOverride,
 } from "@/lib/booking-price";
 import { describeBookingChanges } from "@/lib/booking-changes";
@@ -59,7 +70,6 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
   // Only ever set by the channel inbox: the OTA's own confirmation code, which
@@ -172,7 +182,10 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
   });
   if (clash) return { error: clash };
 
-  const collectors = readCollectors(formData, source);
+  const { advanceReceived: advance_received, advanceReceivedBy } = readAdvance(formData, {
+    source,
+    salePrice: sale_price,
+  });
   const typedShare = readShareOverride(formData, {
     mayType: profile.role === "admin",
     salePrice: sale_price,
@@ -195,7 +208,9 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
-    ...collectors,
+    advanceReceivedBy,
+    // A new stay has had no balance paid against it yet.
+    balancePaid: balancePaidOf(null),
     hostelloShareOverride: shareOverride,
   });
 
@@ -241,8 +256,7 @@ async function saveBooking(formData: FormData): Promise<SaveResult> {
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
-      advance_received_by: collectors.advanceReceivedBy,
-      balance_received_by: collectors.balanceReceivedBy,
+      advance_received_by: advanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
       hostello_share_override: shareOverride,
@@ -383,7 +397,6 @@ async function applyBookingUpdate(
   const guest_phone = (formData.get("guest_phone") as string)?.trim() || null;
   const source = (formData.get("source") as string) || "other";
   const status = (formData.get("status") as string) || "confirmed";
-  const advance_received = Number(formData.get("advance_received")) || 0;
   const notes = (formData.get("notes") as string)?.trim() || null;
   const details = readBookingDetails(formData);
 
@@ -421,7 +434,7 @@ async function applyBookingUpdate(
   const { data: existing } = await reader.client
     .from("bookings_v")
     .select(
-      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_received_by, settled, share_received, hostello_share_override, booking_properties(property_id)"
+      "client_id, check_in, check_out, sale_price, status, guest_name, is_short_stay, short_stay_start, short_stay_end, fx_provisional, deal_model_snapshot, share_percent_snapshot, deduct_percent_snapshot, ota_model_snapshot, ota_share_percent_snapshot, advance_received_by, balance_paid_hostello, balance_paid_owner, settled, share_received, hostello_share_override, booking_properties(property_id)"
     )
     .eq("id", id)
     .single();
@@ -431,8 +444,12 @@ async function applyBookingUpdate(
     return { error: "This booking is cancelled. Create a new one instead of editing it." };
   }
 
-  const collectors = readCollectors(formData, source, existing);
-  const locked = collectorsLocked(existing, collectors);
+  const { advanceReceived: advance_received, advanceReceivedBy } = readAdvance(formData, {
+    source,
+    salePrice: sale_price,
+    existing,
+  });
+  const locked = collectorsLocked(existing, { advanceReceivedBy });
   if (locked) return { error: locked };
 
   const typedShare = readShareOverride(formData, {
@@ -481,7 +498,8 @@ async function applyBookingUpdate(
     source,
     status: status as "confirmed" | "tentative" | "cancelled",
     advanceReceived: advance_received,
-    ...collectors,
+    advanceReceivedBy,
+    balancePaid: balancePaidOf(existing),
     hostelloShareOverride: shareOverride,
   });
 
@@ -524,8 +542,7 @@ async function applyBookingUpdate(
       net_sale: payout.netSale,
       hostello_share: payout.hostelloShare,
       client_payout: payout.clientPayout,
-      advance_received_by: collectors.advanceReceivedBy,
-      balance_received_by: collectors.balanceReceivedBy,
+      advance_received_by: advanceReceivedBy,
       due_to_client: payout.dueToClient,
       due_to_hostello: payout.dueToHostello,
       hostello_share_override: shareOverride,
@@ -1067,4 +1084,153 @@ export async function bulkSetBookingStatus(formData: FormData) {
     notice: `${count} booking${count === 1 ? "" : "s"} ${verb}.`,
     ...(refused.length ? { error: `Not changed — ${refused.join("; ")}` } : {}),
   });
+}
+
+// ── Guest balance payments ──────────────────────────────────────────────────
+// The balance counts only once it is recorded (`src/lib/balance-payments.ts`).
+// The admin's record counts at once; an ops one waits for the admin.
+
+function revalidateMoney() {
+  revalidatePath("/admin", "layout");
+  revalidatePath("/client", "layout");
+}
+
+export async function recordBalancePayment(formData: FormData) {
+  const profile = await requireStaff();
+  const user = await currentUser();
+  const bookingId = formData.get("booking_id") as string;
+  const supabase = await createClient();
+
+  const stay = await loadStayMoney(supabase, bookingId);
+  if (!stay) redirect(paymentReturn(formData, "/admin", "Booking not found."));
+  const read = readBalancePayment(formData, stay);
+  if (!read.ok) redirect(paymentReturn(formData, "/admin", read.error));
+
+  const isAdmin = profile.role === "admin";
+  const { data: row, error } = await supabase
+    .from("booking_payments")
+    .insert({
+      booking_id: bookingId,
+      client_id: stay.client_id,
+      amount: read.value.amount,
+      received_by: read.value.receivedBy,
+      method: read.value.method,
+      paid_on: read.value.paidOn,
+      note: read.value.note,
+      status: isAdmin ? "received" : "pending",
+      reviewed_by: isAdmin ? (user?.id ?? null) : null,
+      reviewed_at: isAdmin ? new Date().toISOString() : null,
+    })
+    .select("id")
+    .single();
+  if (error || !row) redirect(paymentReturn(formData, "/admin", error?.message ?? "Could not save the payment."));
+
+  const event = {
+    clientId: stay.client_id,
+    bookingId,
+    paymentId: row.id as string,
+    amount: read.value.amount,
+    receivedBy: read.value.receivedBy,
+    guestName: stay.guest_name,
+  };
+  if (isAdmin) {
+    const failed = await refreshDues(supabase, bookingId);
+    if (failed) redirect(paymentReturn(formData, "/admin", failed));
+    await notifyBalancePaymentRecorded(supabase, event);
+  } else {
+    await notifyBalancePaymentFiled(supabase, event);
+  }
+
+  revalidateMoney();
+  redirect(paymentReturn(formData, "/admin"));
+}
+
+export async function reviewBalancePayment(formData: FormData) {
+  const profile = await requireStaff();
+  if (profile.role !== "admin") redirect(paymentReturn(formData, "/admin", "Only the admin approves payments."));
+  const user = await currentUser();
+  const supabase = await createClient();
+
+  const payment = await loadBalancePayment(supabase, formData.get("id") as string);
+  // Already ruled on (a double tap, a second tab): nothing left to do.
+  if (!payment || payment.status !== "pending") redirect(paymentReturn(formData, "/admin"));
+
+  const approve = formData.get("decision") === "approve";
+  const reason = (formData.get("reason") as string)?.trim() || null;
+  const stay = await loadStayMoney(supabase, payment.bookingId);
+  if (!stay) redirect(paymentReturn(formData, "/admin", "Booking not found."));
+
+  if (approve && payment.amount > Number(stay.balance_due ?? 0)) {
+    redirect(
+      paymentReturn(
+        formData,
+        "/admin",
+        `This is more than the Rs ${Number(stay.balance_due ?? 0).toLocaleString("en-PK")} left on the stay. Turn it down and record the right amount.`
+      )
+    );
+  }
+
+  const { error } = await supabase
+    .from("booking_payments")
+    .update({
+      status: approve ? "received" : "rejected",
+      review_note: approve ? null : reason,
+      reviewed_by: user?.id ?? null,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", payment.id)
+    .eq("status", "pending");
+  if (error) redirect(paymentReturn(formData, "/admin", error.message));
+
+  const event = {
+    clientId: stay.client_id,
+    bookingId: payment.bookingId,
+    paymentId: payment.id,
+    amount: payment.amount,
+    receivedBy: payment.receivedBy,
+    guestName: stay.guest_name,
+  };
+  if (approve) {
+    const failed = await refreshDues(supabase, payment.bookingId);
+    if (failed) redirect(paymentReturn(formData, "/admin", failed));
+    await notifyBalancePaymentRecorded(supabase, event);
+  } else {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("owner_user_id")
+      .eq("id", stay.client_id)
+      .maybeSingle();
+    if (client?.owner_user_id && client.owner_user_id === payment.recordedBy) {
+      await notifyBalancePaymentRejected(supabase, { ...event, reason });
+    }
+  }
+
+  revalidateMoney();
+  redirect(paymentReturn(formData, "/admin"));
+}
+
+/** The admin takes any entry back; ops may withdraw their own while it waits. */
+export async function withdrawBalancePayment(formData: FormData) {
+  const profile = await requireStaff();
+  const user = await currentUser();
+  const supabase = await createClient();
+
+  const payment = await loadBalancePayment(supabase, formData.get("id") as string);
+  if (!payment) redirect(paymentReturn(formData, "/admin"));
+  const own = payment.status === "pending" && payment.recordedBy === user?.id;
+  if (profile.role !== "admin" && !own) {
+    redirect(paymentReturn(formData, "/admin", "Only the admin can take back a payment that counts."));
+  }
+
+  const { error } = await supabase.from("booking_payments").delete().eq("id", payment.id);
+  if (error) redirect(paymentReturn(formData, "/admin", error.message));
+
+  if (payment.status === "received") {
+    const failed = await refreshDues(supabase, payment.bookingId);
+    if (failed) redirect(paymentReturn(formData, "/admin", failed));
+  }
+
+  revalidateMoney();
+  redirect(paymentReturn(formData, "/admin"));
 }

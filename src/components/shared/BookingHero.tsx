@@ -151,16 +151,17 @@ export function BookingHero({
   );
 }
 
-/** Sale price, advance and balance as three tiles, balance in gold. */
+/** Price, what the guest has paid and what is still to pay, the last in gold. */
 export function PaymentTiles({
   sale,
-  advance,
+  paid,
   balance,
   receivedBy,
   note,
 }: {
   sale: string;
-  advance: string;
+  /** The advance plus every balance payment that counts. */
+  paid: string;
   balance: string;
   /** Who the guest's money goes to — see `describeCollectors`. */
   receivedBy?: string;
@@ -169,8 +170,8 @@ export function PaymentTiles({
 }) {
   const tiles = [
     { label: "Price", value: sale, cls: "text-ink-primary" },
-    { label: "Advance", value: advance, cls: "text-ink-primary" },
-    { label: "Balance", value: balance, cls: "text-hostello-gold-bright" },
+    { label: "Paid", value: paid, cls: "text-ink-primary" },
+    { label: "Still to pay", value: balance, cls: "text-hostello-gold-bright" },
   ];
   return (
     <div className="flex flex-col gap-2">
@@ -184,7 +185,7 @@ export function PaymentTiles({
       </div>
       {receivedBy && (
         <p className="text-xs text-ink-secondary">
-          Money received by <span className="font-bold text-ink-primary">{receivedBy}</span>
+          Paid to <span className="font-bold text-ink-primary">{receivedBy}</span>
         </p>
       )}
       {note && <p className="text-[11px] text-ink-muted">{note}</p>}
