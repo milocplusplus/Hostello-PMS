@@ -1,6 +1,25 @@
-# State — updated 2026-10-10
+# State — updated 2026-10-14
 
 ## Done
+- **Listing Coach descriptions fit Airbnb** (2026-10-14). Owner reported
+  suggested descriptions longer than Airbnb allows. Cause: the task prompt
+  asked for "under 2,500 characters" and `coach_save_report()` clipped at
+  4,000; Airbnb's "Listing description" box takes 500. Owner's choices: write
+  all four Airbnb boxes; shorten the saved ones now. Migration
+  `coach_description_boxes` **applied to the live DB** (3 columns, save
+  function: per-box limits, an over-long box is not kept and the answer tells
+  the task to shorten and re-save). The scheduled task's prompt now asks for
+  four texts with their limits (updated through the scheduled-tasks tool;
+  it lives outside the repo). The 9 saved audits (202–205, 301–304, F-105)
+  were re-cut into four boxes from their own sentences, nothing added;
+  every listing description is now 381–442 characters. Wording tab and the
+  report PDF show each box with its count ("426 / 500", red when over).
+  **Tested:** save rolled back on the live DB (501 refused with the message,
+  1,000 kept, blanks dropped, re-save fills the box, ACL unchanged); Wording
+  tab seen on a temporary fixture route (deleted). Lint + build. **Not seen
+  signed in; the next real audit is the first one written under the new
+  prompt.** Airbnb's limits for the other three boxes are unconfirmed — if
+  its editor counter shows less than ours, change both places.
 - **Listing Coach report PDF** (2026-10-10). Owner asked for a report of
   findings and suggestions. Owner's choices: read by both the admin and the
   unit's owner; one listing per report; a PDF (download / share sheet, like

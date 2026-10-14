@@ -2,7 +2,14 @@ import Link from "next/link";
 import { ChevronRight, CircleCheck, ExternalLink, Sparkles, X } from "lucide-react";
 import { formatDayMonth } from "@/lib/calendar";
 import { formatPKR } from "@/lib/payout";
-import { FIX_AREAS, againstMiddle, pricedHigh, type CoachCompetitor } from "@/lib/listing-coach";
+import {
+  FIX_AREAS,
+  WORDING_BOXES,
+  againstMiddle,
+  boxCount,
+  pricedHigh,
+  type CoachCompetitor,
+} from "@/lib/listing-coach";
 import type { ReviewCounts } from "@/lib/review-requests";
 import type { BusinessContact } from "@/lib/settings-shared";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner } from "@/lib/form-styles";
@@ -33,7 +40,11 @@ export type CoachReport = {
   audited: boolean;
   summary: string | null;
   title_options: string[];
+  /** One text per Airbnb description box; see WORDING_BOXES. */
   suggested_description: string | null;
+  suggested_space: string | null;
+  suggested_access: string | null;
+  suggested_notes: string | null;
 };
 
 export type CoachFix = {
@@ -358,7 +369,7 @@ export function CoachListing({
           )}
 
           {active === "wording" &&
-            (!audit || (audit.title_options.length === 0 && !audit.suggested_description) ? (
+            (!audit || (audit.title_options.length === 0 && !WORDING_BOXES.some((b) => audit[b.key])) ? (
               <EmptyState icon={Sparkles} title={<>No suggested wording yet.</>} body={<>It comes with the monthly audit.</>} />
             ) : (
               <section className="card p-4 md:p-5 flex flex-col gap-4">
@@ -374,28 +385,38 @@ export function CoachListing({
                     ))}
                   </div>
                 )}
-                {audit.suggested_description && (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 className="text-sm font-semibold text-ink-primary">Description</h2>
-                      <CopyLinkButton value={audit.suggested_description} className="btn btn-ghost btn-sm shrink-0" />
+                {WORDING_BOXES.map((box) => {
+                  const text = audit[box.key];
+                  if (!text) return null;
+                  const over = text.length > box.max;
+                  return (
+                    <div key={box.key} className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <h2 className="text-sm font-semibold text-ink-primary min-w-0">
+                          {box.label}
+                          <span className={`num text-[11px] font-normal ${over ? "text-negative" : "text-ink-muted"}`}>
+                            {" "}
+                            · {boxCount(text, box)}
+                            {over && box.airbnb ? ", too long for Airbnb" : ""}
+                          </span>
+                        </h2>
+                        <CopyLinkButton value={text} className="btn btn-ghost btn-sm shrink-0" />
+                      </div>
+                      <details className="tile px-3 py-2.5 group">
+                        <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-start gap-2">
+                          <ChevronRight
+                            size={14}
+                            className="mt-[3px] shrink-0 text-ink-muted transition-transform group-open:rotate-90"
+                            aria-hidden
+                          />
+                          <span className="text-sm text-ink-primary truncate group-open:hidden">{text.split("\n")[0]}</span>
+                          <span className="text-xs font-bold text-ink-secondary hidden group-open:inline">Hide</span>
+                        </summary>
+                        <p className="text-sm text-ink-primary whitespace-pre-wrap mt-2.5">{text}</p>
+                      </details>
                     </div>
-                    <details className="tile px-3 py-2.5 group">
-                      <summary className="list-none [&::-webkit-details-marker]:hidden cursor-pointer flex items-start gap-2">
-                        <ChevronRight
-                          size={14}
-                          className="mt-[3px] shrink-0 text-ink-muted transition-transform group-open:rotate-90"
-                          aria-hidden
-                        />
-                        <span className="text-sm text-ink-primary truncate group-open:hidden">
-                          {audit.suggested_description.split("\n")[0]}
-                        </span>
-                        <span className="text-xs font-bold text-ink-secondary hidden group-open:inline">Hide</span>
-                      </summary>
-                      <p className="text-sm text-ink-primary whitespace-pre-wrap mt-2.5">{audit.suggested_description}</p>
-                    </details>
-                  </div>
-                )}
+                  );
+                })}
               </section>
             ))}
 

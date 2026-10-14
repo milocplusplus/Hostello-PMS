@@ -273,7 +273,12 @@ Pre-launch: real data has not been entered yet.
   wins after that), `coach_reports` (one per listing per day; weekend and
   weekday totals for two nights in **USD as Airbnb shows them**, `usd_pkr`
   the day's rate; the monthly audit adds `summary`, `title_options`,
-  `suggested_description`), `coach_fixes` (Done tick → the next audit sets
+  and one text per Airbnb description box: `suggested_description` (Airbnb's
+  own 500 limit), `suggested_space` (1,000), `suggested_access`,
+  `suggested_notes` (500 each, our limits — Airbnb publishes none).
+  `coach_save_report()` keeps no box over its limit and says so in its answer,
+  and the task re-saves shorter; `WORDING_BOXES` in `listing-coach.ts` holds
+  the same numbers — change both), `coach_fixes` (Done tick → the next audit sets
   `confirmed_on` or `reopened_on`). The 25% overpriced line is in
   `coach_save_report()` and `pricedHigh()` in `src/lib/listing-coach.ts` —
   change both. Nothing is written back to Airbnb. **Report PDF**: the

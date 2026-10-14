@@ -5,7 +5,7 @@ import { FileText } from "lucide-react";
 import type { BusinessContact } from "@/lib/settings-shared";
 import { formatDayMonth } from "@/lib/calendar";
 import { formatPKR } from "@/lib/payout";
-import { FIX_AREAS, againstMiddle, pricedHigh } from "@/lib/listing-coach";
+import { FIX_AREAS, WORDING_BOXES, againstMiddle, boxCount, pricedHigh } from "@/lib/listing-coach";
 import { canvasToJpeg, pagesToPdfBlob, sharePdf, type PdfPage } from "@/lib/pdf";
 import {
   CW,
@@ -291,7 +291,7 @@ export async function renderCoachPages(d: CoachReportData): Promise<PdfPage[]> {
   if (fixNote) para(fixNote, { color: t.muted, size: 15 });
 
   // ── Suggested wording ─────────────────────────────────────────────────────
-  if (audit && (audit.title_options.length > 0 || audit.suggested_description)) {
+  if (audit && (audit.title_options.length > 0 || WORDING_BOXES.some((b) => audit[b.key]))) {
     heading("Suggested wording");
     para(`From the audit on ${longDate(audit.run_on)}.`, { color: t.muted, size: 15 });
     if (audit.title_options.length > 0) {
@@ -308,9 +308,20 @@ export async function renderCoachPages(d: CoachReportData): Promise<PdfPage[]> {
       }
       y += 10;
     }
-    if (audit.suggested_description) {
-      para("Description", { color: t.ink, weight: 500, gap: 6 });
-      para(audit.suggested_description);
+    // One text per Airbnb description box, each under the box's own name.
+    for (const box of WORDING_BOXES) {
+      const text = audit[box.key];
+      if (!text) continue;
+      need(34 + LINE * 2);
+      c.font = `500 18px ${t.font}`;
+      c.fillStyle = t.ink;
+      c.fillText(box.label, M, y + 18);
+      const after = M + c.measureText(box.label).width;
+      c.font = `400 15px ${t.font}`;
+      c.fillStyle = text.length > box.max ? t.negative : t.muted;
+      c.fillText(` · ${boxCount(text, box)}`, after, y + 18);
+      y += 34;
+      para(text, { gap: 22 });
     }
   }
 

@@ -35,6 +35,24 @@ export const FIX_AREAS: Record<string, string> = {
   reviews: "Reviews",
 };
 
+/**
+ * Airbnb's description boxes, in its editor's order: the audit writes one text
+ * for each. 500 is Airbnb's own limit on the first; Airbnb publishes none for
+ * the others, so those are ours, to keep them short. `coach_save_report()`
+ * holds the same numbers and keeps no box that is over; change both together.
+ */
+export const WORDING_BOXES = [
+  { key: "suggested_description", label: "Listing description", max: 500, airbnb: true },
+  { key: "suggested_space", label: "The space", max: 1000, airbnb: false },
+  { key: "suggested_access", label: "Guest access", max: 500, airbnb: false },
+  { key: "suggested_notes", label: "Other details to note", max: 500, airbnb: false },
+] as const;
+
+/** "412 / 500" where Airbnb sets the limit, a plain count where it does not. */
+export function boxCount(text: string, box: (typeof WORDING_BOXES)[number]): string {
+  return box.airbnb ? `${text.length} / ${box.max}` : `${text.length} characters`;
+}
+
 export type CoachCompetitor = {
   url: string;
   title: string | null;
