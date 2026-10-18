@@ -1,6 +1,6 @@
 import { Building2 } from "lucide-react";
 import { redirect } from "next/navigation";
-import { currentClient, currentUser } from "@/lib/auth";
+import { currentClient, currentUser, managedOwnersOnly } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { PageHeader, EmptyState } from "@/components/shared/PageHeader";
@@ -14,6 +14,7 @@ import { ChannelInboxComingSoon } from "@/components/shared/ChannelInboxComingSo
  * While the inbox is on hold, it is the owners' Coming Soon screen instead.
  */
 export default async function ChannelSetupPage() {
+  await managedOwnersOnly();
   const [user, clientRecord, settings] = await Promise.all([currentUser(), currentClient(), loadSettings()]);
   if (!user) redirect("/login");
   if (!clientRecord) redirect("/client");

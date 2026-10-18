@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient } from "@/lib/auth";
+import { currentClient, managedOwnersOnly } from "@/lib/auth";
 import { listPayments, loadAllocations, loadOwed } from "@/lib/owed";
 import { IncomingPayout } from "@/components/shared/IncomingPayout";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
@@ -22,6 +22,7 @@ export default async function ClientReviewPayoutPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await managedOwnersOnly();
   const { id } = await params;
 
   const clientRecord = await currentClient();

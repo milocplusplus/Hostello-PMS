@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, CircleCheck, Clock, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient, currentUser } from "@/lib/auth";
+import { currentClient, currentUser, managedOwnersOnly } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
 import { listPayments, loadOwed, type SettlementDirection } from "@/lib/owed";
 import { PayoutHistory } from "@/components/shared/PayoutHistory";
@@ -28,6 +28,7 @@ export default async function ClientSettlementsPage({
 }: {
   searchParams: Promise<{ tab?: string; error?: string }>;
 }) {
+  await managedOwnersOnly();
   const { tab: rawTab, error } = await searchParams;
   const tab = isSettlementTab(rawTab) ? rawTab : "to-hostello";
   const direction: SettlementDirection = tab === "to-hostello" ? "to_hostello" : "to_client";

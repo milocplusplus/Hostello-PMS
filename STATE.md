@@ -1,6 +1,35 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 3: host screens, own units, calendar links, checklist**
+  (2026-10-18). Migration `host_units_and_feeds` **applied to the live DB**:
+  `owns_host_client()` / `owns_host_property()`, host-only INSERT/UPDATE on
+  `properties`, host ALL on `calendar_feeds` and `calendar_exports`, and a
+  `calendar_feeds` trigger that lets a host-owned unit take only an https
+  airbnb.* / booking.com link (no credentials, no port). Managed owners gain
+  nothing. **Tested** as real roles, rolled back: host adds/edits own unit,
+  cannot add to or edit another client's, managed owner refused on units and
+  feeds, host cannot write `subscriptions`, Airbnb / .co.uk / Booking links
+  accepted; evil host, `airbnb.com@evil`, http, `airbnb.com.evil` and a feed on
+  someone else's unit refused. App: `account_type` on `currentClient()`;
+  `managedOwnersOnly()` sends a host home from Settlements (4 pages), Find
+  dates and Channel setup; `ClientShell host` drops those from the nav and
+  swaps the Money tab for Expenses; dashboard says Income / You keep, hides
+  Hostello share, Awaiting and the Coming-soon card, and shows
+  `OnboardingChecklist` (add property → connect Airbnb calendar → first
+  booking; disappears when done). `BookingForm hostMode` (no Hostello Direct,
+  no split, no "received by", posts owner) and `PropertyForm hostMode` (no deal
+  terms). New pages `/client/properties/new`, `[id]/edit`, `[id]/calendar`
+  (link in, link out) + actions in `client/properties/actions.ts`. A host's
+  new link is read by the every-minute cron, not on the spot (the `ical-sync`
+  edge function still answers admins only). Booking page hides the balance
+  payment card for hosts. Lint, tsc, build clean.
+  **Not seen: any host screen** (no host login; sign-ups are closed).
+  **Known gaps:** guest balance payments have no host path (they wait for
+  Hostello's approval), Stats and Today still say "Your payout" / "Awaiting
+  payout" / "Hostello earns nothing", Settings-driven guest messages mention the
+  Hostello business, search results and the Alerts feed are untouched, and
+  nothing stops a paused/read-only host editing bookings (phase 6).
 - **Host mode, phase 2: sign-up** (2026-10-18). `/signup` (name, email, optional
   phone, password, terms tick) → Supabase `signUp` with `signup_kind: host` →
   confirmation email → `/auth/confirmed` (`ConfirmedHandler`, browser-side like

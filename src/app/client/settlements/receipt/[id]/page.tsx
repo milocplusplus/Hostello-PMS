@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient } from "@/lib/auth";
+import { currentClient, managedOwnersOnly } from "@/lib/auth";
 import { listPayments, loadAllocations } from "@/lib/owed";
 import { PayoutReceipt } from "@/components/shared/PayoutReceipt";
 import { Celebration } from "@/components/shared/Celebration";
@@ -22,6 +22,7 @@ export default async function ClientReceiptPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ celebrate?: string }>;
 }) {
+  await managedOwnersOnly();
   const { id } = await params;
   const { celebrate } = await searchParams;
 

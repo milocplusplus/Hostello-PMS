@@ -76,6 +76,8 @@ export default async function ClientNewBookingPage({
           initialCheckOut={checkout}
           unavailable={unavailable}
           allowReceipt={false}
+          hostMode={clientRecord.account_type === "host"}
+          showPayoutPreview={clientRecord.account_type !== "host"}
           defaults={bookingDefaults(await loadSettings())}
           error={error}
         />

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BedDouble, CalendarPlus, ChartNoAxesColumn, Plus, Sparkles, Wallet } from "lucide-react";
 import { EmptyState } from "@/components/shared/PageHeader";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
+import { OnboardingChecklist } from "@/components/client/OnboardingChecklist";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -247,6 +248,7 @@ export default async function ClientDashboard({
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   // Viewing as an owner, greet the owner — not the admin who is looking.
   const displayName = (viewAs ? null : profile?.full_name) ?? clientRecord.name;
+  const isHost = clientRecord.account_type === "host";
   const firstName = displayName.trim().split(/\s+/)[0];
 
   return (
@@ -270,23 +272,25 @@ export default async function ClientDashboard({
         <section className="card-hero lg:col-span-3 p-5 md:p-6 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-bold text-white/85">
-              Payout · {formatMonthLabel(year, month0)}
+              {isHost ? "Income" : "Payout"} · {formatMonthLabel(year, month0)}
             </span>
-            <InfoSheet title="Your payout" className="bg-white/20 text-white">
-              <p>Your share of confirmed stays checking in this month.</p>
+            <InfoSheet title={isHost ? "Your income" : "Your payout"} className="bg-white/20 text-white">
+              <p>{isHost ? "Confirmed stays checking in this month." : "Your share of confirmed stays checking in this month."}</p>
               <dl className="num flex flex-col gap-2 text-[15px]">
                 <div className="flex justify-between">
                   <dt>Gross</dt>
                   <dd className="text-ink-primary font-bold">{formatPKR(grossThisMonth)}</dd>
                 </div>
+                {!isHost && (
                 <div className="flex justify-between">
                   <dt>Hostello share</dt>
                   <dd className="text-ink-primary font-bold">
                     −{formatPKR(Math.max(0, grossThisMonth - payoutThisMonth))}
                   </dd>
                 </div>
+                )}
                 <div className="flex justify-between border-t border-white/10 pt-2 text-base">
-                  <dt className="text-ink-primary font-bold">You get</dt>
+                  <dt className="text-ink-primary font-bold">{isHost ? "You keep" : "You get"}</dt>
                   <dd className="text-hostello-gold-bright font-extrabold">{formatPKR(payoutThisMonth)}</dd>
                 </div>
               </dl>
@@ -315,6 +319,7 @@ export default async function ClientDashboard({
             value={rows.length}
             label="Stays"
           />
+          {!isHost && (
           <StatTile
             href="/client/settlements"
             icon={Wallet}
@@ -323,11 +328,14 @@ export default async function ClientDashboard({
             label="Awaiting"
             valueClass="text-hostello-gold-bright"
           />
+          )}
         </div>
       </div>
 
       {/* What's coming, while the channel inbox is on hold (ota.ts). */}
-      {CHANNEL_INBOX_ON_HOLD && (
+      {isHost && <OnboardingChecklist clientId={clientRecord.id} />}
+
+      {CHANNEL_INBOX_ON_HOLD && !isHost && (
         <Link
           href="/client/channel-setup"
           className="card card-hover relative overflow-hidden p-5 flex items-center gap-4"
@@ -399,7 +407,7 @@ export default async function ClientDashboard({
 
       <section className="card p-5 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg">Payouts</h2>
+          <h2 className="text-lg">{isHost ? "Income" : "Payouts"}</h2>
           <PeriodSelect value={period.key} />
         </div>
         <div>
@@ -409,7 +417,7 @@ export default async function ClientDashboard({
         {periodPayout > 0 ? (
           <RevenueChart dates={period.days} series={periodSeries} />
         ) : (
-          <EmptyState inset icon={ChartNoAxesColumn} title={`No payouts in ${period.label}.`} />
+          <EmptyState inset icon={ChartNoAxesColumn} title={`No ${isHost ? "income" : "payouts"} in ${period.label}.`} />
         )}
       </section>
     </div>

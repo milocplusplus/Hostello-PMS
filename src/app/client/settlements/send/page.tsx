@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient } from "@/lib/auth";
+import { currentClient, managedOwnersOnly } from "@/lib/auth";
 import { listPayments, loadOwed } from "@/lib/owed";
 import { SendMoneyFlow } from "@/components/shared/SendMoneyFlow";
 import { recordPayout } from "../actions";
@@ -21,6 +21,7 @@ export default async function ClientSendPaymentPage({
 }: {
   searchParams: Promise<{ edit?: string; error?: string }>;
 }) {
+  await managedOwnersOnly();
   const { edit, error } = await searchParams;
 
   const clientRecord = await currentClient();

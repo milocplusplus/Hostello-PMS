@@ -81,6 +81,7 @@ export default async function ClientLayout({
         logoutAction={logout}
         searchAction={searchClient}
         markAllReadAction={markAllNotificationsRead}
+        host={clientRecord.account_type === "host"}
       >
         {clientRecord.account_type === "host" && <HostPlanBanner clientId={clientRecord.id} />}
         {children}

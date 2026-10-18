@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, Images, MapPin, PencilRuler, Users, Building2 } from "lucide-react";
+import { CalendarDays, Images, MapPin, PencilRuler, Plus, Users, Building2, Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentUser } from "@/lib/auth";
 import { propertyTypeLabel } from "@/lib/property-types";
@@ -84,6 +84,7 @@ export default async function ClientPropertiesPage({
     clientRecord.deal_model === "fixed_stack" ||
     clientRecord.ota_model === "stack";
 
+  const isHost = clientRecord.account_type === "host";
   const rows = (requests ?? []) as RequestRow[];
   // One open ask per property is a database constraint, so this is a lookup and
   // not a list.
@@ -96,10 +97,22 @@ export default async function ClientPropertiesPage({
       <PageHeader
         title="Properties"
         info={
-          <p>
-            Every unit on your account, and what it is listed at. Ask Hostello to change a
-            capacity or a nightly rate and it is applied here once they agree.
-          </p>
+          isHost ? (
+            <p>Every unit on your account. Edit a unit to change its details or prices.</p>
+          ) : (
+            <p>
+              Every unit on your account, and what it is listed at. Ask Hostello to change a
+              capacity or a nightly rate and it is applied here once they agree.
+            </p>
+          )
+        }
+        actions={
+          isHost ? (
+            <Link href="/client/properties/new" className="btn btn-primary">
+              <Plus size={15} strokeWidth={2.5} />
+              Add property
+            </Link>
+          ) : undefined
         }
       />
 
@@ -113,7 +126,18 @@ export default async function ClientPropertiesPage({
       )}
 
       {!properties || properties.length === 0 ? (
-        <EmptyState icon={Building2} title={<>No properties on your account yet.</>} />
+        <EmptyState
+          icon={Building2}
+          title={<>No properties on your account yet.</>}
+          action={
+            isHost ? (
+              <Link href="/client/properties/new" className="btn btn-primary">
+                <Plus size={16} strokeWidth={2.5} />
+                Add your first property
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
         <div className="card divide-y divide-[var(--color-border-hairline)] overflow-hidden">
           {properties.map((p) => {
@@ -207,7 +231,18 @@ export default async function ClientPropertiesPage({
 
                 {/* One open ask per unit, so a property either shows what is
                     waiting or offers the form — never both. */}
-                {pending ? (
+                {isHost ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Link href={`/client/properties/${p.id}/edit`} className="btn btn-ghost btn-sm">
+                      <PencilRuler size={13} />
+                      Edit
+                    </Link>
+                    <Link href={`/client/properties/${p.id}/calendar`} className="btn btn-ghost btn-sm">
+                      <Link2 size={13} />
+                      Calendar links
+                    </Link>
+                  </div>
+                ) : pending ? (
                   <div className="tile px-3 py-2.5 flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <p className={`text-xs ${REQUEST_STATUS.pending.tone}`}>

@@ -94,6 +94,8 @@ export default async function EditClientBookingPage({
         initialDate={booking.check_in}
         initialCheckOut={booking.check_out}
         unavailable={unavailable}
+        hostMode={clientRecord.account_type === "host"}
+        showPayoutPreview={clientRecord.account_type !== "host"}
         values={{
           guestName: booking.guest_name,
           guestPhone: booking.guest_phone,

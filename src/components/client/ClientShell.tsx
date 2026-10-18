@@ -80,17 +80,19 @@ function Logo({ clientName }: { clientName: string }) {
 }
 
 function NavLinks({
+  items,
   pathname,
   unreadCount,
   onNavigate,
 }: {
+  items: typeof NAV;
   pathname: string;
   unreadCount: number;
   onNavigate?: () => void;
 }) {
   return (
     <>
-      {NAV.map((item) => {
+      {items.map((item) => {
         const active = isActive(pathname, item.href, item.exact);
         const Icon = item.icon;
         return (
@@ -176,6 +178,7 @@ export function ClientShell({
   logoutAction,
   searchAction,
   markAllReadAction,
+  host = false,
   children,
 }: {
   userName: string;
@@ -185,9 +188,16 @@ export function ClientShell({
   logoutAction: () => Promise<void>;
   searchAction: (query: string) => Promise<SearchResult[]>;
   markAllReadAction: () => Promise<void>;
+  /** A self-serve host: no Hostello settlements and no staff-style finder. */
+  host?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const nav = host ? NAV.filter((n) => n.href !== "/client/settlements" && n.href !== "/client/availability") : NAV;
+  const tabs = host
+    ? TABS.map((t) => (t.href === "/client/settlements" ? { href: "/client/expenses", label: "Expenses", icon: Receipt, exact: false } : t))
+    : TABS;
+  const more = host ? MORE.filter((m) => m.href !== "/client/availability" && m.href !== "/client/expenses") : MORE;
   const [menuOpen, setMenuOpen] = useState(false);
   const openMore = useCallback(() => setMenuOpen(true), []);
   const closeMore = useCallback(() => setMenuOpen(false), []);
@@ -201,7 +211,7 @@ export function ClientShell({
         </div>
 
         <nav className="flex-1 px-3 flex flex-col gap-1 mt-2 overflow-y-auto pb-4">
-          <NavLinks pathname={pathname} unreadCount={unreadCount} />
+          <NavLinks items={nav} pathname={pathname} unreadCount={unreadCount} />
         </nav>
 
         <SidebarFooter userName={userName} logoutAction={logoutAction} />
@@ -218,11 +228,11 @@ export function ClientShell({
         />
       </div>
 
-      <TabBar tabs={TABS} more={MORE} pathname={pathname} dot={unreadCount > 0} onMore={openMore} />
+      <TabBar tabs={tabs} more={more} pathname={pathname} dot={unreadCount > 0} onMore={openMore} />
       <MoreSheet
         open={menuOpen}
         onClose={closeMore}
-        items={MORE.map((m) => (m.href === "/client/notifications" ? { ...m, badge: unreadCount } : m))}
+        items={more.map((m) => (m.href === "/client/notifications" ? { ...m, badge: unreadCount } : m))}
         footer={<SidebarFooter userName={userName} logoutAction={logoutAction} />}
       />
 

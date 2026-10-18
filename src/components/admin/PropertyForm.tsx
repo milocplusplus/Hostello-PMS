@@ -33,6 +33,8 @@ type PropertyFormProps = {
   };
   error?: string;
   submitLabel: string;
+  /** A self-serve host: their own prices only, no Hostello deal terms. */
+  hostMode?: boolean;
 };
 
 const STATUSES = [
@@ -52,6 +54,7 @@ export function PropertyForm({
   defaultValues,
   error,
   submitLabel,
+  hostMode = false,
 }: PropertyFormProps) {
   const [province, setProvince] = useState(
     defaultValues?.province && PROVINCES.includes(defaultValues.province as (typeof PROVINCES)[number])
@@ -103,11 +106,15 @@ export function PropertyForm({
                 value: figure(shortRate) != null ? formatPKR(figure(shortRate)) : "Not set",
                 set: figure(shortRate) != null,
               },
-              {
-                label: "Stack / night",
-                value: formatPKR(Number(stack) || 0),
-                set: Number(stack) > 0,
-              },
+              ...(hostMode
+                ? []
+                : [
+                    {
+                      label: "Stack / night",
+                      value: formatPKR(Number(stack) || 0),
+                      set: Number(stack) > 0,
+                    },
+                  ]),
               {
                 label: "Asking / night",
                 value: figure(nightly) != null ? formatPKR(figure(nightly)) : "Not set",
@@ -224,10 +231,11 @@ export function PropertyForm({
       {/* What a guest is told, and what the availability finder searches on.
           Kept apart from the stack rates below, which are deal terms and are
           hidden from ops — confusing the two is the easy mistake here. */}
-      <FormStep n={3} icon={Tag} title="What we quote" done={done[2]}>
+      <FormStep n={3} icon={Tag} title={hostMode ? "Your prices" : "What we quote"} done={done[2]}>
         <p className="text-xs text-ink-muted -mt-1">
-          Used by the availability finder. Leave blank if you don&apos;t know yet — the unit
-          still shows up, flagged as missing the figure.
+          {hostMode
+            ? "What you usually charge. Leave blank if you don't know yet — you can set it later."
+            : "Used by the availability finder. Leave blank if you don't know yet — the unit still shows up, flagged as missing the figure."}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -283,6 +291,7 @@ export function PropertyForm({
         </div>
       </FormStep>
 
+      {!hostMode && (
       <FormStep n={4} icon={Handshake} title="Deal terms" done={done[3]}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="stack_rate" className={fieldLabel}>
@@ -316,6 +325,7 @@ export function PropertyForm({
           />
         </div>
       </FormStep>
+      )}
     </StepForm>
   );
 }

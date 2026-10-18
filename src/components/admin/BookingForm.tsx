@@ -110,6 +110,7 @@ export function BookingForm({
   canSetShare = false,
   defaults,
   lockPrices = false,
+  hostMode = false,
   error,
 }: {
   action: (formData: FormData) => void;
@@ -137,6 +138,8 @@ export function BookingForm({
   defaults?: BookingDefaults;
   /** Ops with price edits switched off: the figures show but cannot be changed. */
   lockPrices?: boolean;
+  /** A self-serve host: keeps 100%, so no split, no "received by" and no Hostello channel. */
+  hostMode?: boolean;
   error?: string;
 }) {
   const sortedProperties = useMemo(
@@ -166,7 +169,7 @@ export function BookingForm({
   );
   const [guestName, setGuestName] = useState(values?.guestName ?? "");
   const [guestsCount, setGuestsCount] = useState(values?.guestsCount != null ? String(values.guestsCount) : "");
-  const [source, setSource] = useState(values?.source ?? initialSource ?? "hostello");
+  const [source, setSource] = useState(values?.source ?? initialSource ?? (hostMode ? "airbnb" : "hostello"));
   const [advance, setAdvance] = useState(String(values?.advance ?? 0));
   // Null follows the channel: a new booking starts where its source usually
   // pays, until someone says otherwise.
@@ -338,7 +341,7 @@ export function BookingForm({
             that was closed, and the server fell back to confirmed. */}
         <input type="hidden" name="status" value={status} />
         <input type="hidden" name="source" value={source} />
-        <input type="hidden" name="advance_received_by" value={advanceBy} />
+        <input type="hidden" name="advance_received_by" value={hostMode ? "owner" : advanceBy} />
         {/* Always posted by the admin's form: empty tells the server to use the deal. */}
         {canSetShare && <input type="hidden" name="hostello_share_typed" value={typedNow ?? ""} />}
         {/* The box lives in "More details"; closed, what was typed there still posts. */}
@@ -636,7 +639,7 @@ export function BookingForm({
             <div className="flex flex-col gap-2">
               <p className={fieldLabel}>Where the booking came from</p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Source">
-                {BOOKING_SOURCES.map((s) => {
+                {BOOKING_SOURCES.filter((s) => !hostMode || s.value !== "hostello").map((s) => {
                   const on = source === s.value;
                   const color = sourceColor(s.value);
                   return (
@@ -665,14 +668,14 @@ export function BookingForm({
                         className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: color, boxShadow: on ? `0 0 8px ${color}` : undefined }}
                       />
-                      {s.label}
+                      {hostMode && s.value === "client" ? "Direct (my own guest)" : s.label}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {advanceAmount > 0 && (
+            {advanceAmount > 0 && !hostMode && (
               <div className="flex flex-col gap-2">
                 <p className={fieldLabel}>
                   {prepaid
@@ -866,7 +869,7 @@ export function BookingForm({
               <div className="flex items-center justify-between gap-3">
                 <dt className="opacity-70">Paid so far</dt>
                 <dd className="font-semibold text-right">
-                  {advanceAmount > 0 ? `${formatPKR(advanceAmount)} · ${collectorLabel(advanceBy)}` : "Nothing yet"}
+                  {advanceAmount > 0 ? `${formatPKR(advanceAmount)}${hostMode ? "" : ` · ${collectorLabel(advanceBy)}`}` : "Nothing yet"}
                 </dd>
               </div>
               <div className="flex items-baseline justify-between gap-3 pt-2 border-t border-white/15">

@@ -91,6 +91,12 @@ export async function requireStaff(): Promise<CurrentProfile> {
   return profile;
 }
 
+/** Pages that only make sense with Hostello in the picture (settlements, the finder). A host is sent home. */
+export async function managedOwnersOnly(): Promise<void> {
+  const client = await currentClient();
+  if (client?.account_type === "host") redirect("/client");
+}
+
 export type CurrentClient = {
   id: string;
   name: string;

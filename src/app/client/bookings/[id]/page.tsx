@@ -48,6 +48,8 @@ export default async function ClientBookingDetailPage({
 
   const clientRecord = await currentClient();
   if (!clientRecord) redirect("/client");
+  // A host has no Hostello to approve a balance payment, so that card is left out.
+  const isHost = clientRecord.account_type === "host";
 
   const { data: booking } = await supabase
     .from("bookings_v")
@@ -133,21 +135,24 @@ export default async function ClientBookingDetailPage({
       <section className="card p-4 md:p-5 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg">Payment</h2>
-          <Link href="/client/settlements" className="text-[13px] font-bold text-hostello-purple-light">
-            Your payout
-          </Link>
+          {!isHost && (
+            <Link href="/client/settlements" className="text-[13px] font-bold text-hostello-purple-light">
+              Your payout
+            </Link>
+          )}
         </div>
         <PaymentTiles
           sale={formatPKR(gross)}
           paid={formatPKR(gross - balanceDue)}
           balance={formatPKR(balanceDue)}
-          receivedBy={describeCollectors(booking)}
+          receivedBy={isHost ? undefined : describeCollectors(booking)}
           note={
             booking.nightly_price != null && !shortStay
               ? formatNightly(Number(booking.nightly_price), nights, formatPKR)
               : null
           }
         />
+        {!isHost && (
         <BalancePaymentList
           payments={payments}
           back={back}
@@ -155,12 +160,13 @@ export default async function ClientBookingDetailPage({
           ownerView
           withdrawAction={withdrawOwnerBalancePayment}
         />
-        {waiting > 0 && (
+        )}
+        {!isHost && waiting > 0 && (
           <p className="text-[11px] text-status-pending">
             {formatPKR(waiting)} recorded and waiting for Hostello to approve — not counted yet.
           </p>
         )}
-        {booking.status !== "cancelled" && (
+        {!isHost && booking.status !== "cancelled" && (
           <RecordPaymentForm
             bookingId={booking.id}
             left={balanceDue - waiting}

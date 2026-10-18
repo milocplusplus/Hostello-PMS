@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { currentClient, currentUser } from "@/lib/auth";
+import { currentClient, currentUser, managedOwnersOnly } from "@/lib/auth";
 import { todayISO } from "@/lib/calendar";
 import {
   findAvailable,
@@ -21,6 +21,7 @@ export default async function ClientAvailabilityPage({
 }: {
   searchParams: Promise<FinderParams>;
 }) {
+  await managedOwnersOnly();
   const supabase = await createClient();
   const user = await currentUser();
   if (!user) redirect("/login");
