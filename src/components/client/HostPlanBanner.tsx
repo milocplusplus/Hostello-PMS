@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/calendar";
 
@@ -34,9 +35,13 @@ export async function HostPlanBanner({ clientId }: { clientId: string }) {
   }
 
   return (
-    <div className="mb-4 rounded-2xl border border-hostello-gold/30 bg-hostello-gold/10 px-4 py-2.5 text-xs flex flex-wrap items-center gap-x-3 gap-y-1">
+    <Link
+      href="/client/account"
+      className="mb-4 rounded-2xl border border-hostello-gold/30 bg-hostello-gold/10 px-4 py-2.5 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 hover:bg-hostello-gold/15 transition-colors"
+    >
       <span className="font-semibold text-hostello-gold">{headline}</span>
       {planText && <span className="text-ink-secondary">{planText}</span>}
-    </div>
+      <span className="ml-auto text-ink-muted">Account →</span>
+    </Link>
   );
 }

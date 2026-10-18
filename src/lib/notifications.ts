@@ -116,6 +116,12 @@ const KIND_ICON: Record<string, LucideIcon> = {
   ota_waiting: Inbox,
   // Someone signed up as a self-serve host (handle_host_signup, in SQL).
   host_signup: UserPlus,
+  // A host's plan: the daily pass in SQL (`run_host_lifecycle`) writes these to the host.
+  host_trial_ending: CalendarClock,
+  host_payment_due: CalendarClock,
+  host_trial_ended: TriangleAlert,
+  host_payment_overdue: TriangleAlert,
+  host_paused: TriangleAlert,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the
@@ -197,8 +203,8 @@ export function notificationHref(
   // it has already found the booking it is about.
   if (row.kind?.startsWith("ota_")) return "/admin/channel-inbox";
 
-  // A new host is a row on the Hosts page.
-  if (row.kind?.startsWith("host_")) return "/admin/hosts";
+  // A new host is a row on the Hosts page; a host's own plan notices open their Account.
+  if (row.kind?.startsWith("host_")) return portal === "admin" ? "/admin/hosts" : "/client/account";
 
   // A change request is a queue on one side and a status on the other. Neither
   // is the property's calendar, which is where a bare property_id would land.

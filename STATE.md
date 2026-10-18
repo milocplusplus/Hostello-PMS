@@ -1,6 +1,38 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 6: lapse, reminders, account page** (2026-10-18). Migration
+  `host_lifecycle` **applied to the live DB**. **Cron `hostello-host-lifecycle`**
+  (02:30 UTC daily → `run_host_lifecycle()`): trial over → read-only; plan
+  unpaid past its end → read-only; 14 days read-only (`subscriptions.lapsed_at`)
+  → paused; plus one reminder 3 days before a trial or a paid period ends. A
+  **comped** host never moves. Each step is a notice to the host
+  (`host_trial_ending`, `host_payment_due`, `host_trial_ended`,
+  `host_payment_overdue`, `host_paused`; in-app + phone push through the normal
+  path; none reach staff). **Read-only is enforced in the database**:
+  `refuse_when_host_locked` on 11 tables stops the host themself from inserting
+  or updating while read-only / paused (not the sync, jobs, or the admin). The
+  over-limit rule no longer blocks editing a unit that was already active.
+  **New `/client/account`** (hosts only; "Account" in their nav; the plan banner
+  links to it): plan, usage, how to pay (business contact + WhatsApp), an Excel
+  export of their bookings / guest payments / expenses / properties, and
+  "Delete my account" (type DELETE) → `deleteMyAccount`: reads every storage
+  path, `purge_host_account()` (cascade), removes the files, deletes the login.
+  What they paid stays: `subscription_payments` now keeps name and email and its
+  `client_id` goes null. **Tested** rolled back on the live DB: over-limit edit ok
+  / add refused; locked host refused on bookings, expenses and manual blocks but
+  can read; system, sync and admin writes pass; managed owner unaffected;
+  trial → read_only → paused, comped untouched, reminders once, overdue;
+  nothing reached staff; purge removes client / units / bookings / expenses,
+  keeps the payment; auth user + profile delete clean. Lint, tsc, build.
+  **Not done: reminder EMAILS** — no mail sender exists in this app (Supabase
+  only mails sign-in links). Needs a provider (Resend / Brevo…), an API key as a
+  secret and a sender address on your domain. **Not tested:** the Account page
+  rendered, the export download, and `deleteMyAccount` end to end (storage
+  removal and `auth.admin.deleteUser` need the server key; no host login yet).
+  **Known:** the audit log keeps its entries after a deletion (it is
+  write-protected); `generate_due_expenses` and the owner digest still run for
+  paused hosts.
 - **Hosts hidden from Hostello's own screens** (2026-10-18). Migrations
   `hosts_hidden_from_staff` + `hosts_out_of_channel_health` **applied to the live
   DB**. A host's data no longer shows in the owner's or ops' operational pages

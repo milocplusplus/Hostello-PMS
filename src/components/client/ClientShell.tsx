@@ -19,6 +19,7 @@ import {
   Plus,
   Home,
   Search,
+  UserRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
@@ -193,11 +194,21 @@ export function ClientShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const nav = host ? NAV.filter((n) => n.href !== "/client/settlements" && n.href !== "/client/availability") : NAV;
+  const nav = host
+    ? [
+        ...NAV.filter((n) => n.href !== "/client/settlements" && n.href !== "/client/availability"),
+        { href: "/client/account", label: "Account", icon: UserRound, exact: false },
+      ]
+    : NAV;
   const tabs = host
     ? TABS.map((t) => (t.href === "/client/settlements" ? { href: "/client/expenses", label: "Expenses", icon: Receipt, exact: false } : t))
     : TABS;
-  const more = host ? MORE.filter((m) => m.href !== "/client/availability" && m.href !== "/client/expenses") : MORE;
+  const more = host
+    ? [
+        ...MORE.filter((m) => m.href !== "/client/availability" && m.href !== "/client/expenses"),
+        { href: "/client/account", label: "Account", icon: UserRound, tint: "linear-gradient(135deg, #475569, #64748b)" },
+      ]
+    : MORE;
   const [menuOpen, setMenuOpen] = useState(false);
   const openMore = useCallback(() => setMenuOpen(true), []);
   const closeMore = useCallback(() => setMenuOpen(false), []);
