@@ -249,7 +249,7 @@ export async function loadOwedByClient(
   const [{ data: bookings }, { data: allocations }, { data: clients }] = await Promise.all([
     bookingQuery,
     supabase.from(spec.allocations).select("booking_id, amount"),
-    supabase.from("clients").select("id, name, owner_user_id, deactivated_at").order("name"),
+    supabase.from("clients").select("id, name, owner_user_id, deactivated_at").eq("account_type", "managed").order("name"),
   ]);
 
   const paidPerBooking = new Map<string, number>();

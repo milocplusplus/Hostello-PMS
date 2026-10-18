@@ -50,7 +50,7 @@ export default async function AdminStatsPage({
   const [{ data: bookings }, { data: prevBookings }, { data: clients }] = await Promise.all([
     windowQuery,
     prevQuery,
-    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("clients").select("id, name").eq("account_type", "managed").order("name"),
   ]);
 
   const rows = (bookings ?? []) as StatsBooking[];

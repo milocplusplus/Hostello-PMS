@@ -29,7 +29,7 @@ export default async function HostPage({
   const { error, notice } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: host }, { data: plans }, { data: payments }, { count: units }] = await Promise.all([
+  const [{ data: host }, { data: plans }, { data: payments }, { data: unitRows }] = await Promise.all([
     supabase
       .from("clients")
       .select(
@@ -44,8 +44,9 @@ export default async function HostPage({
       .select("id, amount, method, reference, months, period_end, note, created_at")
       .eq("client_id", id)
       .order("created_at", { ascending: false }),
-    supabase.from("properties").select("id", { count: "exact", head: true }).eq("client_id", id),
+    supabase.rpc("admin_host_units"),
   ]);
+  const units = ((unitRows ?? []) as { client_id: string; units: number }[]).find((u) => u.client_id === id)?.units ?? 0;
   if (!host) notFound();
 
   const raw = host.subscriptions as unknown as HostSubscription | HostSubscription[] | null;
@@ -67,7 +68,7 @@ export default async function HostPage({
       <div className="card p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-ink-secondary">
         <span>Joined {formatDayMonth(host.created_at.slice(0, 10))}</span>
         <span>
-          {units ?? 0} {units === 1 ? "property" : "properties"}
+          {units} {units === 1 ? "property" : "properties"}
         </span>
         <span>{host.terms_accepted_at ? "Accepted the terms" : "Terms not recorded"}</span>
         <form action={viewAsOwner} className="ml-auto">

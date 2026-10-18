@@ -55,6 +55,7 @@ export async function exportData(req: ExportRequest): Promise<Result> {
         supabase
           .from("clients")
           .select("*")
+          .eq("account_type", "managed")
           .match(clientId ? { id: clientId } : {})
           .order("name")
           .range(a, b)

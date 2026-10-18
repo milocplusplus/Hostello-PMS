@@ -1,6 +1,33 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Hosts hidden from Hostello's own screens** (2026-10-18). Migrations
+  `hosts_hidden_from_staff` + `hosts_out_of_channel_health` **applied to the live
+  DB**. A host's data no longer shows in the owner's or ops' operational pages
+  (Bookings, Calendar, dashboards, Stats, Check-ins, Photos, Find dates, Money,
+  Channel inbox, Audit, Listing Coach). Mechanism: 23 **restrictive** RLS
+  policies named "hosts stay out of staff screens" (bookings, properties,
+  blocks, feeds, exports, photos, payments, receipts, guest IDs, expenses,
+  review requests, audit log, coach tables, sync runs…) calling
+  `staff_may_see_client/property/booking/feed()`, and the same test inside
+  `bookings_v`, `properties_v`, `clients_v`. **The one way in is View as host:**
+  `createClient()` (server.ts) sends `x-hostello-view-as: <client id>` when the
+  `/client`-scoped cookie is set; the database honours it for an **admin** only
+  (`view_as_header()`; ops with the header still sees nothing). `clients`,
+  `subscriptions` and `subscription_payments` stay readable by the admin for the
+  Hosts page; unit counts there come from `admin_host_units()`. Stats, Money and
+  Clients lists filter `account_type = 'managed'`. `check_channel_health()` and
+  `unexplained_channel_holds()` now ignore hosts' links. **Tested** on the live
+  DB as real roles, rolled back: the admin's counts for Hostello's own data are
+  identical before and after (29 bookings, 30 units, 16 blocks, 8 feeds, 220
+  photos, 595 audit rows…); host bookings / units / blocks / feeds / reviews /
+  audit rows are 0 for the admin without the header and visible with it, not for
+  a different id, not for ops; the host sees their own; the nightly stays and
+  review-request jobs raised nothing for staff about a host; the health check
+  raised nothing for a stale host link. Lint, tsc. **Not seen in the app: View
+  as host through the real cookie → header path** (no admin login in this pane).
+  **Cost to watch:** each staff row read now calls a small function; fine at
+  today's size, revisit around a few thousand hosted bookings.
 - **Host mode, phase 5: the Hosts page** (2026-10-18). Migration `host_admin_tools`
   **applied to the live DB**: `subscription_payments` (admin writes, host reads
   own, audited), `admin_record_subscription_payment()` (admin only; records the

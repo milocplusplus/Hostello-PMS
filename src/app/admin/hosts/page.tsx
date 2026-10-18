@@ -13,23 +13,27 @@ type HostRow = {
   contact_email: string | null;
   created_at: string;
   subscriptions: HostSubscription | HostSubscription[] | null;
-  properties: { count: number }[];
 };
 
 export default async function HostsPage() {
   const supabase = await createClient();
 
-  const [{ data: hosts }, { data: plans }, { data: open }] = await Promise.all([
+  const [{ data: hosts }, { data: plans }, { data: open }, { data: unitRows }] = await Promise.all([
     supabase
       .from("clients")
       .select(
-        "id, name, contact_email, created_at, subscriptions(plan_key, billing_period, status, trial_ends_at, current_period_end, comped, note), properties(count)"
+        "id, name, contact_email, created_at, subscriptions(plan_key, billing_period, status, trial_ends_at, current_period_end, comped, note)"
       )
       .eq("account_type", "host")
       .order("created_at", { ascending: false }),
     supabase.from("plans").select("key, name, max_listings"),
     supabase.rpc("host_signup_open"),
+    // A host's properties are hidden from the owner's own queries; this count is not.
+    supabase.rpc("admin_host_units"),
   ]);
+  const unitsOf = new Map(
+    ((unitRows ?? []) as { client_id: string; units: number }[]).map((u) => [u.client_id, u.units])
+  );
 
   const planOf = new Map((plans ?? []).map((p) => [p.key, p]));
   const rows = (hosts ?? []) as unknown as HostRow[];
@@ -73,7 +77,7 @@ export default async function HostsPage() {
           {rows.map((h) => {
             const s = subOf(h);
             const plan = s ? planOf.get(s.plan_key) : null;
-            const units = h.properties?.[0]?.count ?? 0;
+            const units = unitsOf.get(h.id) ?? 0;
             return (
               <Link
                 key={h.id}
