@@ -1,0 +1,70 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Hostello Host Mode Plan</title>
+<style>
+@page { size: A4; margin: 18mm 16mm; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: #1b1b26; font-size: 11pt; line-height: 1.45; }
+h1 { color: #5b2ea6; font-size: 24pt; margin: 0 0 2pt; }
+.sub { color: #8a6d1d; margin-bottom: 14pt; }
+h2 { color: #5b2ea6; font-size: 14pt; border-bottom: 2px solid #d4a73a; padding-bottom: 3pt; margin-top: 18pt; }
+ul, ol { padding-left: 18pt; }
+li { margin-bottom: 4pt; }
+.note { background: #f4effb; border-left: 4px solid #5b2ea6; padding: 6pt 10pt; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #ccc; padding: 5pt 7pt; text-align: left; vertical-align: top; }
+th { background: #f4effb; }
+</style></head><body>
+<h1>Host Mode</h1>
+<div class="sub">Self-serve subscription plan for Hostello PMS &middot; 18 October 2026</div>
+<p class="note"><b>Status:</b> plan only. Nothing is built. Decisions below are the owner's answers.</p>
+
+<h2>Plans and pricing</h2>
+<table>
+<tr><th>Plan</th><th>Listings</th><th>Notes</th></tr>
+<tr><td>Starter</td><td>1&ndash;3</td><td>Rs 1,500&ndash;2,500 per month</td></tr>
+<tr><td>Growth</td><td>4&ndash;10</td><td>Price to be set</td></tr>
+<tr><td>Pro</td><td>11&ndash;30</td><td>Adds AI audits on request (run by the owner); price to be set</td></tr>
+</table>
+<ul>
+<li>Monthly or annual billing (about two months free on annual).</li>
+<li>14-day free trial, no card. After a lapse: read-only for 14 days, then paused. Data is kept.</li>
+<li>Over the plan limit: hosts cannot add listings; nothing is deleted.</li>
+</ul>
+
+<h2>Key decisions</h2>
+<ul>
+<li><b>Market:</b> Pakistan first, PKR only; international later.</li>
+<li><b>Same app and database.</b> A new account type <i>host</i> beside managed clients. Same Hostello brand, English only, one login per host.</li>
+<li><b>Hosts keep 100%</b> of a booking's price. No Hostello split, Money pages, settlements or deal models. They do not see Channel inbox, Find dates or Rates tools.</li>
+<li><b>Airbnb data:</b> iCal for dates (airbnb.com / booking.com links only, one per unit); email forwarding to one shared address, routed by the host's Airbnb email.</li>
+<li>Guest ID scans stay as the host's own data. Hosts can delete their account themselves with a typed confirmation.</li>
+<li><b>Emails:</b> verification and welcome; trial-ending and payment reminders.</li>
+<li><b>Support:</b> WhatsApp button and a Help page. <b>Legal:</b> placeholder Terms and Privacy accepted at sign-up, to be reviewed by the owner.</li>
+<li><b>Owner's admin tools:</b> hosts list (plan, status, trial end), extend trial or comp a plan, mark a manual payment received, view-as-host (read-only).</li>
+<li><b>Launch:</b> landing page at the root URL, then a free beta with 3&ndash;10 friendly hosts before billing goes on.</li>
+</ul>
+
+<h2>Launch scope</h2>
+<p>Sign-up, trial, units, iCal sync, calendar, bookings, manual plan activation. Then: payment gateway, email forwarding, expenses and stats, annual billing.</p>
+
+<h2>Build phases</h2>
+<ol>
+<li><b>Data model and isolation.</b> Plans and subscriptions tables, account type on clients, unit limit check. Review every access rule and page that relies on session scope, because strangers now share these tables.</li>
+<li><b>Sign-up and onboarding.</b> Public sign-up, email verification, terms acceptance, guided checklist (add unit, paste iCal link, first booking).</li>
+<li><b>Host mode screens.</b> Hide Money and staff tools, booking form without the split card, Help page, WhatsApp.</li>
+<li><b>Sync safeguards.</b> iCal link allow-list, no internal addresses, sync skips paused hosts.</li>
+<li><b>Admin: Hosts.</b> List, extend trial, comp, mark payment received, view-as-host.</li>
+<li><b>Lifecycle.</b> Trial to read-only to paused, reminder emails, over-limit blocking, account deletion and export.</li>
+<li><b>Landing and legal pages.</b> Pricing, Sign up, placeholder Terms and Privacy.</li>
+<li><b>Beta</b> with 3&ndash;10 hosts, fix issues, then switch billing on.</li>
+<li><b>Later:</b> gateway webhook, host email forwarding, expenses and stats parity, annual billing, Pro audit-request button.</li>
+</ol>
+
+<h2>Open items</h2>
+<ul>
+<li>Choose a gateway (Safepay, PayFast, etc.) and confirm it supports recurring billing for a Pakistan business.</li>
+<li>Set Growth and Pro prices.</li>
+<li>Have Terms and Privacy text reviewed.</li>
+<li>Supabase plan is fine under 50 hosts; revisit before growth.</li>
+<li>A payment webhook is a route handler, so it needs a documented exception to the "no route handlers" rule.</li>
+</ul>
+</body></html>

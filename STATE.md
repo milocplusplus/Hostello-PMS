@@ -1,6 +1,27 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 1: data model + isolation review** (2026-10-18). Plan in
+  `docs/host-mode-plan.md` (PDF beside it). Migration `host_plans_subscriptions`
+  **applied to the live DB**: `clients.account_type` (`managed` default | `host`),
+  `plans` (starter 3 / growth 10 / pro 30 listings, **prices null — owner to set**),
+  `subscriptions` (one per host client: plan, monthly/annual, status trial /
+  active / read_only / paused, trial_ends_at, comped; admin writes, host reads
+  own, audited), and a `properties` trigger that refuses a host's unit over the
+  plan, with no plan, or while read-only/paused. Existing 4 clients stay
+  `managed`, untouched. **Tested** rolled back on the live DB: no plan refused,
+  4th unit on Starter refused, paused refused, Growth allows it, inactive units
+  don't count, a managed client adds 5 freely, 3 audit lines. No app code changed.
+  **Isolation review findings (not yet fixed):** RLS is per-owner
+  (`clients.owner_user_id = auth.uid()`) and the owner-side booking writes check
+  the client and every unit before using the server key — sound. But (1) owners
+  have **no INSERT on `properties` or write on `calendar_feeds`**, so host
+  self-serve needs new policies/actions (phase 3-4); (2) `clients_v`,
+  `properties_v`, `bookings_v`, `app_settings_v` are SECURITY DEFINER views scoped
+  by WHERE — re-check each against a second host before launch; (3) **leaked
+  password protection is off** in Supabase Auth — turn on before public sign-up;
+  (4) host accounts need `deal_model` percent / share 0 so Hostello earns nothing
+  (set at sign-up, phase 2; no `payout.ts` change).
 - **Listing Coach descriptions fit Airbnb** (2026-10-14). Owner reported
   suggested descriptions longer than Airbnb allows. Cause: the task prompt
   asked for "under 2,500 characters" and `coach_save_report()` clipped at
