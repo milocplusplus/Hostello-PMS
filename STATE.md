@@ -1,6 +1,28 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 5: the Hosts page** (2026-10-18). Migration `host_admin_tools`
+  **applied to the live DB**: `subscription_payments` (admin writes, host reads
+  own, audited), `admin_record_subscription_payment()` (admin only; records the
+  payment, sets the host Paid, moves paid-until forward by 1 or 12 months from
+  the later of today and the current end), and the sign-up trigger now raises a
+  `host_signup` notice to the owner (client_id left empty on purpose: a notice
+  carrying a host's id would not reach staff). App: **Hosts** in the owner's
+  Management nav; `/admin/hosts` (counts, one row per host with plan, usage and
+  a status chip) and `/admin/hosts/[id]` (+7/14/30 days, record a payment with
+  history, plan / status / dates / comped / private note, View as host through
+  the existing `viewAsOwner`). Settings has a "Host sign-ups" switch
+  (`saveHostSignups`; reads `host_signup_open()`). Clients & Properties now lists
+  managed clients only. **Tested** rolled back on the live DB: the alert reaches
+  the admin, a host cannot record or insert a payment, 1 month = 31 days, a
+  second payment of 12 months stacks to 396 days and leaves the host Paid/annual.
+  Lint, tsc. **Not seen signed in: none of the pages** (no admin login in this
+  pane). **Must fix before opening sign-ups:** the owner's own operational pages
+  (Bookings, Calendar, dashboard figures, Stats, Check-ins, Photos, Find dates,
+  Money) read every client through RLS, so hosts' bookings and units would mix
+  into them. Proposed: `bookings_v` / `properties_v` / `clients_v` hide host
+  rows from staff unless the request carries a view-as header the server sets
+  for an admin viewing that host.
 - **Host mode, phase 4: sync safeguards** (2026-10-18). Migration `host_sync_and_alerts`
   **applied to the live DB** and edge function `ical-sync` **deployed v2**.
   SQL: `host_is_paused()`; `sync_calendar_feed_apply` skips a paused host the

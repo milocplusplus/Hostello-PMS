@@ -10,9 +10,11 @@ import {
   ShieldCheck,
   Smartphone,
   Trash2,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { requireOwner } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { loadSettings, houseStyle, WALLET_LABEL } from "@/lib/settings";
 import { DEAL_MODELS, OTA_MODELS } from "@/lib/payout";
 import { DEFAULT_TEMPLATES, GUEST_MESSAGES, TEMPLATE_FIELDS, type GuestMessageContext } from "@/lib/guest-messages";
@@ -30,6 +32,7 @@ import {
   saveChannelInbox,
   saveDealDefaults,
   saveGuestTemplate,
+  saveHostSignups,
   saveOpsRules,
   saveOwnerNoticeDefaults,
 } from "./actions";
@@ -44,6 +47,7 @@ const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: "deals", label: "Deal terms", icon: Handshake },
   { id: "bookings", label: "Bookings", icon: CalendarDays },
   { id: "ops", label: "Operations", icon: ShieldCheck },
+  { id: "host-signups", label: "Host sign-ups", icon: UserPlus },
   { id: "owner-notices", label: "Owner notices", icon: Bell },
   { id: "messages", label: "Guest messages", icon: MessageCircle },
 ];
@@ -103,6 +107,7 @@ export default async function SettingsPage({
   await requireOwner();
   const { error, notice } = await searchParams;
   const s = await loadSettings();
+  const { data: hostSignupOpen } = await (await createClient()).rpc("host_signup_open");
 
   // A stay to preview the guest messages against — nobody real.
   const checkIn = addDaysISO(todayISO(), 7);
@@ -326,6 +331,19 @@ export default async function SettingsPage({
               </span>
             </label>
           ))}
+          <div><SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton></div>
+        </form>
+      </Section>
+
+      <Section id="host-signups" title="Host sign-ups" about="Whether anyone can create a self-serve host account from the sign-in page. While this is off, the sign-up page says so and the database refuses a sign-up.">
+        <form action={saveHostSignups} className="flex flex-col gap-3">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" name="host_signup_open" defaultChecked={Boolean(hostSignupOpen)} className="mt-1 h-4 w-4 accent-[var(--color-hostello-purple)]" />
+            <span>
+              <span className="block text-sm font-bold">Let new hosts sign up</span>
+              <span className="block text-xs text-ink-muted">Each one starts a 14-day free trial on the Starter plan. You are told when someone signs up.</span>
+            </span>
+          </label>
           <div><SubmitButton className={primaryButton} busy="Saving…">Save</SubmitButton></div>
         </form>
       </Section>

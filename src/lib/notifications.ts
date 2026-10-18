@@ -27,6 +27,7 @@ import {
   Sun,
   Tags,
   Target,
+  UserPlus,
   TrendingDown,
   TrendingUp,
   TriangleAlert,
@@ -113,6 +114,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   ota_hold_unexplained: TriangleAlert,
   // A channel email still unreviewed after two hours (notify_ota_waiting).
   ota_waiting: Inbox,
+  // Someone signed up as a self-serve host (handle_host_signup, in SQL).
+  host_signup: UserPlus,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the
@@ -193,6 +196,9 @@ export function notificationHref(
   // A channel email is a thing to review, not a booking to look at — even when
   // it has already found the booking it is about.
   if (row.kind?.startsWith("ota_")) return "/admin/channel-inbox";
+
+  // A new host is a row on the Hosts page.
+  if (row.kind?.startsWith("host_")) return "/admin/hosts";
 
   // A change request is a queue on one side and a status on the other. Neither
   // is the property's calendar, which is where a bare property_id would land.

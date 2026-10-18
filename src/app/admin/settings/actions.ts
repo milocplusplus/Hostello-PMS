@@ -117,6 +117,15 @@ export async function saveOpsRules(f: FormData) {
   });
 }
 
+/** The front door for self-serve hosts. The database refuses a sign-up while this is off. */
+export async function saveHostSignups(f: FormData) {
+  await save(
+    "host-signups",
+    { host_signup_open: f.get("host_signup_open") === "on" },
+    f.get("host_signup_open") === "on" ? "Sign-ups are open." : "Sign-ups are closed."
+  );
+}
+
 export async function addPaymentAccount(f: FormData) {
   const kind = str(f, "kind");
   const title = str(f, "title");

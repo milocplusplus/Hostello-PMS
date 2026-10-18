@@ -28,6 +28,8 @@ export default async function ClientsListPage({
   let clientQuery = supabase
     .from("clients")
     .select("id, name, contact_email, contact_phone, deal_model, deactivated_at, properties(count)")
+    // Self-serve hosts have their own page; this list is the managed clients.
+    .eq("account_type", "managed")
     .order("name");
 
   if (term) {

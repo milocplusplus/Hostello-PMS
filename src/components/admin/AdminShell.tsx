@@ -27,6 +27,7 @@ import {
   Search,
   Sparkles,
   Tags,
+  UserPlus,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { StaffRole } from "@/lib/auth";
@@ -102,6 +103,7 @@ function navGroups(role: StaffRole, inboxLive = false): NavGroup[] {
             label: "Management",
             items: [
               { href: "/admin/clients", label: "Clients & Properties", icon: Users, exact: false },
+              { href: "/admin/hosts", label: "Hosts", icon: UserPlus, exact: false },
               { href: "/admin/rates", label: "Rates", icon: Tags, exact: false },
               { href: "/admin/listing-coach", label: "Listing Coach", icon: Sparkles, exact: false },
               {
