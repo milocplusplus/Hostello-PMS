@@ -65,7 +65,7 @@ export default async function ClientStatsPage({
     <div className="flex flex-col gap-4 stagger">
       <PageHeader title="Stats" actions={<PeriodSelect value={period.key} />} />
 
-      <StatsBoard total={total} sources={sources} variant="client" periodLabel={period.label} />
+      <StatsBoard total={total} sources={sources} variant={clientRecord.account_type === "host" ? "host" : "client"} periodLabel={period.label} />
 
       <section className="card p-5 flex flex-col gap-3">
         <div>

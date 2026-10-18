@@ -29,6 +29,8 @@ import {
   uploadClientGuestIds,
   deleteClientGuestId,
   recordOwnerBalancePayment,
+  recordHostBalancePayment,
+  removeHostBalancePayment,
   withdrawOwnerBalancePayment,
 } from "../actions";
 
@@ -152,30 +154,30 @@ export default async function ClientBookingDetailPage({
               : null
           }
         />
-        {!isHost && (
         <BalancePaymentList
           payments={payments}
           back={back}
           viewerId={user.id}
           ownerView
-          withdrawAction={withdrawOwnerBalancePayment}
+          hostMode={isHost}
+          withdrawAction={isHost ? removeHostBalancePayment : withdrawOwnerBalancePayment}
         />
-        )}
         {!isHost && waiting > 0 && (
           <p className="text-[11px] text-status-pending">
             {formatPKR(waiting)} recorded and waiting for Hostello to approve — not counted yet.
           </p>
         )}
-        {!isHost && booking.status !== "cancelled" && (
+        {booking.status !== "cancelled" && (
           <RecordPaymentForm
             bookingId={booking.id}
             left={balanceDue - waiting}
             back={back}
-            action={recordOwnerBalancePayment}
+            action={isHost ? recordHostBalancePayment : recordOwnerBalancePayment}
             ownerView
+            hostMode={isHost}
             open={Boolean(pay_error)}
             label="Guest paid? Record it"
-            note="Hostello approves it before it counts toward what either side owes."
+            note={isHost ? undefined : "Hostello approves it before it counts toward what either side owes."}
           />
         )}
         <PaymentError error={pay_error} />

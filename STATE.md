@@ -1,6 +1,19 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode: the phase 3 gaps closed** (2026-10-18). Migration `host_balance_payments`
+  **applied to the live DB**: a host may INSERT a `booking_payments` row only as
+  `received` / `received_by = owner` on their own booking, and DELETE their own.
+  A host's "Guest paid? Record it" counts at once (no approval, no "who received
+  it", can be removed); nothing is owed either way for a host, so no
+  `refreshDues`. Components take `hostMode`. Stats: `StatsBoard variant="host"`
+  drops the payout tile and per-source payout; Today drops "Awaiting payout".
+  **Tested** as real roles, rolled back: host records 3,000 and the balance
+  drops 8,000 → 5,000, removing restores it; a Hostello-received entry, a
+  payment on another client's booking, and a managed owner's auto-counted entry
+  are refused (their pending entry still works). Lint, tsc, build. **Not seen
+  rendered.** Still Hostello-worded for a host: guest message templates,
+  search, Alerts.
 - **Host mode, phase 3: host screens, own units, calendar links, checklist**
   (2026-10-18). Migration `host_units_and_feeds` **applied to the live DB**:
   `owns_host_client()` / `owns_host_property()`, host-only INSERT/UPDATE on

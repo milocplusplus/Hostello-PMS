@@ -27,6 +27,7 @@ export function RecordPaymentForm({
   note,
   label = "Record guest payment",
   open = false,
+  hostMode = false,
 }: {
   bookingId: string;
   /** What is still to record: the balance, less entries already waiting. */
@@ -38,6 +39,8 @@ export function RecordPaymentForm({
   note?: string;
   label?: string;
   open?: boolean;
+  /** A self-serve host always receives the money themselves, so there is nobody to ask. */
+  hostMode?: boolean;
 }) {
   if (left <= 0) return null;
   return (
@@ -81,6 +84,8 @@ export function RecordPaymentForm({
           </div>
         </div>
 
+        {hostMode && <input type="hidden" name="received_by" value="owner" />}
+        {!hostMode && (
         <fieldset className="flex flex-col gap-1.5">
           <legend className={`${fieldLabel} mb-1.5`}>Who received it</legend>
           <div className="flex flex-wrap gap-2">
@@ -94,6 +99,7 @@ export function RecordPaymentForm({
             </label>
           </div>
         </fieldset>
+        )}
 
         <fieldset className="flex flex-col gap-1.5">
           <legend className={`${fieldLabel} mb-1.5`}>How</legend>
@@ -140,6 +146,7 @@ export function BalancePaymentList({
   reviewAction,
   withdrawAction,
   isAdmin = false,
+  hostMode = false,
 }: {
   payments: BalancePayment[];
   back: string;
@@ -148,6 +155,8 @@ export function BalancePaymentList({
   reviewAction?: Action;
   withdrawAction?: Action;
   isAdmin?: boolean;
+  /** A host may take back any payment they recorded; none of them waits for approval. */
+  hostMode?: boolean;
 }) {
   if (payments.length === 0) return null;
   const who = (c: string) => (c === "hostello" ? "Hostello" : ownerView ? "you" : "the owner");
@@ -156,7 +165,7 @@ export function BalancePaymentList({
     <ul className="flex flex-col divide-y divide-[var(--color-border-hairline)] border-t border-border-hairline">
       {payments.map((p) => {
         const canWithdraw =
-          withdrawAction && (isAdmin || (p.status === "pending" && p.recordedBy === viewerId));
+          withdrawAction && (isAdmin || hostMode || (p.status === "pending" && p.recordedBy === viewerId));
         return (
           <li key={p.id} className="py-2.5 flex flex-col gap-2">
             <div className="flex items-start justify-between gap-3">

@@ -16,9 +16,11 @@ export function StatsBoard({
 }: {
   total: SourceStats;
   sources: SourceStats[];
-  variant: "admin" | "client";
+  /** "host" is a self-serve owner: they keep everything, so there is no payout column. */
+  variant: "admin" | "client" | "host";
   periodLabel: string;
 }) {
+  const host = variant === "host";
   const cutLabel = variant === "admin" ? "Hostello share" : "Your payout";
   const cutOf = (s: SourceStats) => (variant === "admin" ? s.hostelloShare : s.clientPayout);
   // Hostello earns nothing on a stay it did not sell — owner-sourced, a walk-in,
@@ -29,7 +31,7 @@ export function StatsBoard({
     .filter((s) => isPassThroughSource(s.source))
     .reduce((sum, s) => sum + s.gross, 0);
 
-  const tiles = [
+  const allTiles = [
     {
       label: "Total revenue",
       value: formatPKR(total.gross),
@@ -59,6 +61,7 @@ export function StatsBoard({
       ink: "text-surface-0",
     },
   ];
+  const tiles = host ? allTiles.filter((t) => t.label !== cutLabel) : allTiles;
 
   return (
     <div className="flex flex-col gap-3 md:gap-4">
@@ -118,7 +121,7 @@ export function StatsBoard({
                     {s.bookings} {s.bookings === 1 ? "booking" : "bookings"} · {s.nights}{" "}
                     {s.nights === 1 ? "night" : "nights"}
                   </span>
-                  {passThrough(s) ? (
+                  {host ? null : passThrough(s) ? (
                     <span>Hostello earns nothing on these</span>
                   ) : (
                     <span>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { currentClient } from "@/lib/auth";
 import { calculatePayout, type DealModel, type OtaModel } from "@/lib/payout";
 import {
   notifyBookingCancelled,
@@ -752,5 +753,46 @@ export async function withdrawOwnerBalancePayment(formData: FormData) {
   await supabase.from("booking_payments").delete().eq("id", formData.get("id") as string).eq("status", "pending");
   revalidatePath("/client", "layout");
   revalidatePath("/admin", "layout");
+  redirect(paymentReturn(formData, "/client"));
+}
+
+// A self-serve host has no Hostello to approve a guest payment, so what they
+// record counts at once. RLS (`booking_payments: host records own`) allows only a
+// `received` entry the host took themselves, on their own booking. Nothing is
+// owed either way for a host, so there is no `refreshDues` to run.
+
+export async function recordHostBalancePayment(formData: FormData) {
+  const supabase = await createClient();
+  const bookingId = formData.get("booking_id") as string;
+
+  const ownClient = await currentClient();
+  const stay = await loadStayMoney(supabase, bookingId);
+  if (!ownClient || ownClient.account_type !== "host" || !stay || stay.client_id !== ownClient.id) {
+    redirect(paymentReturn(formData, "/client", "You can only record payments on your own bookings."));
+  }
+  const read = readBalancePayment(formData, stay);
+  if (!read.ok) redirect(paymentReturn(formData, "/client", read.error));
+
+  const { error } = await supabase.from("booking_payments").insert({
+    booking_id: bookingId,
+    client_id: stay.client_id,
+    amount: read.value.amount,
+    received_by: "owner",
+    method: read.value.method,
+    paid_on: read.value.paidOn,
+    note: read.value.note,
+    status: "received",
+  });
+  if (error) redirect(paymentReturn(formData, "/client", error.message));
+
+  revalidatePath("/client", "layout");
+  redirect(paymentReturn(formData, "/client"));
+}
+
+export async function removeHostBalancePayment(formData: FormData) {
+  const supabase = await createClient();
+  // RLS limits this to a host's own payments; anything else is a no-op.
+  await supabase.from("booking_payments").delete().eq("id", formData.get("id") as string);
+  revalidatePath("/client", "layout");
   redirect(paymentReturn(formData, "/client"));
 }

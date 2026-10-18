@@ -126,12 +126,17 @@ export default async function ClientTodayPage() {
       icon: BedDouble,
       tint: "var(--color-channel-booking)",
     },
-    {
-      label: "Awaiting payout",
-      value: formatPKR(awaiting),
-      icon: Wallet,
-      tint: "var(--color-hostello-gold)",
-    },
+    // Money Hostello is holding for them: a host has no Hostello, so no such tile.
+    ...(clientRecord.account_type === "host"
+      ? []
+      : [
+          {
+            label: "Awaiting payout",
+            value: formatPKR(awaiting),
+            icon: Wallet,
+            tint: "var(--color-hostello-gold)",
+          },
+        ]),
   ];
 
   return (
