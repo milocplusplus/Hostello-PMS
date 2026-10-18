@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { currentClient, currentProfile, currentUser, portalUserId, viewingAs } from "@/lib/auth";
 import { ViewAsBanner } from "@/components/client/ViewAsBanner";
+import { HostPlanBanner } from "@/components/client/HostPlanBanner";
 import { logout } from "@/app/login/actions";
 import { ClientShell } from "@/components/client/ClientShell";
 import { NavProgress } from "@/components/shared/NavProgress";
@@ -81,6 +82,7 @@ export default async function ClientLayout({
         searchAction={searchClient}
         markAllReadAction={markAllNotificationsRead}
       >
+        {clientRecord.account_type === "host" && <HostPlanBanner clientId={clientRecord.id} />}
         {children}
       </ClientShell>
       {/* Live tones are for the owner's own session, never a viewer's. */}

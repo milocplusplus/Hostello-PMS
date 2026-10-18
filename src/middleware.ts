@@ -59,7 +59,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (path === "/login" && user) {
+  if ((path === "/login" || path === "/signup") && user) {
     const homeUrl = new URL("/", request.url);
     return NextResponse.redirect(homeUrl);
   }
@@ -74,5 +74,5 @@ export const config = {
   // flow are all public and were each paying for a session lookup.
   // `/notifications/open/<id>` is where a tapped push lands, often hours later
   // on a phone whose access token has long expired — it needs the refresh.
-  matcher: ["/", "/login", "/admin/:path*", "/client/:path*", "/notifications/:path*"],
+  matcher: ["/", "/login", "/signup","/admin/:path*", "/client/:path*", "/notifications/:path*"],
 };

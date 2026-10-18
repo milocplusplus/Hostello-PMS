@@ -100,10 +100,11 @@ export type CurrentClient = {
   deduct_percent: number | null;
   ota_model: OtaModel | null;
   ota_share_percent: number | null;
+  account_type: "managed" | "host";
 };
 
 const CLIENT_COLUMNS =
-  "id, name, owner_user_id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent";
+  "id, name, owner_user_id, deal_model, share_percent, deduct_percent, ota_model, ota_share_percent, account_type";
 
 /**
  * "View as owner": the admin browsing the owner portal as one client, read-only.

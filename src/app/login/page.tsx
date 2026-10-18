@@ -4,6 +4,7 @@ import { login } from "./actions";
 import { HostelloMark } from "@/components/shared/HostelloMark";
 import { SubmitButton } from "@/components/shared/Busy";
 import { businessContact, loadSettings } from "@/lib/settings";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
   const business = businessContact(await loadSettings());
+  const { data: hostSignupOpen } = await (await createClient()).rpc("host_signup_open");
   const field = "field w-full h-12 pl-11 rounded-2xl";
 
   return (
@@ -95,7 +97,16 @@ export default async function LoginPage({
           </Link>
         </form>
 
-        <p className="text-center text-ink-muted text-xs mt-6">No account? Ask {business.name}.</p>
+        {hostSignupOpen ? (
+          <p className="text-center text-ink-muted text-xs mt-6">
+            New here?{" "}
+            <Link href="/signup" className="text-hostello-gold font-semibold hover:underline">
+              Start a free trial
+            </Link>
+          </p>
+        ) : (
+          <p className="text-center text-ink-muted text-xs mt-6">No account? Ask {business.name}.</p>
+        )}
         {/* From Settings; a signed-out visitor is shown the contact line and nothing else. */}
         {business.line && <p className="text-center text-ink-muted/80 text-[11px] mt-1.5">{business.line}</p>}
       </div>

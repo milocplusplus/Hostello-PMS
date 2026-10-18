@@ -1,6 +1,33 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 2: sign-up** (2026-10-18). `/signup` (name, email, optional
+  phone, password, terms tick) → Supabase `signUp` with `signup_kind: host` →
+  confirmation email → `/auth/confirmed` (`ConfirmedHandler`, browser-side like
+  the password reset) → `/`. Migration `host_signup` **applied to the live DB**:
+  `app_settings.host_signup_open` (**false — sign-ups are closed**),
+  `host_signup_open()` (anon-callable yes/no), `clients.terms_accepted_at`, and
+  trigger `handle_host_signup` on `auth.users`: on insert it refuses when closed,
+  without the terms or without a name (Auth's API is public, so the form is not
+  the gate); once the email is confirmed it makes the profile (role `client`),
+  a host client (`percent`, share 0, deduct 0 — Hostello earns nothing) and a
+  14-day Starter trial. Plain users, or metadata asking for `admin`, get nothing.
+  Placeholder `/terms` and `/privacy` marked Draft. Login shows "Start a free
+  trial" only while open. Hosts see a plan/trial banner on every owner page
+  (`HostPlanBanner`). **To open sign-ups:** `update app_settings set
+  host_signup_open = true;` (a Settings toggle comes with the Hosts page, phase 5).
+  **Tested** rolled back on the live DB: closed refused, no terms refused,
+  unconfirmed makes nothing, confirming makes profile + client + trial,
+  re-confirming adds nothing, instant-confirmed works, forged admin metadata
+  gets nothing. `/signup` seen closed on the dev server. Lint + build.
+  **Not seen: the open form, a real confirmation email, the `/auth/confirmed`
+  landing, the banner** (opening the flag on the live DB to look was not worth
+  the exposure). **Not built, on purpose:** the onboarding checklist — its first
+  steps (add a unit, paste an iCal link) need owner INSERT rights that phase 3-4
+  add, and a checklist of dead links is worse than none. Also needed in the
+  Supabase dashboard before opening: the confirmation email template's redirect
+  must allow `/auth/confirmed` in Auth → URL Configuration, and leaked-password
+  protection on (owner is doing the latter).
 - **Host mode, phase 1: data model + isolation review** (2026-10-18). Plan in
   `docs/host-mode-plan.md` (PDF beside it). Migration `host_plans_subscriptions`
   **applied to the live DB**: `clients.account_type` (`managed` default | `host`),
