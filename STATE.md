@@ -1,6 +1,27 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host emails through Resend** (2026-10-18). Migrations `host_email_sweep` +
+  `host_email_claim_text_fix` **applied to the live DB**; edge function
+  `host-email` **deployed v1** (JWT off, Vault secret `host_email_secret`). Cron
+  `hostello-host-email` every 5 min runs `run_host_email_sweep()`, which only
+  calls the function when a notice is waiting. What is emailed is exactly the
+  host's own in-app notice: `host_welcome` (new — written at sign-up),
+  `host_trial_ending`, `host_payment_due`, `host_trial_ended`,
+  `host_payment_overdue`, `host_paused`. `host_email_claim()` stamps
+  `notifications.emailed_at` (so a second run cannot double-send) and picks the
+  login email, else the contact email; a failed send is released and retried for
+  up to 3 days; Resend's `Idempotency-Key` is the notice id. **To switch on, the
+  owner sets two function secrets in Supabase (Edge Functions → Secrets):
+  `RESEND_API_KEY` and `MAIL_FROM`** (optional `SITE_URL`). Until then the
+  function answers `not_configured` and nothing is claimed, so notices wait.
+  **Tested:** wrong secret → 401, right secret → `not_configured` (live);
+  claim / second claim / release / owner alert never claimed / no staff
+  recipients (rolled back). Found and fixed on the way: `auth.users.email` is
+  varchar, the claim returns text. **Not tested: an actual send** (no key yet).
+  Use `{"action":"test","to":"you@…"}` with the secret to send one test mail.
+  Verification emails stay Supabase Auth's own; point Auth's SMTP at Resend too if
+  you want them from the same sender.
 - **Host mode, phase 6: lapse, reminders, account page** (2026-10-18). Migration
   `host_lifecycle` **applied to the live DB**. **Cron `hostello-host-lifecycle`**
   (02:30 UTC daily → `run_host_lifecycle()`): trial over → read-only; plan
