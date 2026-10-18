@@ -111,6 +111,47 @@ function buildEvent(fields: Record<string, string>): IcalEvent | null {
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_BYTES = 2_000_000;
+const MAX_REDIRECTS = 3;
+
+/** Never a loopback, private or link-local address, whatever the link says. */
+function isBlockedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.startsWith("[") ||
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
+  );
+}
+
+/** Reads the body but gives up the moment it passes the cap, rather than after holding it all. */
+async function readCapped(res: Response): Promise<string> {
+  const tooBig = () => new Error("That calendar file is unexpectedly large — refusing to import it.");
+  if (Number(res.headers.get("content-length") ?? 0) > MAX_BYTES) throw tooBig();
+  if (!res.body) return "";
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BYTES) {
+      await reader.cancel();
+      throw tooBig();
+    }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    all.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
+}
 
 /** Fetches one feed and returns its events, or throws a message fit for a user. */
 export async function fetchFeed(url: string): Promise<IcalEvent[]> {
@@ -118,21 +159,36 @@ export async function fetchFeed(url: string): Promise<IcalEvent[]> {
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
-    const res = await fetch(url, {
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { Accept: "text/calendar, text/plain;q=0.9, */*;q=0.8" },
-    });
+    // Redirects are followed by hand so each hop can be checked: https only after
+    // the first, and never to an address inside a network.
+    let target = url;
+    let res: Response | null = null;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const parsed = new URL(target);
+      if (isBlockedHost(parsed.hostname) || (hop > 0 && parsed.protocol !== "https:")) {
+        throw new Error("That calendar link points somewhere we will not read.");
+      }
+      res = await fetch(parsed, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { Accept: "text/calendar, text/plain;q=0.9, */*;q=0.8" },
+      });
+      const location = res.headers.get("location");
+      if (res.status >= 300 && res.status < 400 && location) {
+        await res.body?.cancel();
+        target = new URL(location, parsed).toString();
+        res = null;
+        continue;
+      }
+      break;
+    }
+    if (!res) throw new Error("That calendar link redirected too many times.");
 
     if (!res.ok) {
       throw new Error(`The calendar link returned ${res.status}. Check it is still valid in Airbnb.`);
     }
 
-    const text = await res.text();
-
-    if (text.length > MAX_BYTES) {
-      throw new Error("That calendar file is unexpectedly large — refusing to import it.");
-    }
+    const text = await readCapped(res);
 
     if (!text.includes("BEGIN:VCALENDAR")) {
       throw new Error("That link did not return a calendar file. Copy the .ics export link, not the listing page.");

@@ -26,6 +26,9 @@ import { fetchFeed, type IcalEvent } from "./ical.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+/** How many calendars are read at once. */
+const SYNC_BATCH = 6;
+
 /** How long the whole "is this night already sold" look may take, in total. */
 const CHECK_BUDGET_MS = 6_000;
 
@@ -113,9 +116,10 @@ async function handleSync(feedId: string | undefined) {
     ? await select<FeedRow>(`calendar_feeds?id=eq.${encodeURIComponent(feedId)}&select=id,url,property_id`)
     : await select<FeedRow>("calendar_feeds?active=is.true&select=id,url,property_id");
 
-  const results = [];
-  for (const feed of feeds) {
-    results.push(await syncOne(feed));
+  // A few at a time: one slow channel must not hold up the rest of the minute.
+  const results: Record<string, unknown>[] = [];
+  for (let i = 0; i < feeds.length; i += SYNC_BATCH) {
+    results.push(...(await Promise.all(feeds.slice(i, i + SYNC_BATCH).map(syncOne))));
   }
 
   const totals = { feeds: results.length, added: 0, updated: 0, removed: 0, clashes: 0 };

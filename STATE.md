@@ -1,6 +1,24 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 4: sync safeguards** (2026-10-18). Migration `host_sync_and_alerts`
+  **applied to the live DB** and edge function `ical-sync` **deployed v2**.
+  SQL: `host_is_paused()`; `sync_calendar_feed_apply` skips a paused host the
+  way it skips a deactivated client; `fan_out_notification` sends a host's events
+  to the host only (no admin/ops recipients for a host client; the sync's
+  `channel_reservation` / `calendar_conflict` go to the host instead); a unit
+  takes at most 4 calendar links. Function: redirects followed by hand (3 max,
+  https after the first hop, never localhost / `.local` / `.internal` / an IP
+  literal), body read with a 2 MB cap as it streams, and calendars read 6 at a
+  time instead of one by one. **Tested** rolled back on the live DB: a sync on a
+  host unit raised the host's alert and none for staff, a managed client's still
+  reaches staff, a paused host's sync writes nothing, the fifth link and a
+  non-Airbnb host refused. Fetch code run under Node: 127.0.0.1 and localhost
+  refused, a real http→https redirect followed, a non-calendar page named.
+  **Not tested: the oversize cap against a real large file, and a redirect to
+  a blocked host.** Not changed: a paused host's *outgoing* link still answers
+  (phase 6), and Hostello staff now hear nothing about host sign-ups or
+  bookings — the Hosts page (phase 5) is where that belongs.
 - **Host mode: the phase 3 gaps closed** (2026-10-18). Migration `host_balance_payments`
   **applied to the live DB**: a host may INSERT a `booking_payments` row only as
   `received` / `received_by = owner` on their own booking, and DELETE their own.
