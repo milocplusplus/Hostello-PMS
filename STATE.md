@@ -1,6 +1,26 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode, phase 7: landing page and legal pages** (2026-10-19). `/` now shows a
+  public landing page to a signed-out visitor (`components/public/Landing.tsx`; a
+  signed-in user is still sent to their portal): hero, six feature cards, three
+  steps, "Free for 14 days — up to 3 properties", four questions, footer. **No
+  prices anywhere** (owner deferred them; the page promises to say before the
+  trial ends). It follows two switches rather than promise: the buttons say
+  "Sign-ups open soon" until `host_signup_open` is on, and the email-bookings card
+  says "Coming soon" until `channel_inbox_address` is set (`channel_inbox_live()`,
+  anon-callable, returns only yes/no). `/terms` and `/privacy` are full drafts
+  (14 and 13 sections) built on `LegalDocument`; **`LEGAL.reviewed = false` in
+  `src/lib/legal.ts` puts a visible "Draft, not yet reviewed by a lawyer" notice on
+  both — flip it once a lawyer has read them.** Entity and contact come from
+  `LEGAL` (Hostello LLP, info@hostello.pro, +92 326 9872909, Pakistan law,
+  Islamabad courts); the same phone and email were saved in Settings (they now show
+  on the login page and PDFs). The installed app's `start_url` is now `/login`
+  (it passes a signed-in user on to their portal) so staff and owners do not land on
+  the landing page. **Seen** on the dev server at desktop and 375px: no sideways
+  scroll, no console errors, sign-up state and "Coming soon" badge read the live
+  switches. Lint, tsc, build. **Not done:** refund policy (terms say "described
+  at the time you buy"), pricing, VAT/tax wording, a Urdu version.
 - **Host mode: Airbnb emails add bookings by themselves** (2026-10-19). Owner's
   choices: add automatically with no click; cancellations and date changes apply
   too (host told); Airbnb only; Cloudflare/domain **not ready yet**. Migrations

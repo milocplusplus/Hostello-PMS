@@ -5,11 +5,12 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Hostello PMS",
     short_name: "Hostello",
     description: "Property management for Hostello's co-hosting portfolio",
-    // "/" reads the session and sends admins to /admin, owners to /client,
-    // so the installed app lands on the right home screen for whoever signed in.
-    // A stable identity for the installed app, independent of the launch URL.
+    // The installed app opens on /login: it sends anyone already signed in on to
+    // /, which routes admins to /admin and owners to /client. ("/" itself is the
+    // public landing page for a signed-out visitor.) The id is the app's identity,
+    // independent of the launch URL.
     id: "/",
-    start_url: "/",
+    start_url: "/login",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
