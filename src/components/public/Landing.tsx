@@ -9,6 +9,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { PublicFooter, PublicHeader } from "@/components/public/PublicShell";
+import { SignUpForm } from "@/components/public/SignUpForm";
 
 /**
  * The public front door at "/" for anyone who is not signed in. Plain server markup,
@@ -87,7 +88,8 @@ export function Landing({ signupOpen, emailLive }: { signupOpen: boolean; emailL
 
       <PublicHeader showSignUp={signupOpen} />
 
-      <section className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8 pt-10 md:pt-20 pb-14 md:pb-24">
+      <section className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8 pt-10 md:pt-16 pb-14 md:pb-24 grid grid-cols-1 md:grid-cols-[1.25fr_1fr] gap-10 md:gap-12 items-center">
+        <div>
         <p className="eyebrow text-hostello-gold-bright">FOR HOSTS WHO MANAGE THEIR OWN PROPERTIES</p>
         <h1 className="display-lg text-4xl md:text-6xl mt-4 max-w-3xl">
           Run your rental properties from one calm place.
@@ -96,20 +98,30 @@ export function Landing({ signupOpen, emailLive }: { signupOpen: boolean; emailL
           Hostello keeps your Airbnb and Booking.com calendars in step, adds bookings from your Airbnb emails,
           and tracks your expenses and profit. Free for 14 days. No card needed.
         </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          {signupOpen ? (
-            <Link href="/signup" className="btn btn-gold h-12 px-6 rounded-2xl text-[15px]">
-              Start free trial
-            </Link>
-          ) : (
+        {!signupOpen && (
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <p className="rounded-2xl border border-hostello-gold/30 bg-hostello-gold/10 px-5 py-3 text-sm text-hostello-gold-bright">
               Sign-ups open soon.
             </p>
-          )}
-          <Link href="/login" className="btn btn-ghost h-12 px-6 rounded-2xl text-[15px]">
-            Sign in
-          </Link>
+            <Link href="/login" className="btn btn-ghost h-12 px-6 rounded-2xl text-[15px]">
+              Sign in
+            </Link>
+          </div>
+        )}
         </div>
+
+        {signupOpen && (
+          <div id="signup" className="flex flex-col gap-3 scroll-mt-24">
+            <h2 className="text-xl">Start your 14-day free trial</h2>
+            <SignUpForm />
+            <p className="text-center text-xs text-ink-muted">
+              Already have an account?{" "}
+              <Link href="/login" className="text-hostello-gold font-semibold hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8 pb-16">
@@ -164,7 +176,7 @@ export function Landing({ signupOpen, emailLive }: { signupOpen: boolean; emailL
             ))}
           </ul>
           {signupOpen && (
-            <Link href="/signup" className="btn btn-gold h-12 px-6 rounded-2xl text-[15px] self-start mt-3">
+            <Link href="#signup" className="btn btn-gold h-12 px-6 rounded-2xl text-[15px] self-start mt-3">
               Start free trial
             </Link>
           )}
