@@ -1,6 +1,35 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host mode: Airbnb emails add bookings by themselves** (2026-10-19). Owner's
+  choices: add automatically with no click; cancellations and date changes apply
+  too (host told); Airbnb only; Cloudflare/domain **not ready yet**. Migrations
+  `host_airbnb_emails` (+ `_status_cast`, `_alteration_twin`) **applied to the live
+  DB**; edge function `fx-rates` **deployed v1**, run once (USD 276.78 today) and
+  scheduled daily 04:10 UTC. New: `clients.channel_email` (the Airbnb account email,
+  unique), `ota_messages.client_id` (a host's mail is hidden from staff; the host
+  reads their own), `fx_rates`, `host_ota_apply()`, `set_host_channel_email()`,
+  `host_dismiss_ota_message()`; `record_ota_message()` recognises a host's mail
+  and applies it or raises a `host_email_attention` notice with the reason. **Safety:**
+  only mail addressed to the host's saved Airbnb email is applied; a clash with a
+  booking or block, an unreadable price, a missing exchange rate, a read-only
+  account, or an "updated" mail with no dates all wait for the host instead. App:
+  `/client/emails` (set the Airbnb email, forwarding steps, "Needs you" with Gmail's
+  confirmation link and code, "Added for you"), an "Airbnb listing" box on the host
+  property form (fills `airbnb_listing_id` from a link), an Airbnb emails nav
+  item and a dashboard card. **Tested** rolled back on the live DB with the parser's
+  field names: new USD booking → Rs 9,130 confirmed, payout = price, share 0, dues
+  0, host told, staff not; same mail twice → one booking; cancellation; wrong
+  address; clash; no rate; unlinked listing; two real changes in a row; Gmail
+  confirmation reaches the right host; admin sees 0 of a host's mail, host sees own;
+  a managed client's flow unchanged. payout.ts parity checked in Node. Lint, tsc,
+  build. **Not tested: a real forwarded email** (no Cloudflare, no real Airbnb
+  sample from a host account). **To switch on:** Cloudflare Email Routing + the worker,
+  then set `channel_inbox_address` (Settings hides that section while
+  `CHANNEL_INBOX_ON_HOLD` is true — flip it, or set the column in SQL). **Known
+  gaps:** no check that a forwarded mail really came from Airbnb (DKIM) — add it
+  once real forwarded mail can be inspected; the repo migration file summarises
+  `record_ota_message` instead of repeating it (live DB is the reference).
 - **Host emails through Resend** (2026-10-18). Migrations `host_email_sweep` +
   `host_email_claim_text_fix` **applied to the live DB**; edge function
   `host-email` **deployed v1** (JWT off, Vault secret `host_email_secret`). Cron

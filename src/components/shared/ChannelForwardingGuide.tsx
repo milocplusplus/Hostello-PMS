@@ -13,10 +13,13 @@ export function ChannelForwardingGuide({
   address,
   cohostEmail,
   audience,
+  forwardOnly = false,
 }: {
   address: string;
   cohostEmail: string | null;
   audience: "owner" | "staff";
+  /** A self-serve host has no Hostello to add as co-host, so only forwarding applies. */
+  forwardOnly?: boolean;
 }) {
   const you = audience === "owner" ? "you" : "the owner";
   const invite = cohostEmail ?? (audience === "owner" ? "the email Hostello gives you" : "Hostello's account email");
@@ -31,6 +34,7 @@ export function ChannelForwardingGuide({
         <CopyLinkButton value={address} className={`${secondaryButton} inline-flex items-center gap-1.5 shrink-0`} />
       </div>
 
+      {!forwardOnly && (
       <section className="card p-5 flex flex-col gap-3">
         <h2 className="text-sm font-medium">1. Best: add Hostello to the listing</h2>
         <p className="text-xs text-ink-muted">
@@ -52,12 +56,14 @@ export function ChannelForwardingGuide({
           </li>
         </ol>
       </section>
+      )}
 
       <section className="card p-5 flex flex-col gap-3">
-        <h2 className="text-sm font-medium">2. Otherwise: forward the emails automatically</h2>
+        <h2 className="text-sm font-medium">{forwardOnly ? "Forward your Airbnb emails" : "2. Otherwise: forward the emails automatically"}</h2>
         <p className="text-xs text-ink-muted">
-          For an account {you} would rather not share. Only Airbnb and Booking.com emails are
-          forwarded; Hostello ignores anything else that arrives.
+          {forwardOnly
+            ? "Only Airbnb emails are forwarded; Hostello ignores anything else that arrives, and you keep your own copy."
+            : `For an account ${you} would rather not share. Only Airbnb and Booking.com emails are forwarded; Hostello ignores anything else that arrives.`}
         </p>
         <div className="flex flex-col gap-2 text-sm">
           <strong>Gmail (on a computer)</strong>
@@ -67,8 +73,12 @@ export function ChannelForwardingGuide({
               <em>Add a forwarding address</em> → {address}.
             </li>
             <li>
-              Gmail sends Hostello a confirmation. Hostello confirms it from the channel inbox —
-              {audience === "owner" ? " let Hostello know you've done this step." : " it appears there as its own card."}
+              Gmail sends a confirmation to Hostello.
+              {forwardOnly
+                ? " It shows up on this page under Needs you within a few minutes — open its link to confirm."
+                : audience === "owner"
+                  ? " Let Hostello know you've done this step."
+                  : " It appears in the channel inbox as its own card."}
             </li>
             <li>
               <em>Filters and Blocked Addresses</em> → <em>Create a new filter</em> → in{" "}

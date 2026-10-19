@@ -30,6 +30,7 @@ type PropertyFormProps = {
     max_guests?: number | null;
     nightly_rate?: number | null;
     short_stay_rate?: number | null;
+    airbnb_listing_id?: string | null;
   };
   error?: string;
   submitLabel: string;
@@ -72,6 +73,7 @@ export function PropertyForm({
   const [sleeps, setSleeps] = useState(String(defaultValues?.max_guests ?? ""));
   const [nightly, setNightly] = useState(String(defaultValues?.nightly_rate ?? ""));
   const [shortRate, setShortRate] = useState(String(defaultValues?.short_stay_rate ?? ""));
+  const [airbnbListing, setAirbnbListing] = useState(defaultValues?.airbnb_listing_id ?? "");
   const [stack, setStack] = useState(String(defaultValues?.stack_rate ?? 0));
   const [shortStack, setShortStack] = useState(String(defaultValues?.short_stay_stack_rate ?? 0));
 
@@ -290,6 +292,28 @@ export function PropertyForm({
           </div>
         </div>
       </FormStep>
+
+      {hostMode && (
+        <FormStep n={4} icon={Tag} title="Airbnb listing (optional)" done={Boolean(airbnbListing.trim())}>
+          <p className="text-xs text-ink-muted -mt-1">
+            Paste the link to your listing on Airbnb (it looks like airbnb.com/rooms/123456). With it,
+            bookings from your Airbnb emails land on this property by themselves.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="airbnb_listing" className={fieldLabel}>
+              Listing link or number
+            </label>
+            <input
+              id="airbnb_listing"
+              name="airbnb_listing"
+              placeholder="https://www.airbnb.com/rooms/…"
+              value={airbnbListing}
+              onChange={(e) => setAirbnbListing(e.target.value)}
+              className={fieldInput}
+            />
+          </div>
+        </FormStep>
+      )}
 
       {!hostMode && (
       <FormStep n={4} icon={Handshake} title="Deal terms" done={done[3]}>

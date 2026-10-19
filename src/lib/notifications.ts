@@ -122,6 +122,8 @@ const KIND_ICON: Record<string, LucideIcon> = {
   host_trial_ended: TriangleAlert,
   host_payment_overdue: TriangleAlert,
   host_paused: TriangleAlert,
+  // An Airbnb email the app could not add by itself (record_ota_message, in SQL).
+  host_email_attention: Inbox,
   property_added: Home,
   property_removed: Home,
   // An owner asking for a capacity or an asking price to change, and the
@@ -204,6 +206,7 @@ export function notificationHref(
   if (row.kind?.startsWith("ota_")) return "/admin/channel-inbox";
 
   // A new host is a row on the Hosts page; a host's own plan notices open their Account.
+  if (row.kind === "host_email_attention") return "/client/emails";
   if (row.kind?.startsWith("host_")) return portal === "admin" ? "/admin/hosts" : "/client/account";
 
   // A change request is a queue on one side and a status on the other. Neither

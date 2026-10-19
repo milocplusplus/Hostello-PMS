@@ -564,6 +564,30 @@ Pre-launch: real data has not been entered yet.
 - `AGENTS.md` — Next.js-generated agent rules, auto-re-added by `next dev`.
   `CLAUDE.md` imports it with `@AGENTS.md`; don't delete either.
 
+## Host mode (self-serve, built 2026-10-18/19; plan in `docs/host-mode-plan.md`)
+- A **host** is a `clients` row with `account_type = 'host'` (managed clients are
+  `'managed'`): they sign up at `/signup` (closed until `app_settings.host_signup_open`),
+  keep 100% of every booking (deal `percent`, share 0), and pay Hostello for a **plan**
+  by listing count (`plans`, `subscriptions`: trial → active → read_only → paused,
+  `comped`, `lapsed_at`; `subscription_payments`). Cron `hostello-host-lifecycle` moves
+  them; `refuse_when_host_locked` makes read-only real in the database.
+- **Hostello's own screens never see hosts' data**: restrictive RLS policies named "hosts
+  stay out of staff screens" + the three `*_v` views call `staff_may_see_client()`. The
+  one way in is the admin's View as host, which makes `createClient()` send
+  `x-hostello-view-as` (admin only). New tables that hold a host's rows need the same policy.
+- Host screens reuse the owner portal: `ClientShell host`, `BookingForm hostMode`,
+  `PropertyForm hostMode`, `StatsBoard variant="host"`, `managedOwnersOnly()` keeps hosts out
+  of Settlements / Find dates; `/client/account` (plan, export, delete), `/client/emails`.
+- Admin: `/admin/hosts` (+ `[id]`), Settings → Host sign-ups. Emails to hosts: edge function
+  `host-email` (Resend; needs `RESEND_API_KEY`, `MAIL_FROM`). Calendar links: hosts may
+  connect only airbnb.* / booking.com links, 4 per unit.
+- **Airbnb emails add bookings by themselves for hosts**: `record_ota_message()` recognises a
+  host's mail (unit, booking, or `clients.channel_email`) and `host_ota_apply()` writes the
+  booking / cancels / moves it. **That function is a second place the host split is written
+  (net = price, share 0, payout = price); `calculatePayout` gives the same for share 0 —
+  keep them in step.** Prices in dollars use `fx_rates` (daily, edge function `fx-rates`).
+  The mail must be addressed to the host's saved Airbnb email, else it waits for them.
+
 ## Data model (`supabase/migrations/0001_init_core_schema.sql`)
 - `clients` — name, contact_email, contact_phone, owner_user_id → profiles,
   deal_model enum(`percent|fixed|ads|fixed_stack|fixed_percent`), monthly_fee,

@@ -122,6 +122,14 @@ function optionalNumber(value: FormDataEntryValue | null, min = 0): number | nul
   return Number.isFinite(n) && n >= min ? n : null;
 }
 
+/** The listing number out of an Airbnb link (airbnb.com/rooms/123…) or a bare number. */
+function listingNumber(raw: string): string | null | "bad" {
+  const v = raw.trim();
+  if (!v) return null;
+  const m = v.match(/rooms\/(\d{5,})/) ?? v.match(/^(\d{5,})$/);
+  return m ? m[1] : "bad";
+}
+
 export async function saveHostProperty(formData: FormData) {
   const client = await hostClient();
   const id = ((formData.get("id") as string) || "").trim();
@@ -136,7 +144,11 @@ export async function saveHostProperty(formData: FormData) {
   if (!name || !location) fail("Property name and address are required.");
   if (!PROPERTY_TYPES.some((t) => t.value === type)) fail("Pick a property type.");
 
+  const listing = listingNumber(String(formData.get("airbnb_listing") ?? ""));
+  if (listing === "bad") fail("That does not look like an Airbnb listing link. It should contain airbnb.com/rooms/ and a number.");
+
   const values = {
+    airbnb_listing_id: listing,
     name,
     location,
     province: (formData.get("province") as string)?.trim() || null,
@@ -154,6 +166,7 @@ export async function saveHostProperty(formData: FormData) {
     : await supabase.from("properties").insert({ ...values, client_id: client.id });
 
   // The plan limit is a database rule; its message is already written for the host.
+  if (error?.code === "23505") fail("That Airbnb listing is already linked to another property.");
   if (error) fail(error.message);
 
   revalidatePath("/client", "layout");

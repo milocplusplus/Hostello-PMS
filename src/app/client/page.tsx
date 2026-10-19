@@ -4,6 +4,7 @@ import { BedDouble, CalendarPlus, ChartNoAxesColumn, Plus, Sparkles, Wallet } fr
 import { EmptyState } from "@/components/shared/PageHeader";
 import { CHANNEL_INBOX_ON_HOLD } from "@/lib/ota";
 import { OnboardingChecklist } from "@/components/client/OnboardingChecklist";
+import { HostEmailsCard } from "@/components/client/HostEmailsCard";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient, currentProfile, currentUser, viewingAs } from "@/lib/auth";
 import { formatPKR } from "@/lib/payout";
@@ -333,6 +334,7 @@ export default async function ClientDashboard({
       </div>
 
       {/* What's coming, while the channel inbox is on hold (ota.ts). */}
+      {isHost && <HostEmailsCard clientId={clientRecord.id} />}
       {isHost && <OnboardingChecklist clientId={clientRecord.id} />}
 
       {CHANNEL_INBOX_ON_HOLD && !isHost && (

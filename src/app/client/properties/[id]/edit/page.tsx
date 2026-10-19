@@ -20,7 +20,7 @@ export default async function EditHostPropertyPage({
   const supabase = await createClient();
   const { data: property } = await supabase
     .from("properties")
-    .select("id, name, location, province, city, type, status, max_guests, nightly_rate, short_stay_rate")
+    .select("id, name, location, province, city, type, status, max_guests, nightly_rate, short_stay_rate, airbnb_listing_id")
     .eq("id", id)
     .eq("client_id", client.id)
     .maybeSingle();

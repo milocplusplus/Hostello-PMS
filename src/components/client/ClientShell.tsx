@@ -20,6 +20,7 @@ import {
   Home,
   Search,
   UserRound,
+  Mail,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { HostelloMark } from "@/components/shared/HostelloMark";
@@ -197,6 +198,7 @@ export function ClientShell({
   const nav = host
     ? [
         ...NAV.filter((n) => n.href !== "/client/settlements" && n.href !== "/client/availability"),
+        { href: "/client/emails", label: "Airbnb emails", icon: Mail, exact: false },
         { href: "/client/account", label: "Account", icon: UserRound, exact: false },
       ]
     : NAV;
@@ -206,6 +208,7 @@ export function ClientShell({
   const more = host
     ? [
         ...MORE.filter((m) => m.href !== "/client/availability" && m.href !== "/client/expenses"),
+        { href: "/client/emails", label: "Airbnb emails", icon: Mail, tint: "linear-gradient(135deg, #be123c, #e11d48)" },
         { href: "/client/account", label: "Account", icon: UserRound, tint: "linear-gradient(135deg, #475569, #64748b)" },
       ]
     : MORE;
