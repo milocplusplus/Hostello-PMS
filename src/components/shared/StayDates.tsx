@@ -79,7 +79,14 @@ export function StayDates({
   // A short stay is one date, so there is never a second half to pick.
   const picking: "in" | "out" = mode === "day" ? "in" : checkIn && !checkOut ? "out" : "in";
 
+  // The guest leaves that morning, so the first taken night is a valid check-out
+  // even though the night itself is struck through.
+  const isCheckoutOnTaken = (date: string) =>
+    mode === "nights" && picking === "out" && date === nextTaken && takenNights.has(date);
+
   function cellState(date: string): CellState {
+    if (isCheckoutOnTaken(date)) return "reachable";
+    if (mode === "nights" && checkOut && date === checkOut) return "end";
     if (takenNights.has(date)) return "taken";
     if (date === checkIn) return "start";
     // In day mode the check-out is the next morning, not a night on the sheet.
@@ -95,7 +102,7 @@ export function StayDates({
   }
 
   function pick(date: string) {
-    if (takenNights.has(date)) return;
+    if (takenNights.has(date) && !isCheckoutOnTaken(date)) return;
 
     // One tap is the whole answer for a short stay: the day, plus the check-out
     // morning it is stored with.
