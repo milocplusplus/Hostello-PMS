@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Lock, Mail, Phone, User } from "lucide-react";
+import { Mail, Phone, User } from "lucide-react";
 import { signUp } from "@/app/signup/actions";
+import { PasswordField } from "@/components/public/PasswordField";
 import { SubmitButton } from "@/components/shared/Busy";
 
 /**
@@ -29,19 +30,7 @@ export function SignUpForm({ error }: { error?: string }) {
         <Phone size={18} className={icon} />
         <input name="phone" type="tel" autoComplete="tel" placeholder="Phone (optional)" className={field} />
       </label>
-      <label className="relative block">
-        <span className="sr-only">Password</span>
-        <Lock size={18} className={icon} />
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-          placeholder="Password (8+ characters)"
-          className={field}
-        />
-      </label>
+      <PasswordField />
 
       <label className="flex items-start gap-2.5 text-xs text-ink-secondary">
         <input type="checkbox" name="terms" required className="mt-0.5" />

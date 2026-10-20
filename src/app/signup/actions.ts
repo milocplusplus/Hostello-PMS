@@ -51,11 +51,21 @@ export async function signUp(formData: FormData) {
   });
 
   if (error) {
-    back(
-      error.code === "weak_password"
-        ? "That password is too easy to guess. Try a longer or less common one."
-        : error.message
-    );
+    if (error.code === "weak_password") {
+      // Auth says which rules the password broke; say them in plain words.
+      const reasons = (error as { reasons?: string[] }).reasons ?? [];
+      const why = [
+        reasons.includes("length") && "use more characters (12 or more is best)",
+        reasons.includes("characters") && "mix upper and lower case letters, numbers and symbols",
+        reasons.includes("pwned") && "this one has appeared in known data leaks, so choose a different one",
+      ].filter(Boolean);
+      back(
+        why.length > 0
+          ? `That password was not accepted: ${why.join("; ")}.`
+          : "That password is too easy to guess. Try a longer one with letters, numbers and a symbol."
+      );
+    }
+    back(error.message);
   }
 
   // Email confirmation on: no session yet, the link in the inbox finishes it.
