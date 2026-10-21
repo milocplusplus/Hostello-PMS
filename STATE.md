@@ -1,6 +1,24 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Host email forwarding made easy to set up** (2026-10-21). Owner chose forwarding as
+  the way to get Airbnb details. `/client/emails` now shows a "Where you are" checklist
+  (Airbnb email saved, properties linked n of m, Gmail asked to forward, first email
+  received), then numbered steps: save the Airbnb email; link each property; add the
+  forwarding address in Gmail (copy button) and confirm Gmail's mail under "Needs you";
+  **download a ready-made Gmail filter** (`GmailFilterDownload`: Atom XML, from
+  `airbnb.com`, forward to Hostello's address — built in the browser, no route) and import
+  it. Outlook / by-hand steps sit in a closed section. A host's property row shows "Add its
+  Airbnb listing link so emails find it" when the inbox address is set and the listing is
+  missing. **Still needed from the owner to go live:** a domain on Cloudflare, Email
+  Routing on a **subdomain** (e.g. `mail.hostello.pro`, so the root domain's mail is not
+  touched), the `cloudflare/email-worker.js` worker with secret `OTA_SECRET` (= Vault
+  `ota_inbound_secret`; **leave `BACKUP_TO` empty**), a rule sending
+  `bookings@mail.hostello.pro` to the worker, then `channel_inbox_address` set (Settings
+  hides it while `CHANNEL_INBOX_ON_HOLD`; set it in SQL or flip the flag). Postmark
+  inbound is the no-DNS alternative (webhook `…/ota-email?secret=…`). **Not tested with
+  a real forwarded email. Not built:** a check that forwarded mail really is from Airbnb
+  (DKIM) — do it once real forwarded mail can be inspected.
 - **Forwarded host emails do not pile up** (2026-10-21). Owner worried hosts forwarding
   Airbnb mail would fill their email storage. Forwarding goes to Hostello's inbound
   address (Cloudflare worker / Postmark → `ota-email`), **no mailbox holds it**; what

@@ -60,7 +60,7 @@ export default async function ClientPropertiesPage({
     supabase
       .from("properties_v")
       .select(
-        "id, name, location, city, province, type, status, max_guests, nightly_rate, short_stay_rate, stack_rate, short_stay_stack_rate, photo_path"
+        "id, name, location, city, province, type, status, max_guests, nightly_rate, short_stay_rate, stack_rate, short_stay_stack_rate, photo_path, airbnb_listing_id"
       )
       .eq("client_id", clientRecord.id)
       .order("name"),
@@ -232,7 +232,12 @@ export default async function ClientPropertiesPage({
                 {/* One open ask per unit, so a property either shows what is
                     waiting or offers the form — never both. */}
                 {isHost ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {settings.channelInboxAddress && !p.airbnb_listing_id && (
+                      <Link href={`/client/properties/${p.id}/edit`} className="text-xs text-status-pending hover:underline mr-2">
+                        Add its Airbnb listing link so emails find it
+                      </Link>
+                    )}
                     <Link href={`/client/properties/${p.id}/edit`} className="btn btn-ghost btn-sm">
                       <PencilRuler size={13} />
                       Edit

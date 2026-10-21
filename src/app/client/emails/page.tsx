@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Inbox, MailCheck } from "lucide-react";
+import { Check, Inbox, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { currentClient } from "@/lib/auth";
 import { loadSettings } from "@/lib/settings";
@@ -8,6 +8,8 @@ import { KIND_LABEL, type OtaMessageKind, type ParsedReservation } from "@/lib/o
 import { formatDayMonth } from "@/lib/calendar";
 import { errorBanner, fieldInput, fieldLabel, noticeBanner, primaryButton } from "@/lib/form-styles";
 import { ChannelForwardingGuide } from "@/components/shared/ChannelForwardingGuide";
+import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
+import { GmailFilterDownload } from "@/components/client/GmailFilterDownload";
 import { EmptyState, PageHeader } from "@/components/shared/PageHeader";
 import { SubmitButton } from "@/components/shared/Busy";
 import { dismissEmail, saveChannelEmail } from "./actions";
@@ -54,7 +56,7 @@ export default async function HostEmailsPage({
   if (!client || client.account_type !== "host") redirect("/client");
 
   const supabase = await createClient();
-  const [settings, { data: me }, { data: messages }] = await Promise.all([
+  const [settings, { data: me }, { data: messages }, { data: units }] = await Promise.all([
     loadSettings(),
     supabase.from("clients").select("channel_email").eq("id", client.id).maybeSingle(),
     supabase
@@ -63,12 +65,32 @@ export default async function HostEmailsPage({
       .eq("client_id", client.id)
       .order("received_at", { ascending: false })
       .limit(40),
+    supabase.from("properties").select("id, airbnb_listing_id").eq("client_id", client.id),
   ]);
 
   const rows = (messages ?? []) as unknown as Row[];
   const needsYou = rows.filter((r) => ["pending", "needs_property", "failed"].includes(r.status));
   const added = rows.filter((r) => r.status === "applied");
   const address = settings.channelInboxAddress;
+
+  const linked = (units ?? []).filter((u) => u.airbnb_listing_id).length;
+  const total = (units ?? []).length;
+  const gmailAsked = rows.some((r) => gmailForwarding(r));
+  const realMail = rows.filter((r) => !gmailForwarding(r));
+  const status = [
+    { label: "Airbnb email saved", done: Boolean(me?.channel_email), note: me?.channel_email ?? "Step 1" },
+    {
+      label: "Properties linked to their Airbnb listing",
+      done: total > 0 && linked === total,
+      note: total === 0 ? "Add a property first" : `${linked} of ${total} linked (step 2)`,
+    },
+    { label: "Gmail asked to forward to Hostello", done: gmailAsked || realMail.length > 0, note: "Step 3" },
+    {
+      label: "First Airbnb email received",
+      done: realMail.length > 0,
+      note: realMail.length > 0 ? `Last one on ${formatDayMonth(realMail[0].received_at.slice(0, 10))}` : "Waiting for the first one",
+    },
+  ];
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -92,8 +114,29 @@ export default async function HostEmailsPage({
           title={<>Not switched on yet.</>}
           body="Your calendar links still keep your dates in step, and you can add bookings by hand. This page fills in once Hostello turns on its email address."
         />
-      ) : (
+) : (
         <>
+          <section className="card p-5 flex flex-col gap-3">
+            <h2 className="text-base">Where you are</h2>
+            <ul className="flex flex-col gap-2">
+              {status.map((st) => (
+                <li key={st.label} className="flex items-start gap-2.5 text-sm">
+                  <span
+                    className={`mt-0.5 shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
+                      st.done ? "gradient-gold text-surface-0" : "border border-border-hairline text-ink-muted"
+                    }`}
+                  >
+                    {st.done ? <Check size={12} strokeWidth={3} aria-hidden /> : null}
+                  </span>
+                  <span className={st.done ? "text-ink-primary" : "text-ink-secondary"}>
+                    {st.label}
+                    {st.note && <span className="block text-xs text-ink-muted">{st.note}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section className="card p-5 flex flex-col gap-3">
             <h2 className="text-base">1. Your Airbnb email</h2>
             <p className="text-xs text-ink-secondary">
@@ -118,19 +161,52 @@ export default async function HostEmailsPage({
                 Save
               </SubmitButton>
             </form>
+          </section>
+
+          <section className="card p-5 flex flex-col gap-2">
+            <h2 className="text-base">2. Link each property to its Airbnb listing</h2>
             <p className="text-xs text-ink-secondary">
-              Each property also needs its Airbnb listing link, added when you{" "}
-              <Link href="/client/properties" className="text-hostello-gold hover:underline">
-                edit the property
-              </Link>
-              , so an email finds the right one.
+              Open a property, choose Edit and paste its Airbnb listing link. That is how an email finds the
+              right property.
             </p>
+            <Link href="/client/properties" className="text-sm text-hostello-gold hover:underline self-start">
+              Go to my properties →
+            </Link>
           </section>
 
           <section className="card p-5 flex flex-col gap-3">
-            <h2 className="text-base">2. Forward the emails</h2>
-            <ChannelForwardingGuide address={address} cohostEmail={null} audience="owner" forwardOnly />
+            <h2 className="text-base">3. Let Gmail forward Airbnb mail to Hostello</h2>
+            <ol className="list-decimal pl-5 text-sm flex flex-col gap-2">
+              <li>
+                In Gmail on a computer: Settings (gear), <em>See all settings</em>, <em>Forwarding and POP/IMAP</em>,{" "}
+                <em>Add a forwarding address</em>, and paste this address:
+                <span className="flex items-center gap-3 mt-2 tile px-3 py-2">
+                  <span className="text-hostello-gold break-all flex-1">{address}</span>
+                  <CopyLinkButton value={address} className="text-xs text-ink-muted hover:text-ink-primary inline-flex items-center gap-1 transition-colors" />
+                </span>
+              </li>
+              <li>
+                Gmail sends a confirmation. Within a few minutes it appears below under <em>Needs you</em>. Open its
+                link to say yes.
+              </li>
+              <li>
+                Download the filter below, then in Gmail: Settings, <em>Filters and Blocked Addresses</em>,{" "}
+                <em>Import filters</em>, choose the file, <em>Open file</em>, <em>Create filters</em>.
+              </li>
+            </ol>
+            <GmailFilterDownload address={address} />
+            <p className="text-xs text-ink-muted">
+              Only mail from Airbnb is forwarded, and your own copy stays in Gmail. You can switch it off in Gmail
+              at any time.
+            </p>
           </section>
+
+          <details className="card p-5">
+            <summary className="cursor-pointer text-sm text-ink-secondary">Using Outlook, or prefer to set it up by hand?</summary>
+            <div className="mt-4">
+              <ChannelForwardingGuide address={address} cohostEmail={null} audience="owner" forwardOnly />
+            </div>
+          </details>
         </>
       )}
 
