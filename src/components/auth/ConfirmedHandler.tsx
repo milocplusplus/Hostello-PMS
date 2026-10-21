@@ -23,7 +23,7 @@ export function ConfirmedHandler() {
 
       const linkError = fragment.get("error_description") ?? url.searchParams.get("error_description");
       if (linkError) {
-        setError(linkError);
+        setError(linkError.replace(/\+/g, " "));
         return;
       }
 
@@ -57,7 +57,14 @@ export function ConfirmedHandler() {
         router.replace("/");
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "That link is no longer valid.");
+        const message = e instanceof Error ? e.message : "";
+        // The older kind of link only works in the browser that signed up. By the time it
+        // fails, Supabase has usually already confirmed the address, so signing in is the way on.
+        setError(
+          /code verifier|verifier not found/i.test(message)
+            ? "This link was opened in a different browser or app than the one you signed up in. Your email is probably confirmed already: try signing in with your email and password."
+            : message || "That link is no longer valid."
+        );
       }
     }
 

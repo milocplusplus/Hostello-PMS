@@ -1,6 +1,22 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Sign-up confirmation link works on any device** (2026-10-21). First real test: the
+  link opened in a browser other than the one that signed up failed with "PKCE code
+  verifier not found" (the account was still created and confirmed — the trigger
+  ran — only the automatic sign-in failed). Cause: `signUp` used the cookie-based
+  PKCE flow, whose link needs the same browser. Now `signUp` (`app/signup/actions.ts`)
+  uses a plain supabase-js client with **`flowType: "implicit"`** for that one
+  request, so the email link carries the session in its fragment and
+  `ConfirmedHandler` (which already handled fragments) signs the person in on any
+  device or in a mail app's own browser; with confirmation switched off it signs in
+  with the server client. A leftover PKCE-style link now says "opened in a different
+  browser… try signing in" instead of the raw error. Password strength bar and
+  rules added the same day (`PasswordField`, `lib/password-strength.ts`).
+  **Not tested end to end** (a real sign-up sends a real email): retry with a new
+  address. Two real hosts exist already (19 and 21 Oct), both confirmed, trial.
+- **Landing page now has the sign-up form** in the hero (shared `SignUpForm` with
+  `/signup`); sign-ups were switched on (`host_signup_open = true`) on 2026-10-20.
 - **Host mode, phase 7: landing page and legal pages** (2026-10-19). `/` now shows a
   public landing page to a signed-out visitor (`components/public/Landing.tsx`; a
   signed-in user is still sent to their portal): hero, six feature cards, three

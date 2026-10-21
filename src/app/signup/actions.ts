@@ -2,7 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { createClient as createAuthClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/supabase/config";
 
 function back(message: string): never {
   redirect(`/signup?error=${encodeURIComponent(message)}`);
@@ -36,7 +38,16 @@ export async function signUp(formData: FormData) {
     headerList.get("origin") ??
     `https://${headerList.get("x-forwarded-host") ?? headerList.get("host")}`;
 
-  const { data, error } = await supabase.auth.signUp({
+  // The confirmation link is opened wherever the person reads their email — often a
+  // phone, or a mail app's own browser — not necessarily where they signed up. The
+  // usual cookie-based (PKCE) link needs the very same browser, so this one request
+  // uses the implicit flow: the link carries the session itself, and the landing
+  // page (`ConfirmedHandler`) turns it into a sign-in on any device.
+  const authOnly = createAuthClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+
+  const { data, error } = await authOnly.auth.signUp({
     email,
     password,
     options: {
@@ -69,7 +80,10 @@ export async function signUp(formData: FormData) {
   }
 
   // Email confirmation on: no session yet, the link in the inbox finishes it.
-  // Confirmation off: signed in already.
-  if (data.session) redirect("/");
+  // Confirmation off: the account is live, so sign in here (the request above kept no cookies).
+  if (data.session) {
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    redirect(signInError ? "/login" : "/");
+  }
   redirect("/signup?sent=1");
 }
