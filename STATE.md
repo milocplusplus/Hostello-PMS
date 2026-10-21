@@ -1,6 +1,18 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Forwarded host emails do not pile up** (2026-10-21). Owner worried hosts forwarding
+  Airbnb mail would fill their email storage. Forwarding goes to Hostello's inbound
+  address (Cloudflare worker / Postmark → `ota-email`), **no mailbox holds it**; what
+  grows is `ota_messages` in the database (raw_text + raw_html per email). Migration
+  `host_mail_retention` **applied**; cron `hostello-host-mail-retention` (03:20 UTC) →
+  `purge_host_mail()`: for a host's mail that is applied or ignored, drops the HTML after
+  7 days, the text after 30, the row after 180; unresolved mail (pending, needs property,
+  failed) is kept until the host deals with it; managed clients' inbox (client_id null) is
+  untouched. Tested rolled back. Privacy policy states the same windows. **Do not set the
+  Cloudflare worker's `BACKUP_TO`** — it would copy every host's mail to a mailbox.
+  Rough size: ~50 KB per email, so 800 emails a month is ~40 MB before trimming.
+
 - **Hosts get "Dealer booking", not "Hostello Direct"** (2026-10-21). A host has no Hostello
   selling for them, yet the calendar's quick-add form, its legend and the Stats breakdown
   still offered "Hostello Direct". New booking source `dealer` ("Dealer booking": a stay

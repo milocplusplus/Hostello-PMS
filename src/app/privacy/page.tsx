@@ -49,8 +49,10 @@ export default function PrivacyPage() {
                 you choose to add them.
               </li>
               <li>
-                <strong>Emails you forward:</strong> if you forward Airbnb booking emails to us, we store the
-                email and what we read from it. Mail that does not come from Airbnb or Booking.com is discarded.
+                <strong>Emails you forward:</strong> if you forward Airbnb booking emails to us, we read each one
+                and keep what we read from it. The email itself is trimmed after 7 days, its text removed after 30
+                days, and the record after six months; the booking it created stays. Mail that does not come from
+                Airbnb or Booking.com is discarded.
               </li>
               <li>
                 <strong>Your expenses:</strong> bills, vendors, amounts, budgets and recurring costs.
