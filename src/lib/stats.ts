@@ -7,6 +7,8 @@ import { nightsBetween } from "./payout";
  * Any other source (offline / reference / other) only appears once it has one.
  */
 const HEADLINE_SOURCES = ["hostello", "airbnb", "booking_com", "client"];
+/** A self-serve host has no Hostello channel; a dealer booking takes its place. */
+const HOST_HEADLINE_SOURCES = ["airbnb", "booking_com", "client", "dealer"];
 
 /** Only the columns the breakdown sums — no revenue is recomputed here. */
 export type StatsBooking = {
@@ -49,7 +51,7 @@ const ORDER = BOOKING_SOURCES.map((s) => s.value as string);
  * Splits a window's bookings by channel. Totals come straight off the stored
  * columns `payout.ts` wrote at booking time — this never recalculates a split.
  */
-export function statsBySource(rows: StatsBooking[]): {
+export function statsBySource(rows: StatsBooking[], host = false): {
   total: SourceStats;
   sources: SourceStats[];
 } {
@@ -57,7 +59,7 @@ export function statsBySource(rows: StatsBooking[]): {
   total.label = "All sources";
 
   const bySource = new Map<string, SourceStats>(
-    HEADLINE_SOURCES.map((s) => [s, empty(s)])
+    (host ? HOST_HEADLINE_SOURCES : HEADLINE_SOURCES).map((s) => [s, empty(s)])
   );
 
   for (const b of rows) {

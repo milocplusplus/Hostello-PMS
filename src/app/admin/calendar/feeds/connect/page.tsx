@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/auth";
 import { SubmitButton } from "@/components/shared/Busy";
-import { BOOKING_SOURCES } from "@/lib/block-sources";
+import { MANAGED_SOURCES } from "@/lib/block-sources";
 import { fieldLabel, fieldInput, primaryButton, errorBanner } from "@/lib/form-styles";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { addCalendarFeed } from "../actions";
@@ -64,7 +64,7 @@ export default async function ConnectCalendarPage({
             Channel
           </label>
           <select id="source" name="source" defaultValue="airbnb" className={fieldInput}>
-            {BOOKING_SOURCES.map((s) => (
+            {MANAGED_SOURCES.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
               </option>

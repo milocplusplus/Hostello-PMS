@@ -48,11 +48,18 @@ export const BOOKING_SOURCES = [
   { value: "airbnb", label: "Airbnb" },
   { value: "booking_com", label: "Booking.com" },
   { value: "hostello", label: "Hostello Direct" },
+  { value: "dealer", label: "Dealer booking" },
   { value: "client", label: "Client (self-sourced)" },
   { value: "offline", label: "Offline / Walk-in" },
   { value: "reference", label: "Reference / Referral" },
   { value: "other", label: "Other" },
 ] as const;
+
+/** Hostello's own screens: no "Dealer booking", which only a self-serve host has. */
+export const MANAGED_SOURCES = BOOKING_SOURCES.filter((s) => s.value !== "dealer");
+
+/** A self-serve host's screens: no "Hostello Direct", because no Hostello sells for them. */
+export const HOST_SOURCES = BOOKING_SOURCES.filter((s) => s.value !== "hostello");
 
 export function sourceLabel(value: string | null | undefined) {
   return BOOKING_SOURCES.find((s) => s.value === value)?.label ?? null;
@@ -66,6 +73,7 @@ export function sourceColor(value: string | null | undefined): string {
     case "booking_com":
       return "var(--color-channel-booking)";
     case "hostello":
+    case "dealer":
       return "var(--color-channel-hostello)";
     case "client":
       return "var(--color-hostello-gold-muted)";

@@ -48,7 +48,7 @@ export default async function ClientStatsPage({
   ]);
 
   const rows = (bookings ?? []) as StatsBooking[];
-  const { total, sources } = statsBySource(rows);
+  const { total, sources } = statsBySource(rows, clientRecord.account_type === "host");
   const prevGross = (prevBookings ?? []).reduce((s, b) => s + Number(b.sale_price ?? 0), 0);
 
   // Cumulative daily series: each booking lands on its check-in day, which is

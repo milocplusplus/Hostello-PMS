@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { startNavProgress } from "@/components/shared/NavProgress";
-import { BOOKING_SOURCES } from "@/lib/block-sources";
+import { MANAGED_SOURCES } from "@/lib/block-sources";
 
 const selectClass =
   "field h-10 md:h-auto w-full md:w-auto rounded-xl pl-3 pr-7 py-1.5 text-xs text-ink-secondary truncate appearance-none bg-[length:10px] bg-[right_0.6rem_center] bg-no-repeat";
@@ -83,7 +83,7 @@ export function CalendarFilters({
         style={{ backgroundImage: caret }}
       >
         <option value="">All channels</option>
-        {BOOKING_SOURCES.map((s) => (
+        {MANAGED_SOURCES.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}
           </option>

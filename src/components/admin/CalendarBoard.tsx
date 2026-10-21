@@ -66,6 +66,7 @@ export function CalendarBoard({
   allowReceipt = true,
   canSetShare = false,
   bookingDefaults,
+  hostMode = false,
 }: {
   days: string[];
   today: string;
@@ -80,6 +81,8 @@ export function CalendarBoard({
   /** The admin's calendar: the quick-add form lets them type what Hostello earns. */
   canSetShare?: boolean;
   bookingDefaults?: BookingFormProps["defaults"];
+  /** A self-serve host's calendar: the quick-add form has no Hostello channel. */
+  hostMode?: boolean;
 }) {
   const [draft, setDraft] = useState<{ propertyId: string; propertyName: string; date: string } | null>(
     null
@@ -218,6 +221,7 @@ export function CalendarBoard({
           allowReceipt={allowReceipt}
           canSetShare={canSetShare}
           defaults={bookingDefaults}
+          hostMode={hostMode}
           onClose={() => setDraft(null)}
         />
       )}
@@ -238,6 +242,7 @@ function QuickAddBooking({
   allowReceipt,
   canSetShare,
   defaults,
+  hostMode,
   onClose,
 }: {
   draft: { propertyId: string; propertyName: string; date: string };
@@ -248,6 +253,7 @@ function QuickAddBooking({
   allowReceipt: boolean;
   canSetShare: boolean;
   defaults?: BookingFormProps["defaults"];
+  hostMode: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -314,6 +320,8 @@ function QuickAddBooking({
           allowReceipt={allowReceipt}
           canSetShare={canSetShare}
           defaults={defaults}
+          hostMode={hostMode}
+          showPayoutPreview={!hostMode}
           error={error}
         />
       </div>

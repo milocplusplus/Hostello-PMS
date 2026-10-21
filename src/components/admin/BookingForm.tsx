@@ -28,7 +28,7 @@ import {
   type OtaModel,
   type PayoutInput,
 } from "@/lib/payout";
-import { BOOKING_SOURCES, sourceColor, sourceLabel } from "@/lib/block-sources";
+import { HOST_SOURCES, MANAGED_SOURCES, sourceColor, sourceLabel } from "@/lib/block-sources";
 import { formatDayMonth } from "@/lib/calendar";
 import { formatNightly, type PriceMode } from "@/lib/booking-price";
 import { RECEIPT_ACCEPT, RECEIPT_KINDS } from "@/lib/receipts";
@@ -639,7 +639,7 @@ export function BookingForm({
             <div className="flex flex-col gap-2">
               <p className={fieldLabel}>Where the booking came from</p>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Source">
-                {BOOKING_SOURCES.filter((s) => !hostMode || s.value !== "hostello").map((s) => {
+                {(hostMode ? HOST_SOURCES : MANAGED_SOURCES).map((s) => {
                   const on = source === s.value;
                   const color = sourceColor(s.value);
                   return (

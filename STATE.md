@@ -1,6 +1,18 @@
 # State — updated 2026-10-14
 
 ## Done
+- **Hosts get "Dealer booking", not "Hostello Direct"** (2026-10-21). A host has no Hostello
+  selling for them, yet the calendar's quick-add form, its legend and the Stats breakdown
+  still offered "Hostello Direct". New booking source `dealer` ("Dealer booking": a stay
+  that comes through another host or a dealer); migration `booking_source_dealer`
+  **applied to the live DB** (enum value). `block-sources.ts`: `HOST_SOURCES` (no Hostello
+  Direct) and `MANAGED_SOURCES` (no Dealer booking) — the booking form, the admin filters and
+  the feed-connect list use the right one; `dealer` is in `PASS_THROUGH_SOURCES`
+  (Hostello earns nothing on it; payout checked in Node: payout = price, share 0). The
+  client calendar legend, `CalendarBoard`'s quick-add (`hostMode`) and `statsBySource(rows,
+  host)` follow. No host booking had the old source (0 rows). "Dealer booking" was the
+  owner's choice of two names ("Host to Host" or "Dealer Booking"); it is one label in
+  `BOOKING_SOURCES` if they would rather the other. Lint, tsc.
 - **Sign-up confirmation link works on any device** (2026-10-21). First real test: the
   link opened in a browser other than the one that signed up failed with "PKCE code
   verifier not found" (the account was still created and confirmed — the trigger

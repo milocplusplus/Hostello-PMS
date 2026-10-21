@@ -311,7 +311,9 @@ export default async function ClientCalendarPage({
   const legend: { label: string; color: string }[] = [
     { label: "Airbnb", color: sourceColor("airbnb") },
     { label: "Booking.com", color: sourceColor("booking_com") },
-    { label: "Hostello Direct", color: sourceColor("hostello") },
+    clientRecord.account_type === "host"
+      ? { label: "Dealer booking", color: sourceColor("dealer") }
+      : { label: "Hostello Direct", color: sourceColor("hostello") },
     { label: "Your own booking", color: sourceColor("client") },
     { label: "Blocked", color: blockTypeColor("blocked") },
     { label: "Maintenance", color: blockTypeColor("maintenance") },
@@ -379,6 +381,7 @@ export default async function ClientCalendarPage({
             unavailable={unavailable}
             allowReceipt={false}
             bookingDefaults={bookingDefaults(await loadSettings())}
+            hostMode={clientRecord.account_type === "host"}
           />
         </div>
       )}
